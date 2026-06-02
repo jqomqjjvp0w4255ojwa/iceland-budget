@@ -27,7 +27,7 @@
         radial-gradient(ellipse 50% 20% at 50% 0%,rgba(79,195,247,.05) 0%,transparent 50%);
     }
     .container{max-width:680px;margin:0 auto;padding:0 16px 80px;position:relative;z-index:1;}
-
+    
     /* ── Header */
     header{text-align:center;padding:32px 16px 16px;}
     .aurora-line{height:2px;margin-bottom:18px;background:linear-gradient(90deg,transparent,var(--aurora1),var(--accent),var(--aurora2),transparent);animation:shimmer 3s ease-in-out infinite;}
@@ -652,8 +652,8 @@ async function init(){
     ids.forEach((id,i)=>{
       const el=document.getElementById(id);
       if(!el)return;
-      if(isOver){el.classList.add('dead');el.style.left=(25+i*22)+'%';}
-      else{el.classList.remove('dead');el.style.left=Math.min(pct*0.85+i*7,86)+'%';}
+      if(isOver){el.classList.add('dead');el.style.left=(25+i*10)+'%';}
+      else{el.classList.remove('dead');el.style.left=Math.min(pct*0.85+i*4,86)+'%';}
     });
 
     const msg=document.getElementById('pxMsg');
