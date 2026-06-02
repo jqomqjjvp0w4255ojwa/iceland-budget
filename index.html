@@ -207,6 +207,44 @@
       </button>
     </div>
   </header>
+  <div class="px-scene-wrap">
+      <div class="px-scene" id="pxScene">
+        <canvas class="px-particles" id="pxCanvas" width="680" height="140"></canvas>
+        <div class="px-loc" id="pxLoc">📍 讀取中...</div>
+        <div class="px-weather" id="pxWeather">⏳ 連線中</div>
+        <div id="pxWind" style="position:absolute;top:22px;right:6px;background:rgba(0,0,0,.75);border:2px solid #7eb3d4;font-family:'Silkscreen',monospace;font-size:8px;color:#7eb3d4;padding:2px 6px;z-index:20;">💨 —</div>
+        <div id="pxTimes" style="position:absolute;bottom:46%;left:6px;right:6px;display:flex;justify-content:space-between;font-family:'Silkscreen',monospace;font-size:7px;color:rgba(255,255,255,0.7);z-index:20;text-shadow:1px 1px 0 #000;pointer-events:none">
+          <span id="pxTimeTW">🇹🇼 --:--</span>
+          <span id="pxTimeIS">🇮🇸 --:--</span>
+        </div>
+        <div class="px-mtn" style="border-left:55px solid transparent;border-right:55px solid transparent;border-bottom:65px solid #2a4a6a;left:5%"></div>
+        <div class="px-mtn" style="border-left:18px solid transparent;border-right:18px solid transparent;border-bottom:20px solid #ddeeff;left:calc(5% + 37px)"></div>
+        <div class="px-mtn" style="border-left:75px solid transparent;border-right:75px solid transparent;border-bottom:80px solid #1a3a5a;left:20%"></div>
+        <div class="px-mtn" style="border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:26px solid #eef5ff;left:calc(20% + 49px)"></div>
+        <div class="px-mtn" style="border-left:50px solid transparent;border-right:50px solid transparent;border-bottom:58px solid #2a4a6a;right:8%"></div>
+        <div class="px-mtn" style="border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:18px solid #ddeeff;right:calc(8% + 34px)"></div>
+        <div class="px-ground"></div>
+        <div class="px-path"></div>
+        <div class="px-runner" id="pxHana" style="left:5%">
+          <svg id="svgHana" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
+        </div>
+        <div class="px-runner" id="pxMonkey" style="left:5%">
+          <svg id="svgMonkey" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
+        </div>
+        <div class="px-runner" id="pxNing" style="left:5%">
+          <svg id="svgNing" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
+        </div>
+      </div>
+      <div class="px-dialog">
+        <div class="px-dialog-title">▶ ICELAND BUDGET　目標：&lt; NT$100,000 / 人</div>
+        <div class="px-bar-label"><span>NT$0</span><span id="pxSpent">NT$ —</span><span>NT$100,000 ⚠</span></div>
+        <div class="px-bar-bg" style="position:relative">
+          <div class="px-bar-fill safe" id="pxBar" style="width:0%"></div>
+          <div class="px-bar-limit"></div>
+          <div id="pxPct" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Silkscreen',monospace;font-size:7px;color:#fff;text-shadow:1px 1px 0 #000;z-index:10;white-space:nowrap;pointer-events:none">0%</div>
+        </div>
+        <div class="px-gb-msg safe" id="pxMsg">▶ 讀取中...</div>
+      </div>
   <div id="mainContent">
     <div class="loading"><div class="spinner"></div><div>正在讀取資料…</div></div>
   </div>
@@ -412,45 +450,7 @@ function renderAll(){
   const totalActivity=(d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
   const grandTotal=(d.car.totalTWD||0)+totalAccom+totalActivity;
   document.getElementById('mainContent').innerHTML=`
-    <div class="px-scene-wrap">
-      <div class="px-scene" id="pxScene">
-        <canvas class="px-particles" id="pxCanvas" width="680" height="140"></canvas>
-        <div class="px-loc" id="pxLoc">📍 讀取中...</div>
-        <div class="px-weather" id="pxWeather">⏳ 連線中</div>
-        <div id="pxWind" style="position:absolute;top:22px;right:6px;background:rgba(0,0,0,.75);border:2px solid #7eb3d4;font-family:'Silkscreen',monospace;font-size:8px;color:#7eb3d4;padding:2px 6px;z-index:20;">💨 —</div>
-        <div id="pxTimes" style="position:absolute;bottom:46%;left:6px;right:6px;display:flex;justify-content:space-between;font-family:'Silkscreen',monospace;font-size:7px;color:rgba(255,255,255,0.7);z-index:20;text-shadow:1px 1px 0 #000;pointer-events:none">
-          <span id="pxTimeTW">🇹🇼 --:--</span>
-          <span id="pxTimeIS">🇮🇸 --:--</span>
         </div>
-        <div class="px-mtn" style="border-left:55px solid transparent;border-right:55px solid transparent;border-bottom:65px solid #2a4a6a;left:5%"></div>
-        <div class="px-mtn" style="border-left:18px solid transparent;border-right:18px solid transparent;border-bottom:20px solid #ddeeff;left:calc(5% + 37px)"></div>
-        <div class="px-mtn" style="border-left:75px solid transparent;border-right:75px solid transparent;border-bottom:80px solid #1a3a5a;left:20%"></div>
-        <div class="px-mtn" style="border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:26px solid #eef5ff;left:calc(20% + 49px)"></div>
-        <div class="px-mtn" style="border-left:50px solid transparent;border-right:50px solid transparent;border-bottom:58px solid #2a4a6a;right:8%"></div>
-        <div class="px-mtn" style="border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:18px solid #ddeeff;right:calc(8% + 34px)"></div>
-        <div class="px-ground"></div>
-        <div class="px-path"></div>
-        <div class="px-runner" id="pxHana" style="left:5%">
-          <svg id="svgHana" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
-        </div>
-        <div class="px-runner" id="pxMonkey" style="left:5%">
-          <svg id="svgMonkey" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
-        </div>
-        <div class="px-runner" id="pxNing" style="left:5%">
-          <svg id="svgNing" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
-        </div>
-      </div>
-      <div class="px-dialog">
-        <div class="px-dialog-title">▶ ICELAND BUDGET　目標：&lt; NT$100,000 / 人</div>
-        <div class="px-bar-label"><span>NT$0</span><span id="pxSpent">NT$ —</span><span>NT$100,000 ⚠</span></div>
-        <div class="px-bar-bg" style="position:relative">
-          <div class="px-bar-fill safe" id="pxBar" style="width:0%"></div>
-          <div class="px-bar-limit"></div>
-          <div id="pxPct" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Silkscreen',monospace;font-size:7px;color:#fff;text-shadow:1px 1px 0 #000;z-index:10;white-space:nowrap;pointer-events:none">0%</div>
-        </div>
-        <div class="px-gb-msg safe" id="pxMsg">▶ 讀取中...</div>
-      </div>
-    </div>
     <div class="summary-grid">
       <div class="summary-card full">
         <div class="summary-label">✈️ 累計花費</div>
@@ -751,7 +751,7 @@ async function init(){
   window.renderAll = function(){
     _origRenderAll && _origRenderAll();
     setTimeout(window.updatePixelBudget, 100);
-    // DOM 重建後立即回填天氣快取，防止閃回「讀取中...」
+    // 場景已是靜態 DOM，只需回填文字資料即可
     applyWeatherToDOM();
   };
 
