@@ -1,56 +1,39 @@
-// 動態資料同步：Google Sheet -> Netlify Function -> 現有靜態網頁
 (function () {
-  const API_URL = '/.netlify/functions/sheet';
+  const API_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
+  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動" };
 
-  function clone(value) {
-    return JSON.parse(JSON.stringify(value));
-  }
-
+  function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function num(value) {
     if (typeof value === 'number') return value;
-    const cleaned = String(value ?? '').replace(/[^\d.-]/g, '');
-    const n = Number(cleaned);
+    const n = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
     return Number.isFinite(n) ? n : 0;
   }
-
   function yes(value) {
     const s = String(value ?? '').trim().toLowerCase();
     return ['true', 'yes', 'y', '1', '✓', '勾選', '已付', '已付款'].includes(s);
   }
-
   function pick(row, keys, fallback = '') {
-    for (const key of keys) {
-      if (row && row[key] !== undefined && row[key] !== '') return row[key];
-    }
+    for (const key of keys) if (row && row[key] !== undefined && row[key] !== '') return row[key];
     return fallback;
   }
-
-  function rowsOf(sheet) {
-    return Array.isArray(sheet?.rows) ? sheet.rows : [];
-  }
-
+  function rowsOf(sheet) { return Array.isArray(sheet?.rows) ? sheet.rows : []; }
   function firstDataRow(sheet) {
     return rowsOf(sheet).find(row => Object.values(row).some(v => String(v ?? '').trim() !== '')) || {};
   }
-
   function findOverviewValue(rows, keywords, fallback) {
     for (const row of rows) {
       const values = Object.values(row);
-      const joined = values.join(' ');
-      if (keywords.some(k => joined.includes(k))) {
+      if (keywords.some(k => values.join(' ').includes(k))) {
         const found = values.find(v => num(v) !== 0);
         if (found !== undefined) return num(found);
       }
     }
     return fallback;
   }
-
   function transformData({ overview, accommodation, car, activity }) {
     const overviewRows = rowsOf(overview);
-    const accomRows = rowsOf(accommodation);
     const carRow = firstDataRow(car);
-
-    const accom = accomRows
+    const accom = rowsOf(accommodation)
       .filter(row => Object.values(row).some(v => String(v ?? '').trim() !== ''))
       .map(row => ({
         name: pick(row, ['住宿地點', '住宿名稱', '名稱', 'name']),
@@ -68,7 +51,6 @@
         note: pick(row, ['備註', 'note'], ''),
       }))
       .filter(item => item.name || item.date || item.twd);
-
     return {
       exchangeISK: findOverviewValue(overviewRows, ['ISK', 'ISK匯率'], window.STATIC?.exchangeISK ?? 0),
       exchangeEUR: findOverviewValue(overviewRows, ['EUR', 'EUR匯率'], window.STATIC?.exchangeEUR ?? 0),
@@ -92,41 +74,22 @@
       activity: rowsOf(activity),
     };
   }
-
-  async function fetchSheet(sheet) {
-    const res = await fetch(`${API_URL}?sheet=${encodeURIComponent(sheet)}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`${sheet} 讀取失敗：HTTP ${res.status}`);
+  async function fetchSheet(sheetKey) {
+    const sheetName = SHEET_MAP[sheetKey] || sheetKey;
+    const res = await fetch(API_BASE + '?sheet=' + encodeURIComponent(sheetName), { cache: 'no-store', redirect: 'follow' });
+    if (!res.ok) throw new Error(`${sheetKey} 讀取失敗：HTTP ${res.status}`);
     return res.json();
   }
-
   window.__syncIcelandBudgetFromSheets = async function () {
-    if (!navigator.onLine) {
-      window.setSyncState?.('offline', '離線中，使用本地資料');
-      return;
-    }
-
+    if (!navigator.onLine) { window.setSyncState?.('offline', '離線中，使用本地資料'); return; }
     window.setSyncState?.('syncing', '同步中…');
-
     try {
       const [overview, accommodation, car, activity] = await Promise.all([
-        fetchSheet('overview'),
-        fetchSheet('accommodation'),
-        fetchSheet('car'),
-        fetchSheet('activity'),
+        fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity')
       ]);
-
       window.APP_DATA = transformData({ overview, accommodation, car, activity });
       window.renderAll?.();
-
-      window.setSyncState?.(
-        'cloud',
-        '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', {
-          month: 'numeric',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      );
+      window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
     } catch (error) {
       console.error(error);
       window.APP_DATA = clone(window.STATIC ?? {});
