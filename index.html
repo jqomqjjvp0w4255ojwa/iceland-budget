@@ -185,7 +185,8 @@
 //  格式: .../pub?gid=SHEET_GID&single=true&output=csv
 // ══════════════════════════════════════════════════════════
 // 總覽分頁（第一頁）
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTBrWzl3S5EoP32KLKh58I2lej4knEKBkRj_QWzJuEWsxajiDUhYHeV-HQ6FE-ihxlLSlNDp1N6fXMT/pub?output=csv';
+const API_URL = '/.netlify/functions/sheet';
+let APP_DATA = JSON.parse(JSON.stringify(STATIC));
 // 住宿分頁（待填入 gid）：pub?gid=XXXXXXX&single=true&output=csv
 // 租車分頁（待填入 gid）：pub?gid=XXXXXXX&single=true&output=csv
 
@@ -322,7 +323,7 @@ function renderAccom(items){
 
 function setFilter(f){
   currentFilter=f;
-  document.getElementById('accomContent').innerHTML=renderAccom(STATIC.accommodation);
+  document.getElementById('accomContent').innerHTML=renderAccom(APP_DATA.accommodation);
 }
 
 // ── 租車
@@ -381,7 +382,7 @@ function renderCar(car){
 
 // ── 主渲染
 function renderAll(){
-  const d=STATIC;
+  const d=APP_DATA;
   const totalAccom=d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
   document.getElementById('mainContent').innerHTML=`
     <div class="summary-grid">
@@ -426,18 +427,114 @@ function showTab(id,btn){
 }
 
 // ── 同步邏輯
+async function fetchSheet(sheet){
+  const res = await fetch(`${API_URL}?sheet=${encodeURIComponent(sheet)}`, { cache: 'no-store' });
+  if(!res.ok) throw new Error(`${sheet} 讀取失敗：HTTP ${res.status}`);
+  return await res.json();
+}
+
+function num(v){
+  if(typeof v === 'number') return v;
+  const cleaned = String(v ?? '').replace(/[^\d.-]/g, '');
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function yes(v){
+  const s = String(v ?? '').trim().toLowerCase();
+  return ['true','yes','y','1','✓','勾選','已付','已付款'].includes(s);
+}
+
+function pick(row, keys, fallback=''){
+  for(const k of keys){
+    if(row[k] !== undefined && row[k] !== '') return row[k];
+  }
+  return fallback;
+}
+
+function rowsOf(sheet){
+  return Array.isArray(sheet?.rows) ? sheet.rows : [];
+}
+
+function transformData({overview, accommodation, car, activity}){
+  const accom = rowsOf(accommodation)
+    .filter(r => Object.values(r).some(v => String(v ?? '').trim() !== ''))
+    .map(r => ({
+      name: pick(r, ['住宿地點','住宿名稱','名稱','name']),
+      date: pick(r, ['日期','入住日期','date']),
+      nights: num(pick(r, ['天數','晚數','nights'], 1)) || 1,
+      cur: pick(r, ['幣別','currency','cur'], 'NT'),
+      orig: num(pick(r, ['原價','金額','原幣金額','price','orig'])),
+      twd: num(pick(r, ['換算台幣','台幣','TWD','twd','NTD'])),
+      paid: yes(pick(r, ['已付款','付款','paid'])),
+      cancel: yes(pick(r, ['可取消','cancel'])),
+      payer: pick(r, ['付款人','payer'], ''),
+      payDate: pick(r, ['付款日','付款日期','payDate'], ''),
+      deductDate: pick(r, ['扣款日','扣款日期','deductDate'], ''),
+      foreignFee: num(pick(r, ['海外手續費','手續費','foreignFee'])),
+      note: pick(r, ['備註','note'], ''),
+    }))
+    .filter(a => a.name || a.date || a.twd);
+
+  const carRow = rowsOf(car).find(r => Object.values(r).some(v => String(v ?? '').trim() !== '')) || {};
+
+  return {
+    exchangeISK: STATIC.exchangeISK,
+    exchangeEUR: STATIC.exchangeEUR,
+    totalTWD: STATIC.totalTWD,
+    car: {
+      company: pick(carRow, ['租車公司','公司','company'], STATIC.car.company),
+      model: pick(carRow, ['車種','車款','model'], STATIC.car.model),
+      code: pick(carRow, ['確認碼','訂單編號','code'], STATIC.car.code),
+      pickup: pick(carRow, ['取車時間','pickup'], STATIC.car.pickup),
+      dropoff: pick(carRow, ['還車時間','dropoff'], STATIC.car.dropoff),
+      days: num(pick(carRow, ['天數','days'], STATIC.car.days)) || STATIC.car.days,
+      location: pick(carRow, ['地點','取還車地點','location'], STATIC.car.location),
+      totalTWD: num(pick(carRow, ['台幣','總額','totalTWD','TWD'])) || STATIC.car.totalTWD,
+      perPerson: num(pick(carRow, ['每人付款','每人','perPerson'])) || STATIC.car.perPerson,
+      driver1: pick(carRow, ['主駕','driver1'], STATIC.car.driver1),
+      driver2: pick(carRow, ['副駕','driver2'], STATIC.car.driver2),
+      payer: pick(carRow, ['付款人','payer'], STATIC.car.payer),
+      insurance: STATIC.car.insurance,
+    },
+    accommodation: accom.length ? accom : STATIC.accommodation,
+    activity: rowsOf(activity),
+  };
+}
+
 async function syncFromCloud(){
-  if(!navigator.onLine){setSyncState('offline','離線中，使用本地資料');return;}
+  if(!navigator.onLine){
+    setSyncState('offline','離線中，使用本地資料');
+    return;
+  }
+
   setSyncState('syncing','同步中…');
+
   try{
-    const res=await fetch(CSV_URL,{cache:'no-cache'});
-    if(res.ok){
-      setSyncState('cloud','☁ 雲端同步：'+new Date().toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}));
-    } else {
-      setSyncState('local','⚠ 無法連線，使用本地資料');
-    }
+    const [overview, accommodation, car, activity] = await Promise.all([
+      fetchSheet('overview'),
+      fetchSheet('accommodation'),
+      fetchSheet('car'),
+      fetchSheet('activity'),
+    ]);
+
+    APP_DATA = transformData({overview, accommodation, car, activity});
+    renderAll();
+
+    setSyncState(
+      'cloud',
+      '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', {
+        month:'numeric',
+        day:'numeric',
+        hour:'2-digit',
+        minute:'2-digit'
+      })
+    );
   }catch(e){
-    setSyncState('local','⚠ 連線失敗，使用本地資料');
+    console.error(e);
+    APP_DATA = JSON.parse(JSON.stringify(STATIC));
+    renderAll();
+    setSyncState('local','⚠ 雲端讀取失敗，使用本地資料');
   }
 }
 
