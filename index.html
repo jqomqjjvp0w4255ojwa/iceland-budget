@@ -209,7 +209,8 @@
   </header>
   <div class="px-scene-wrap">
       <div class="px-scene" id="pxScene">
-        <canvas class="px-particles" id="pxCanvas" width="680" height="175" style="z-index:1"></canvas>
+        <canvas class="px-particles" id="pxCanvas" width="680" height="220" style="z-index:3;"></canvas>
+        <canvas id="pxCloudCanvas" style="position:absolute;inset:0;pointer-events:none;z-index:4;"></canvas>
         <svg id="pxBgSvg" width="100%" height="100%" viewBox="0 0 680 150" preserveAspectRatio="xMidYMax slice" style="position:absolute;inset:0;z-index:2;image-rendering:pixelated" xmlns="http://www.w3.org/2000/svg"></svg>
         <div class="px-loc" id="pxLoc">📍 讀取中...</div>
         <div id="pxWeatherWind" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.75);border:2px solid #ffcc00;font-family:'Silkscreen',monospace;font-size:8px;color:#ffcc00;padding:3px 7px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
@@ -577,8 +578,10 @@ async function init(){
     const canvas=document.getElementById('pxCanvas');
     if(!canvas)return;
     const ctx=canvas.getContext('2d');
-    canvas.width=canvas.offsetWidth||680;canvas.height=canvas.offsetHeight||220;
-    let pts=[],aOff=0,sunP=0,fogOff=0;
+    canvas.width=canvas.offsetWidth||680;
+    canvas.height=canvas.offsetHeight||220;
+    let pts=[],aOff=0,sunP=0;
+
     if(type==='rain'||type==='drizzle'||type==='thunder'){
       for(let i=0;i<50;i++) pts.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,speed:type==='drizzle'?2:4,len:type==='drizzle'?6:12});
       (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=type==='thunder'?'rgba(150,180,220,0.7)':'rgba(120,160,200,0.6)';ctx.lineWidth=1;pts.forEach(p=>{ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-2,p.y+p.len);ctx.stroke();p.y+=p.speed;p.x-=1;if(p.y>canvas.height){p.y=0;p.x=Math.random()*canvas.width;}});if(type==='thunder'&&Math.random()<0.003){ctx.fillStyle='rgba(255,255,200,0.15)';ctx.fillRect(0,0,canvas.width,canvas.height);}requestAnimationFrame(draw);})();
@@ -590,30 +593,60 @@ async function init(){
     }else if(type==='sunny'){
       (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);sunP+=0.05;ctx.fillStyle=`rgba(255,220,100,${0.06+Math.sin(sunP)*0.02})`;ctx.beginPath();ctx.arc(canvas.width-50,25,35,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,220,100,0.85)';ctx.fillRect(canvas.width-58,22,14,7);requestAnimationFrame(draw);})();
     }else if(type==='fog'){
-      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);fogOff+=0.3;ctx.fillStyle='rgba(180,200,210,0.12)';[0,40,80].forEach(o=>{const x=(fogOff*0.5+o*3)%(canvas.width+100)-100;ctx.fillRect(x,50,200,30);ctx.fillRect(x+canvas.width/2,70,180,25);});requestAnimationFrame(draw);})();
-    }
-    // 雲：所有天氣都顯示，速度由風速決定（夜晚跳過，極光更好看）
-    if(type!=='night'){
-      const spd = Math.max((windSpeed||0)*0.18, 0.15); // 最慢 0.15，風速每 m/s 加 0.18
-      const clouds=[
-        {x:Math.random()*canvas.width, y:8,  w:44, h:10, thick:6},
-        {x:Math.random()*canvas.width, y:18, w:58, h:10, thick:6},
-        {x:Math.random()*canvas.width, y:12, w:32, h:7,  thick:4},
-        {x:Math.random()*canvas.width, y:24, w:28, h:7,  thick:4},
-        {x:Math.random()*canvas.width, y:6,  w:22, h:6,  thick:4},
+      const fogBalls=[
+        {x:  0,y:30,w:220,h:50,spd:0.20,op:0.13},
+        {x:180,y:55,w:280,h:60,spd:0.14,op:0.11},
+        {x:420,y:20,w:200,h:45,spd:0.25,op:0.10},
+        {x: 80,y:70,w:320,h:55,spd:0.10,op:0.09},
+        {x:500,y:45,w:250,h:50,spd:0.18,op:0.12},
+        {x:250,y:80,w:200,h:40,spd:0.22,op:0.08},
       ];
-      (function drawClouds(){
-        // 清掉整個天空上半部（地景以上）
-        ctx.clearRect(0, 0, canvas.width, 100);
-        clouds.forEach(c=>{
-          c.x=(c.x+spd);
-          if(c.x>canvas.width+c.w) c.x=-c.w-10;
-          ctx.fillStyle='rgba(255,255,255,0.28)';
-          ctx.fillRect(Math.round(c.x), c.y, c.w, c.h);
-          ctx.fillRect(Math.round(c.x)+4, c.y-c.thick, c.w-8, c.thick+2);
+      (function draw(){
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        fogBalls.forEach(f=>{
+          f.x+=f.spd;
+          if(f.x>canvas.width+f.w) f.x=-f.w;
+          const grd=ctx.createLinearGradient(f.x,0,f.x+f.w,0);
+          grd.addColorStop(0,`rgba(200,215,225,0)`);
+          grd.addColorStop(0.2,`rgba(200,215,225,${f.op})`);
+          grd.addColorStop(0.8,`rgba(200,215,225,${f.op})`);
+          grd.addColorStop(1,`rgba(200,215,225,0)`);
+          ctx.fillStyle=grd;
+          ctx.fillRect(f.x,f.y,f.w,f.h);
         });
-        requestAnimationFrame(drawClouds);
+        requestAnimationFrame(draw);
       })();
+    }
+
+    // 雲：獨立 canvas，夜晚跳過
+    const cloudCanvas=document.getElementById('pxCloudCanvas');
+    if(cloudCanvas){
+      const cctx=cloudCanvas.getContext('2d');
+      cloudCanvas.width=canvas.width;
+      cloudCanvas.height=canvas.height;
+      if(type!=='night'){
+        const spd=Math.max((windSpeed||0)*0.18,0.15);
+        const clouds=[
+          {x:Math.random()*canvas.width,y:8, w:44,h:10,thick:6},
+          {x:Math.random()*canvas.width,y:18,w:58,h:10,thick:6},
+          {x:Math.random()*canvas.width,y:12,w:32,h:7, thick:4},
+          {x:Math.random()*canvas.width,y:24,w:28,h:7, thick:4},
+          {x:Math.random()*canvas.width,y:6, w:22,h:6, thick:4},
+        ];
+        (function drawClouds(){
+          cctx.clearRect(0,0,cloudCanvas.width,cloudCanvas.height);
+          clouds.forEach(c=>{
+            c.x+=spd;
+            if(c.x>cloudCanvas.width+c.w) c.x=-c.w-10;
+            cctx.fillStyle='rgba(255,255,255,0.28)';
+            cctx.fillRect(Math.round(c.x),c.y,c.w,c.h);
+            cctx.fillRect(Math.round(c.x)+4,c.y-c.thick,c.w-8,c.thick+2);
+          });
+          requestAnimationFrame(drawClouds);
+        })();
+      } else {
+        cctx.clearRect(0,0,cloudCanvas.width,cloudCanvas.height);
+      }
     }
   }
 
