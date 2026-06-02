@@ -1,53 +1,42 @@
-const CACHE = 'iceland-v1';
+// 每次你修改了 index.html 內容，請順便把這個 v1 改成 v2、v3... 以此類推
+const CACHE_NAME = 'iceland-budget-v2'; 
+
 const ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&display=swap'
+  '/manifest.json'
 ];
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
+// 安裝時強制跳過等待
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS);
+    })
   );
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch', e => {
-  const url = e.request.url;
-
-  // Google Sheets CSV：網路優先，失敗用快取
-  if (url.includes('docs.google.com') || url.includes('googleapis.com/spreadsheets')) {
-    e.respondWith(
-      fetch(e.request)
-        .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-          return res;
+// 激活時立刻接管網頁，並刪除舊快取
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            return caches.delete(cache);
+          }
         })
-        .catch(() => caches.match(e.request))
-    );
-    return;
-  }
+      );
+    }).then(() => self.clients.claim())
+  );
+});
 
-  // 其他資源：快取優先，失敗用網路
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return res;
-      });
+// 網路請求攔截（維持你原本的離線瀏覽功能）
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      return response || fetch(event.request);
     })
   );
 });
