@@ -110,20 +110,49 @@
   }
 
   window.__syncIcelandBudgetFromSheets = async function () {
-    if (!navigator.onLine) { window.setSyncState?.('offline', '離線中，使用本地資料'); return; }
-    window.setSyncState?.('syncing', '同步中…');
-    try {
-      const [overview, accommodation, car, activity] = await Promise.all([
-        fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity')
-      ]);
-      window.APP_DATA = transformData({ overview, accommodation, car, activity });
+  // ─── 【防禦 1：沒網路時】直接讀取手機記憶體 ───
+  if (!navigator.onLine) {
+    const cachedData = localStorage.getItem('cached_iceland_budget');
+    if (cachedData) {
+      window.APP_DATA = JSON.parse(cachedData);
       window.renderAll?.();
-      window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
-    } catch (error) {
-      console.error(error);
+      window.setSyncState?.('offline', '🔋 離線中，使用上次同步資料');
+    } else {
       window.APP_DATA = clone(window.STATIC ?? {});
       window.renderAll?.();
-      window.setSyncState?.('local', '⚠ 雲端讀取失敗，使用本地資料');
+      window.setSyncState?.('offline', '離線中，無暫存，使用預設資料');
     }
-  };
+    return;
+  }
+
+  window.setSyncState?.('syncing', '同步中…');
+
+  try {
+    const [overview, accommodation, car, activity] = await Promise.all([
+      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity')
+    ]);
+    
+    window.APP_DATA = transformData({ overview, accommodation, car, activity });
+    
+    // ─── 【防禦 2：成功拿到雲端資料時】偷偷打包存進手機口袋 ───
+    localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+
+    window.renderAll?.();
+    window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+  
+  } catch (error) {
+    console.error(error);
+    
+    // ─── 【防禦 3：網路卡住或讀取失敗時】撈看看有沒有歷史存檔，沒有才用 STATIC ───
+    const cachedData = localStorage.getItem('cached_iceland_budget');
+    if (cachedData) {
+      window.APP_DATA = JSON.parse(cachedData);
+      window.setSyncState?.('local', '⚠ 雲端讀取失敗，使用上次同步資料');
+    } else {
+      window.APP_DATA = clone(window.STATIC ?? {});
+      window.setSyncState?.('local', '⚠ 雲端讀取失敗，使用預設初始資料');
+    }
+    window.renderAll?.();
+  }
+};
 })();
