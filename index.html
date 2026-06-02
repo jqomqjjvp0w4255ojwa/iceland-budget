@@ -26,6 +26,12 @@
         radial-gradient(ellipse 60% 30% at 80% 5%, rgba(124,77,255,0.06) 0%, transparent 55%),
         radial-gradient(ellipse 50% 20% at 50% 0%, rgba(79,195,247,0.05) 0%, transparent 50%);
     }
+    
+    
+    <button id="refresh-btn" style="position: fixed; top: 15px; right: 15px; z-index: 9999; padding: 10px; background: #112540; border: 1px solid #4fc3f7; border-radius: 50%; cursor: pointer; font-size: 20px; box-shadow: 0 0 10px rgba(79,195,247,0.5); display: flex; align-items: center; justify-content: center; width: 44px; height: 44px;">
+    🔄
+    </button>
+    <div class="container">
     .container { max-width: 680px; margin: 0 auto; padding: 0 16px 80px; position: relative; z-index: 1; }
     header { text-align: center; padding: 36px 16px 20px; }
     .aurora-line {
@@ -342,6 +348,27 @@ async function init(){
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 init();
+</script>
+  </div> <script>
+document.getElementById('refresh-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('refresh-btn');
+    btn.style.transition = 'transform 1s ease';
+    btn.style.transform = 'rotate(360deg)';
+
+    if ('serviceWorker' in navigator) {
+        try {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                await registration.update();
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+    setTimeout(() => {
+        window.location.reload(true);
+    }, 500);
+});
 </script>
 </body>
 </html>
