@@ -13,7 +13,7 @@
     return ['true', 'yes', 'y', '1', '✓', '勾選', '已付', '已付款'].includes(s);
   }
 
-  // cells 格式 → [{欄位名: 值, ...}, ...] 的 rows 格式
+  // cells 二維陣列 → [{欄位名: 值}] rows 格式
   function cellsToRows(sheet) {
     const cells = sheet?.cells;
     if (!Array.isArray(cells) || cells.length < 2) return [];
@@ -31,13 +31,8 @@
   }
 
   function transformData({ overview, accommodation, car, activity }) {
-    const overviewRows = cellsToRows(overview);
-    const carRows = cellsToRows(car);
-    const carRow = carRows.find(row => Object.values(row).some(v => String(v ?? '').trim() !== '')) || {};
 
-    // 總覽：ISK/EUR 匯率從 cells 直接讀
-    // cells[0] = ["花費累計:","","NT$47,948","","今日匯率：","ISK","0.25503"]
-    // cells[1] = ["","","","","","EUR","36.6213"]
+    // ── 匯率（總覽）
     const oCells = overview?.cells ?? [];
     const iskRow = oCells.find(r => r.includes('ISK')) || [];
     const eurRow = oCells.find(r => r.includes('EUR')) || [];
@@ -46,50 +41,57 @@
     const exchangeISK = iskIdx >= 0 ? num(iskRow[iskIdx + 1]) : (window.STATIC?.exchangeISK ?? 0);
     const exchangeEUR = eurIdx >= 0 ? num(eurRow[eurIdx + 1]) : (window.STATIC?.exchangeEUR ?? 0);
 
-    // 住宿
+    // ── 住宿
     const accomRows = cellsToRows(accommodation);
     const accom = accomRows
-      .filter(row => Object.values(row).some(v => String(v ?? '').trim() !== ''))
+      .filter(row => {
+        const name = String(row['住宿地點'] ?? '').trim();
+        // 過濾空列與小計/每人列
+        return name !== '' && !String(Object.values(row).join('')).match(/小計|每人/);
+      })
       .map(row => ({
-        name:        pick(row, ['住宿地點', '住宿名稱', '名稱', 'name']),
-        date:        pick(row, ['日期', '入住日期', 'date']),
-        nights:      num(pick(row, ['天數', '晚數', 'nights'], 1)) || 1,
-        cur:         pick(row, ['幣別', 'currency', 'cur'], 'NT'),
-        orig:        num(pick(row, ['原價', '金額', '原幣金額', 'price', 'orig'])),
-        twd:         num(pick(row, ['換算台幣', '台幣', 'TWD', 'twd', 'NTD'])),
-        paid:        yes(pick(row, ['已付款', '付款', 'paid'])),
-        cancel:      yes(pick(row, ['可取消', 'cancel'])),
-        payer:       pick(row, ['付款人', 'payer'], ''),
-        payDate:     pick(row, ['付款日', '付款日期', 'payDate'], ''),
-        deductDate:  pick(row, ['扣款日', '扣款日期', 'deductDate'], ''),
-        foreignFee:  num(pick(row, ['海外手續費', '手續費', 'foreignFee'])),
-        note:        pick(row, ['備註', 'note'], ''),
+        name:       pick(row, ['住宿地點', '住宿名稱', '名稱']),
+        date:       pick(row, ['日期', '入住日期']),
+        nights:     num(pick(row, ['天數', '晚數'], 1)) || 1,
+        // 幣別：去掉結尾的點，EU → EUR，ISK → ISK，NT → NT
+        cur:        String(pick(row, ['幣別'], 'NT')).replace(/\.$/, '').replace(/^EU$/, 'EUR').replace(/^ISK$/, 'ISK').replace(/^NT$/, 'NT'),
+        orig:       num(pick(row, ['價格', '原價', '金額'])),
+        twd:        num(pick(row, ['換算台幣', '台幣'])),
+        paid:       yes(pick(row, ['已付款?', '已付款', '付款'])),
+        cancel:     yes(pick(row, ['可取消?', '可取消'])),
+        payer:      pick(row, ['付款人'], ''),
+        payDate:    pick(row, ['付款期限/時間', '付款日', '付款日期'], ''),
+        deductDate: pick(row, ['扣款日', '扣款日期'], ''),
+        foreignFee: num(pick(row, ['海外手續費', '手續費'])),
+        note:       pick(row, ['備註'], ''),
       }))
-      .filter(item => item.name || item.date || item.twd);
+      .filter(item => item.name);
 
-    // 租車：欄位名稱對應你的 Sheet 標題列
+    // ── 租車
+    const carRows = cellsToRows(car);
+    const carRow = carRows.find(row => Object.values(row).some(v => String(v ?? '').trim() !== '')) || {};
     const carData = {
-      company:   pick(carRow, ['租車公司', '公司', 'company'],      window.STATIC?.car?.company ?? ''),
-      model:     pick(carRow, ['車種', '車款', 'model'],            window.STATIC?.car?.model ?? ''),
-      code:      pick(carRow, ['確認碼', '訂單編號', 'code'],        window.STATIC?.car?.code ?? ''),
-      pickup:    pick(carRow, ['取車時間', 'pickup'],               window.STATIC?.car?.pickup ?? ''),
-      dropoff:   pick(carRow, ['換車時間', '還車時間', 'dropoff'],   window.STATIC?.car?.dropoff ?? ''),
-      days:      num(pick(carRow, ['天數', 'days'], 0))             || window.STATIC?.car?.days || 0,
-      location:  pick(carRow, ['取車地點', '取還車地點', 'location'], window.STATIC?.car?.location ?? ''),
-      totalTWD:  num(pick(carRow, ['台幣', '總額', 'totalTWD']))    || window.STATIC?.car?.totalTWD || 0,
-      perPerson: num(pick(carRow, ['每人付款', '每人', 'perPerson']))|| window.STATIC?.car?.perPerson || 0,
-      driver1:   pick(carRow, ['主駕', 'driver1'],                  window.STATIC?.car?.driver1 ?? ''),
-      driver2:   pick(carRow, ['副駕', 'driver2'],                  window.STATIC?.car?.driver2 ?? ''),
-      payer:     pick(carRow, ['付款人', 'payer'],                  window.STATIC?.car?.payer ?? ''),
+      company:   pick(carRow, ['租車公司', '公司'],     window.STATIC?.car?.company ?? ''),
+      model:     pick(carRow, ['車種', '車款'],         window.STATIC?.car?.model ?? ''),
+      code:      pick(carRow, ['確認碼', '訂單編號'],   window.STATIC?.car?.code ?? ''),
+      pickup:    pick(carRow, ['取車時間'],             window.STATIC?.car?.pickup ?? ''),
+      dropoff:   pick(carRow, ['換車時間', '還車時間'], window.STATIC?.car?.dropoff ?? ''),
+      days:      num(pick(carRow, ['天數'], 0))         || window.STATIC?.car?.days || 0,
+      location:  pick(carRow, ['取車地點', '取還車地點'],window.STATIC?.car?.location ?? ''),
+      totalTWD:  num(pick(carRow, ['台幣', '總額']))    || window.STATIC?.car?.totalTWD || 0,
+      perPerson: num(pick(carRow, ['每人付款', '每人'])) || window.STATIC?.car?.perPerson || 0,
+      driver1:   pick(carRow, ['主駕'],                 window.STATIC?.car?.driver1 ?? ''),
+      driver2:   pick(carRow, ['副駕'],                 window.STATIC?.car?.driver2 ?? ''),
+      payer:     pick(carRow, ['付款人'],               window.STATIC?.car?.payer ?? ''),
       insurance: window.STATIC?.car?.insurance ?? [],
     };
 
-    // 租車駕駛／保險從 cells 底部備註列讀取
+    // 駕駛資訊從 cells 底部備註列讀
     const carCells = car?.cells ?? [];
-    const driver1Row = carCells.find(r => String(r[0] ?? '').includes('主要駕駛'));
-    const driver2Row = carCells.find(r => String(r[0] ?? '').includes('額外駕駛'));
-    if (driver1Row) carData.driver1 = String(driver1Row[0]).replace('主要駕駛:', '').trim();
-    if (driver2Row) carData.driver2 = String(driver2Row[0]).replace('額外駕駛:', '').trim();
+    const d1Row = carCells.find(r => String(r[0] ?? '').includes('主要駕駛'));
+    const d2Row = carCells.find(r => String(r[0] ?? '').includes('額外駕駛'));
+    if (d1Row) carData.driver1 = String(d1Row[0]).replace(/主要駕駛[:：]?/, '').trim();
+    if (d2Row) carData.driver2 = String(d2Row[0]).replace(/額外駕駛[:：]?/, '').trim();
 
     return {
       exchangeISK,
