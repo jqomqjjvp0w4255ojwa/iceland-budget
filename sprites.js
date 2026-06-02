@@ -8,14 +8,8 @@
 // ╔══════════════════════╗
 // ║  BACKGROUND 開始     ║
 // ╚══════════════════════╝
-const BG_SVG_CONTENT = `<!-- 雲 -->
-          <g fill="#fff">
-            <rect x="56"  y="18" width="44" height="10"/><rect x="60"  y="14" width="28" height="6"/><rect x="68"  y="12" width="14" height="4"/>
-            <rect x="246" y="12" width="58" height="10"/><rect x="254" y="8"  width="34" height="6"/><rect x="264" y="6"  width="16" height="4"/>
-            <rect x="496" y="20" width="46" height="9"/> <rect x="504" y="16" width="24" height="6"/>
-            <rect x="427" y="8"  width="32" height="7"/> <rect x="433" y="5"  width="18" height="4"/>
-            <rect x="147" y="28" width="28" height="7"/> <rect x="151" y="25" width="16" height="4"/>
-          </g>
+const BG_SVG_CONTENT = `<!-- 天空已移除，由 px-scene 背景色控制 -->
+          <!-- 雲已移除（天空透明，由 index 背景顯示） -->
           <!-- 遠山 -->
           <polygon points="0,100 20,80 40,90 60,68 90,82 115,58 140,74 170,50 200,68 230,44 255,62 280,46 310,64 340,38 370,58 400,42 430,62 460,40 490,62 520,46 550,65 580,44 610,66 640,48 660,62 680,52 680,100" fill="#9eb8d8"/>
           <!-- 雪帽 -->
