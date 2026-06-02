@@ -1,45 +1,53 @@
-const CACHE_NAME = "iceland-budget-v1";
-const STATIC_ASSETS = ["/", "/index.html", "/manifest.json"];
+const CACHE = 'iceland-v1';
+const ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  'https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&display=swap'
+];
 
-// Install: cache static files
-self.addEventListener("install", (e) => {
+self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-// Activate: clean old caches
-self.addEventListener("activate", (e) => {
+self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch strategy:
-// - Google Sheets API → Network first, fall back to cache
-// - Everything else → Cache first, fall back to network
-self.addEventListener("fetch", (e) => {
+self.addEventListener('fetch', e => {
   const url = e.request.url;
 
-  if (url.includes("docs.google.com/spreadsheets")) {
-    // Network first for live data
+  // Google Sheets CSV：網路優先，失敗用快取
+  if (url.includes('docs.google.com') || url.includes('googleapis.com/spreadsheets')) {
     e.respondWith(
       fetch(e.request)
-        .then((res) => {
+        .then(res => {
           const clone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          caches.open(CACHE).then(c => c.put(e.request, clone));
           return res;
         })
         .catch(() => caches.match(e.request))
     );
-  } else {
-    // Cache first for static assets
-    e.respondWith(
-      caches.match(e.request).then((cached) => cached || fetch(e.request))
-    );
+    return;
   }
+
+  // 其他資源：快取優先，失敗用網路
+  e.respondWith(
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return res;
+      });
+    })
+  );
 });

@@ -1,433 +1,346 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0d2137">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="冰島預算">
-<meta property="og:title" content="冰島旅遊預算清單">
-<meta property="og:description" content="住宿、租車、活動一覽，支援離線存取">
-<meta property="og:type" content="website">
-<title>冰島旅遊預算</title>
-<link rel="manifest" href="/manifest.json">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
-<style>
-:root{--deep:#0d2137;--teal:#4ecdc4;--teal2:#2a9d8f;--gold:#e8a020;--danger:#e76f51;--muted:#8ba3b5;--card:#fff}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:linear-gradient(160deg,#0d2137 0%,#1a3a52 40%,#0f4c6e 100%);min-height:100vh;font-family:"Noto Sans TC",sans-serif;color:#1a1a2e;padding-bottom:env(safe-area-inset-bottom,24px);padding-bottom:calc(48px + env(safe-area-inset-bottom,0px))}
-.header{background:linear-gradient(135deg,#0d2137,#1a4a6e);padding:calc(26px + env(safe-area-inset-top,0px)) 18px 16px;color:#fff;position:relative;overflow:hidden}
-.header::before{content:"";position:absolute;top:-30px;right:-30px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(78,205,196,.2) 0%,transparent 70%)}
-.hflag{font-size:2rem;margin-bottom:4px}
-.header h1{font-family:"Playfair Display",serif;font-size:1.5rem;color:#e8f4f8}
-.hsub{font-size:.75rem;color:var(--teal);margin-top:2px}
-.rates{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap;align-items:center}
-.rc{background:rgba(78,205,196,.13);border:1px solid rgba(78,205,196,.3);border-radius:20px;padding:3px 11px;font-size:.7rem;color:var(--teal)}
-.offline-badge{background:rgba(232,160,32,.2);border:1px solid rgba(232,160,32,.4);border-radius:20px;padding:3px 11px;font-size:.7rem;color:var(--gold);display:none}
-.offline-badge.show{display:inline-block}
-.banner{margin:13px 14px 0;background:linear-gradient(135deg,#4ecdc4,#2a9d8f);border-radius:16px;padding:15px 17px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 8px 24px rgba(78,205,196,.25)}
-.blabel{font-size:.73rem;color:rgba(255,255,255,.85)}
-.bamt{font-size:1.6rem;font-weight:700;color:#fff;letter-spacing:-.5px}
-.bicon{font-size:1.9rem;opacity:.65}
-.install-bar{margin:10px 14px 0;background:rgba(78,205,196,.12);border:1px solid rgba(78,205,196,.25);border-radius:12px;padding:10px 14px;display:none;align-items:center;justify-content:space-between;gap:10px}
-.install-bar.show{display:flex}
-.install-txt{font-size:.75rem;color:rgba(255,255,255,.8);flex:1}
-.install-btn{background:var(--teal);color:var(--deep);font-weight:700;font-size:.75rem;padding:7px 14px;border-radius:20px;border:none;cursor:pointer;white-space:nowrap}
-.tabs{display:flex;margin:13px 14px 0;background:rgba(255,255,255,.08);border-radius:12px;padding:4px}
-.tab{flex:1;padding:8px 3px;text-align:center;font-size:.75rem;color:rgba(255,255,255,.48);border-radius:9px;cursor:pointer;transition:all .2s;font-weight:500}
-.tab.active{background:#fff;color:var(--deep);box-shadow:0 2px 8px rgba(0,0,0,.13)}
-.sec{display:none;padding:12px 14px 0}
-.sec.active{display:block}
-.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
-.sec-title{font-size:.75rem;font-weight:700;color:rgba(255,255,255,.58);text-transform:uppercase;letter-spacing:1px}
-.sec-sub{font-size:.75rem;font-weight:700;color:var(--teal)}
-.card{background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px;box-shadow:0 2px 12px rgba(0,0,0,.08);position:relative;overflow:hidden;animation:fadeUp .3s ease both}
-@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:4px 0 0 4px}
-.card.paid::before{background:var(--teal)}
-.card.unpaid::before{background:var(--gold)}
-.card.pending::before{background:#ccc}
-.ct{display:flex;justify-content:space-between;align-items:flex-start;gap:7px}
-.cn{font-size:.86rem;font-weight:700;color:var(--deep);line-height:1.3;flex:1}
-.ca{font-size:.95rem;font-weight:700;color:var(--teal2);white-space:nowrap}
-.ca.pa{color:#aaa}
-.meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
-.tag{font-size:.67rem;padding:2px 7px;border-radius:20px;font-weight:500}
-.td{background:#e8f4f8;color:#2a7d9d}
-.tp{background:#fef3e2;color:#b85c1a}
-.tni{background:#ede7f6;color:#5e35b1}
-.tn{background:#f0f0f7;color:#555}
-.tpend{background:#f2f2f2;color:#888}
-.date-line{display:flex;align-items:center;gap:5px;font-size:.72rem;margin-top:5px}
-.date-line.is-paid{color:var(--teal2)}
-.date-line.is-unpaid{color:var(--gold)}
-.date-line.is-pending{color:#aaa}
-.foot{margin-top:6px;font-size:.7rem;color:var(--muted);border-top:1px solid #f2f2f2;padding-top:5px;display:flex;justify-content:space-between;align-items:center}
-.foot span{font-weight:600;color:#444}
-.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px}
-.sc{background:#fff;border-radius:14px;padding:13px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
-.scl{font-size:.68rem;color:var(--muted);margin-bottom:3px}
-.scv{font-size:1.02rem;font-weight:700;color:var(--deep)}
-.scv.g{color:var(--teal2)}
-.scs{font-size:.66rem;color:var(--muted);margin-top:2px}
-.wc{background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.07);margin-bottom:10px}
-.wct{font-size:.78rem;font-weight:700;color:var(--deep);margin-bottom:10px}
-.pr{display:flex;align-items:center;margin-bottom:9px}
-.pn{font-size:.8rem;font-weight:600;color:#333;width:30px}
-.pb{flex:1;margin:0 8px;height:8px;background:#f0f4f8;border-radius:4px;overflow:hidden}
-.pbar{height:100%;border-radius:4px;transition:width .7s ease}
-.pamt{font-size:.76rem;font-weight:700;color:var(--teal2);white-space:nowrap}
-.ar{display:flex;align-items:flex-start;gap:7px;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:.78rem}
-.ar:last-child{border-bottom:none;padding-bottom:0}
-.ad{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
-.ad.r{background:var(--danger)}.ad.o{background:var(--gold)}.ad.g{background:var(--teal)}
-.an{font-weight:600;color:var(--deep)}
-.adet{font-size:.68rem;color:var(--muted);margin-top:1px}
-.total-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:.82rem}
-.total-row:last-child{border-bottom:none}
-.total-row.grand{padding-top:10px;margin-top:2px}
-.total-row .trl{color:#555}
-.total-row .trv{font-weight:700;color:var(--deep)}
-.total-row.grand .trl{font-weight:700;color:var(--deep);font-size:.88rem}
-.total-row.grand .trv{color:var(--teal2);font-size:.98rem}
-.car{background:linear-gradient(135deg,#1a3a52,#0d2137);border-radius:16px;padding:17px;color:#fff;margin-bottom:10px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
-.car-hd{display:flex;align-items:center;gap:9px;margin-bottom:13px}
-.cico{font-size:1.8rem}
-.cco{font-size:.98rem;font-weight:700}
-.cmo{font-size:.73rem;color:var(--teal);margin-top:2px}
-.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.cil{font-size:.66rem;color:rgba(255,255,255,.5);margin-bottom:2px}
-.civ{font-size:.8rem;font-weight:600;color:#fff}
-.civ.hi{color:var(--teal);font-size:.93rem}
-.cconf{margin-top:13px;padding-top:11px;border-top:1px solid rgba(255,255,255,.1)}
-.cconfl{font-size:.68rem;color:rgba(255,255,255,.5)}
-.cconfc{font-size:.98rem;font-weight:700;color:#f4a261;letter-spacing:2px}
-.cbr{background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
-.cbrt{font-size:.78rem;font-weight:700;color:var(--deep);margin-bottom:9px}
-.cbrow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:.8rem}
-.cbrow:last-child{border-bottom:none}
-.cbl{color:#555}
-.cbv{font-weight:700;color:var(--deep)}
-.cbv.g{color:var(--teal2)}
-.tli{display:flex;gap:10px;background:#fff;border-radius:14px;padding:12px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,.07);animation:fadeUp .3s ease both}
-.tld{min-width:40px;text-align:center;background:var(--deep);color:#fff;border-radius:10px;padding:5px 3px;font-size:.7rem;font-weight:700;line-height:1.4}
-.tld.paid{background:var(--teal2)}
-.tlinf{flex:1}
-.tlnm{font-size:.84rem;font-weight:700;color:var(--deep);line-height:1.3}
-.tldt{font-size:.7rem;color:var(--muted);margin-top:2px}
-.tlr{text-align:right}
-.tlamt{font-size:.88rem;font-weight:700;color:var(--teal2)}
-.tlamt.pa{color:#aaa}
-.tlst{font-size:.66rem;margin-top:2px}
-.loading{text-align:center;padding:40px 20px;color:rgba(255,255,255,.6);font-size:.85rem}
-.spinner{display:inline-block;width:24px;height:24px;border:3px solid rgba(78,205,196,.3);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:10px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.err{background:rgba(231,111,81,.15);border:1px solid rgba(231,111,81,.4);border-radius:12px;padding:14px;color:#fff;font-size:.8rem;text-align:center;margin:10px 0}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="description" content="冰島旅遊預算清單" />
+  <title>🇮🇸 冰島預算清單</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #07111f; --bg2: #0d1f35; --bg3: #112540; --card: #0f2240;
+      --border: #1e3a5f; --accent: #4fc3f7; --accent2: #81d4fa;
+      --gold: #f0c040; --green: #66bb6a; --red: #ef5350;
+      --text: #e8f4fd; --muted: #7eb3d4;
+      --aurora1: #00e5cc; --aurora2: #7c4dff; --aurora3: #ff6e40;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Lato', sans-serif; min-height: 100vh; overflow-x: hidden; }
+    body::before {
+      content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 40% at 20% 10%, rgba(0,229,204,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 30% at 80% 5%, rgba(124,77,255,0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 20% at 50% 0%, rgba(79,195,247,0.05) 0%, transparent 50%);
+    }
+    .container { max-width: 680px; margin: 0 auto; padding: 0 16px 80px; position: relative; z-index: 1; }
+    header { text-align: center; padding: 36px 16px 20px; }
+    .aurora-line {
+      height: 2px; margin-bottom: 20px;
+      background: linear-gradient(90deg, transparent, var(--aurora1), var(--accent), var(--aurora2), transparent);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+    @keyframes shimmer { 0%,100%{opacity:.6} 50%{opacity:1} }
+    header h1 { font-family:'Cinzel',serif; font-size:1.6rem; font-weight:600; letter-spacing:.12em; color:var(--accent2); text-shadow:0 0 30px rgba(79,195,247,.4); }
+    header .subtitle { font-size:.78rem; color:var(--muted); letter-spacing:.2em; text-transform:uppercase; margin-top:6px; }
+    .last-updated { font-size:.72rem; color:var(--muted); margin-top:8px; opacity:.7; }
+    .summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:20px 0; }
+    .summary-card {
+      background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; position:relative; overflow:hidden;
+    }
+    .summary-card::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,var(--aurora2),var(--accent)); }
+    .summary-card.full { grid-column:1/-1; }
+    .summary-card.full::before { background:linear-gradient(90deg,var(--aurora1),var(--gold)); }
+    .summary-label { font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.15em; margin-bottom:8px; }
+    .summary-value { font-family:'Cinzel',serif; font-size:1.4rem; color:var(--gold); font-weight:600; }
+    .summary-card.full .summary-value { font-size:1.8rem; color:var(--accent2); }
+    .summary-sub { font-size:.72rem; color:var(--muted); margin-top:4px; }
+    .rate-bar {
+      background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:10px 16px;
+      display:flex; justify-content:center; gap:24px; margin-bottom:20px; font-size:.75rem; color:var(--muted);
+    }
+    .rate-bar span { display:flex; align-items:center; gap:6px; }
+    .rate-bar strong { color:var(--accent); }
+    .tabs { display:flex; gap:6px; margin-bottom:16px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+    .tabs::-webkit-scrollbar { display:none; }
+    .tab {
+      flex-shrink:0; background:var(--bg3); border:1px solid var(--border); border-radius:20px;
+      padding:8px 18px; font-size:.82rem; color:var(--muted); cursor:pointer; transition:all .2s;
+      white-space:nowrap; font-family:'Lato',sans-serif;
+    }
+    .tab.active { background:var(--accent); border-color:var(--accent); color:var(--bg); font-weight:700; }
+    .tab:hover:not(.active) { border-color:var(--accent); color:var(--accent); }
+    .section { display:none; animation:fadeIn .3s ease; }
+    .section.active { display:block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; margin-bottom:12px; overflow:hidden; transition:border-color .2s; }
+    .card:hover { border-color:var(--accent); }
+    .card-header { padding:14px 16px 10px; display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+    .card-title { font-size:.95rem; font-weight:700; color:var(--text); line-height:1.3; }
+    .card-subtitle { font-size:.75rem; color:var(--muted); margin-top:2px; }
+    .card-price { text-align:right; flex-shrink:0; }
+    .price-nt { font-family:'Cinzel',serif; font-size:1.05rem; color:var(--gold); font-weight:600; white-space:nowrap; }
+    .price-orig { font-size:.7rem; color:var(--muted); margin-top:2px; }
+    .price-per { font-size:.7rem; color:var(--accent); margin-top:2px; }
+    .card-body { padding:0 16px 14px; display:flex; gap:8px; flex-wrap:wrap; }
+    .tag { font-size:.68rem; padding:3px 10px; border-radius:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+    .tag-paid { background:rgba(102,187,106,.15); color:var(--green); border:1px solid rgba(102,187,106,.3); }
+    .tag-unpaid { background:rgba(239,83,80,.12); color:var(--red); border:1px solid rgba(239,83,80,.25); }
+    .tag-cancel { background:rgba(79,195,247,.1); color:var(--accent); border:1px solid rgba(79,195,247,.2); }
+    .tag-nocancel { background:rgba(255,110,64,.1); color:#ff9e80; border:1px solid rgba(255,110,64,.2); }
+    .tag-person { background:rgba(124,77,255,.12); color:#b39ddb; border:1px solid rgba(124,77,255,.25); }
+    .card-note { margin:0 16px 12px; font-size:.75rem; color:var(--muted); background:var(--bg3); border-radius:6px; padding:8px 10px; border-left:2px solid var(--border); }
+    .car-card { background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:16px; }
+    .car-header { background:linear-gradient(135deg,#112a4a,#0d1e35); padding:20px 16px; border-bottom:1px solid var(--border); }
+    .car-title { font-family:'Cinzel',serif; font-size:1.1rem; color:var(--accent2); margin-bottom:4px; }
+    .car-model { font-size:.8rem; color:var(--muted); }
+    .car-grid { display:grid; grid-template-columns:1fr 1fr; }
+    .car-item { padding:12px 16px; border-bottom:1px solid var(--border); border-right:1px solid var(--border); }
+    .car-item:nth-child(even) { border-right:none; }
+    .car-item:last-child,.car-item:nth-last-child(2) { border-bottom:none; }
+    .car-item-label { font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px; }
+    .car-item-value { font-size:.9rem; color:var(--text); font-weight:600; }
+    .car-price-row { padding:14px 16px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:rgba(79,195,247,.04); }
+    .insurance-list { margin:12px 16px; font-size:.78rem; color:var(--muted); list-style:none; }
+    .insurance-list li { display:flex; align-items:center; gap:8px; padding:4px 0; }
+    .insurance-list li::before { content:'✓'; color:var(--green); font-weight:700; }
+    .progress-wrap { margin:16px 0 8px; }
+    .progress-label { display:flex; justify-content:space-between; font-size:.75rem; color:var(--muted); margin-bottom:6px; }
+    .progress-bar { height:6px; background:var(--bg3); border-radius:3px; overflow:hidden; }
+    .progress-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--aurora1)); transition:width .8s ease; }
+    .loading { text-align:center; padding:60px 20px; color:var(--muted); }
+    .spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 16px; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .offline-badge { display:none; position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--aurora3); color:white; font-size:.75rem; padding:6px 16px; border-radius:20px; font-weight:700; z-index:100; letter-spacing:.1em; }
+    .offline-badge.show { display:block; }
+    .empty { text-align:center; padding:40px 20px; color:var(--muted); font-size:.9rem; }
+    .section-title { font-family:'Cinzel',serif; font-size:.8rem; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin:20px 0 10px; display:flex; align-items:center; gap:10px; }
+    .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+    .total-bar { background:linear-gradient(135deg,var(--bg3),var(--bg2)); border:1px solid var(--border); border-radius:12px; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .total-bar-label { font-size:.78rem; color:var(--muted); }
+    .total-bar-value { font-family:'Cinzel',serif; font-size:1.1rem; color:var(--gold); }
+    .filter-row { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+    .filter-btn { font-size:.72rem; padding:4px 12px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-family:'Lato',sans-serif; transition:all .2s; }
+    .filter-btn.active { background:var(--aurora2); border-color:var(--aurora2); color:white; }
+  </style>
 </head>
 <body>
-
-<div class="header">
-  <div class="hflag">&#127470;&#127480;</div>
-  <h1>冰島旅遊預算</h1>
-  <div class="hsub" id="tripSub">2024 年 9 月 &#183; Iceland Trip &#183; 3 人</div>
-  <div class="rates">
-    <div class="rc" id="iskRate">&#8635; 載入中...</div>
-    <div class="rc" id="eurRate" style="display:none"></div>
-    <div class="offline-badge" id="offlineBadge">&#9889; 離線快取</div>
+<div class="offline-badge" id="offlineBadge">📵 離線模式</div>
+<div class="container">
+  <header>
+    <div class="aurora-line"></div>
+    <h1>🇮🇸 冰島預算清單</h1>
+    <div class="subtitle">Iceland · September 2024</div>
+    <div class="last-updated" id="lastUpdated">載入中…</div>
+  </header>
+  <div id="mainContent">
+    <div class="loading"><div class="spinner"></div><div>正在讀取資料…</div></div>
   </div>
 </div>
-
-<div class="install-bar" id="installBar">
-  <div class="install-txt">&#128241; 加入主畫面，隨時查看預算</div>
-  <button class="install-btn" id="installBtn">加入</button>
-</div>
-
-<div class="banner">
-  <div>
-    <div class="blabel">住宿 &#43; 租車 &#43; 活動 總預算</div>
-    <div class="bamt" id="totalBudget">&#8212;</div>
-  </div>
-  <div class="bicon">&#127956;</div>
-</div>
-
-<div class="tabs">
-  <div class="tab active" onclick="sw('accommodation',this)">&#127968; 住宿</div>
-  <div class="tab" onclick="sw('car',this)">&#128665; 租車</div>
-  <div class="tab" onclick="sw('summary',this)">&#128202; 總覽</div>
-  <div class="tab" onclick="sw('timeline',this)">&#128197; 時程</div>
-</div>
-
-<div class="sec active" id="accommodation"><div class="loading"><div class="spinner"></div><br>載入住宿資料...</div></div>
-<div class="sec" id="car"><div class="loading"><div class="spinner"></div><br>載入租車資料...</div></div>
-<div class="sec" id="summary"><div class="loading"><div class="spinner"></div><br>載入總覽...</div></div>
-<div class="sec" id="timeline"><div class="loading"><div class="spinner"></div><br>載入時程...</div></div>
 
 <script>
-const SHEET_ID = "1Pbo1FwvKW38N3wR_m6lN5f4M7j9gzAURUX3Mvm4yZiI";
-const PEOPLE = 3;
+// ══════════════════════════════════════════
+//  設定：將下方 URL 換成你的 Google Sheets 公開 CSV 連結
+//  格式：https://docs.google.com/spreadsheets/d/e/XXX/pub?gid=SHEET_GID&single=true&output=csv
+// ══════════════════════════════════════════
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTBrWzl3S5EoP32KLKh58I2lej4knEKBkRj_QWzJuEWsxajiDUhYHeV-HQ6FE-ihxlLSlNDp1N6fXMT/pub?output=csv';
 
-// ── PWA: Service Worker ──────────────────────────────────────
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").catch(console.warn);
+// ── 靜態備用資料（離線 / 無法 fetch 時使用）
+const STATIC = {
+  exchangeISK: 0.2537,
+  exchangeEUR: 36.48,
+  totalTWD: 47859.89,
+  car: {
+    company:'ZERO CAR', model:'Toyota RAV4 (Used Model)', code:'5F6MP8',
+    pickup:'9月15日 上午9:30', dropoff:'9月29日 下午11:00', days:14,
+    location:'Blikavöllur 3, 235 Keflavík Airport, Iceland',
+    totalTWD:74454, perPerson:25479.33, driver1:'花🌼', driver2:'猴🙉', payer:'猴🙉',
+    insurance:['碰撞損害豁免險 CDW/SCDW','竊盜險 TP','碎石險 GP','道路救援免責聲明','零免賠額保險','額外司機']
+  },
+  accommodation:[
+    {name:'Hekla Nordicabin Wild Cottage',      date:'9/15–9/16',nights:2, cur:'EU',  orig:null,   twd:0,        paid:false,cancel:false,payer:'花🌼',note:''},
+    {name:'Þakgil',                              date:'9/17',     nights:1, cur:'ISK', orig:34000,  twd:8625.10,  paid:true, cancel:false,payer:'寧',  note:'訂金已付一半'},
+    {name:'Tjaldsvæðið í Svínafelli',            date:'9/18–9/19',nights:2, cur:'ISK', orig:47200,  twd:11973.67, paid:false,cancel:true, payer:'寧',  note:'現場付'},
+    {name:'Framtid Camping Lodging Barrels 富瑞麥德',date:'9/20',  nights:1, cur:'EU',  orig:null,   twd:0,        paid:false,cancel:false,payer:'花🌼',note:''},
+    {name:'Húsey Hostel & Horsefarm',            date:'9/21',     nights:1, cur:'EUR', orig:132.56, twd:4835.91,  paid:false,cancel:true, payer:'猴🙉',note:''},
+    {name:'Guesthouse Stöng 米湖斯通小屋旅館',    date:'9/22',     nights:1, cur:'NT',  orig:6678,   twd:6678,     paid:true, cancel:false,payer:'寧',  note:''},
+    {name:'Ósar Hostel 怪石頭小屋',              date:'9/23',     nights:1, cur:'EUR', orig:139.29, twd:5081.43,  paid:false,cancel:true, payer:'猴🙉',note:''},
+    {name:'Sea, fjord & mountain view house',    date:'9/24',     nights:1, cur:'EUR', orig:188.85, twd:6889.42,  paid:true, cancel:false,payer:'猴🙉',note:''},
+    {name:'Miðjanes Reykhólahrepp 米歐傑恩瑞科拉',date:'9/25',    nights:1, cur:'EUR', orig:121.06, twd:4416.38,  paid:false,cancel:true, payer:'猴🙉',note:''},
+    {name:'Between sea and big mountains',       date:'9/26',     nights:1, cur:'EUR', orig:160,    twd:5836.95,  paid:false,cancel:true, payer:'寧',  note:''},
+    {name:'Icelandic Apartments by Heimaleiga',  date:'9/27–9/28',nights:2, cur:'EUR', orig:351,    twd:12804.81, paid:false,cancel:true, payer:'猴🙉',note:''},
+  ]
+};
+
+let currentFilter = 'all';
+
+function fmt(n){if(!n||isNaN(n))return'—';return'NT$ '+Math.round(n).toLocaleString('zh-TW');}
+function fmtOrig(n,cur){
+  if(!n||isNaN(n))return'';
+  const sym={'ISK':'ISK ','EUR':'€','EU':'€','NT':'NT$'}[cur.replace('.','').toUpperCase()]||cur+' ';
+  return sym+parseFloat(n).toLocaleString();
 }
 
-// ── PWA: Install prompt ──────────────────────────────────────
-let deferredPrompt = null;
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById("installBar").classList.add("show");
-});
-document.getElementById("installBtn").addEventListener("click", async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
-  deferredPrompt = null;
-  document.getElementById("installBar").classList.remove("show");
-});
-window.addEventListener("appinstalled", () => {
-  document.getElementById("installBar").classList.remove("show");
-});
-
-// ── Offline detection ────────────────────────────────────────
-function updateOnlineStatus() {
-  document.getElementById("offlineBadge").classList.toggle("show", !navigator.onLine);
-}
-window.addEventListener("online", updateOnlineStatus);
-window.addEventListener("offline", updateOnlineStatus);
-updateOnlineStatus();
-
-// ── Tab switch ───────────────────────────────────────────────
-function sw(n, el) {
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll(".sec").forEach(s => s.classList.remove("active"));
-  document.getElementById(n).classList.add("active");
-  el.classList.add("active");
-}
-
-// ── Helpers ──────────────────────────────────────────────────
-function ntStr(v) { return v ? "NT$ " + Math.round(v).toLocaleString() : "—"; }
-
-function parseDate(v) {
-  if (!v && v !== 0) return null;
-  if (typeof v === "number") {
-    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
-    return (d.getMonth() + 1) + "/" + d.getDate();
-  }
-  return String(v);
-}
-
-// ── Fetch sheet ──────────────────────────────────────────────
-async function fetchSheet(sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
-  const res = await fetch(url);
-  const text = await res.text();
-  const json = JSON.parse(text.match(/setResponse\(([\s\S]*)\)/)[1]);
-  return json.table;
+function renderAccom(items){
+  const show = currentFilter==='all'?items
+    : currentFilter==='paid'?items.filter(a=>a.paid)
+    : items.filter(a=>!a.paid);
+  const total=items.reduce((s,a)=>s+(a.twd||0),0);
+  const paidTotal=items.filter(a=>a.paid).reduce((s,a)=>s+(a.twd||0),0);
+  const pct=total?Math.round(paidTotal/total*100):0;
+  return `
+    <div class="progress-wrap">
+      <div class="progress-label"><span>已付款進度 ${pct}%</span><span>${fmt(paidTotal)} / ${fmt(total)}</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div class="total-bar">
+      <span class="total-bar-label">住宿合計（每人）</span>
+      <span class="total-bar-value">${fmt(total/3)}</span>
+    </div>
+    <div class="filter-row">
+      <button class="filter-btn ${currentFilter==='all'?'active':''}" onclick="setFilter('all')">全部 ${items.length}</button>
+      <button class="filter-btn ${currentFilter==='paid'?'active':''}" onclick="setFilter('paid')">✓ 已付款 ${items.filter(a=>a.paid).length}</button>
+      <button class="filter-btn ${currentFilter==='unpaid'?'active':''}" onclick="setFilter('unpaid')">未付款 ${items.filter(a=>!a.paid).length}</button>
+    </div>
+    ${show.map(a=>`
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${a.name}</div>
+            <div class="card-subtitle">${a.date} · ${a.nights}晚</div>
+          </div>
+          <div class="card-price">
+            <div class="price-nt">${a.twd?fmt(a.twd):'—'}</div>
+            ${a.orig?`<div class="price-orig">${fmtOrig(a.orig,a.cur)}</div>`:''}
+            ${a.twd?`<div class="price-per">每人 ${fmt(a.twd/3)}</div>`:''}
+          </div>
+        </div>
+        <div class="card-body">
+          <span class="tag ${a.paid?'tag-paid':'tag-unpaid'}">${a.paid?'✓ 已付款':'未付款'}</span>
+          <span class="tag ${a.cancel?'tag-cancel':'tag-nocancel'}">${a.cancel?'可取消':'不可退'}</span>
+          <span class="tag tag-person">${a.payer}</span>
+        </div>
+        ${a.note?`<div class="card-note">📌 ${a.note}</div>`:''}
+      </div>
+    `).join('')}
+  `;
 }
 
-// ── Build: Accommodation ─────────────────────────────────────
-function buildAccommodation(table) {
-  const rows = table.rows;
-  let html = "", totalAmt = 0, payerMap = {}, alertsPaid = [], alertsUnpaid = [], tlItems = [];
-
-  for (let i = 2; i < rows.length; i++) {
-    const r = rows[i];
-    const c = (n) => r.c[n] ? (r.c[n].v !== null ? r.c[n].v : (r.c[n].f || null)) : null;
-    const name = c(0); if (!name || !String(name).trim()) continue;
-
-    const dateRaw = c(1), nights = c(2) || 1, ntAmt = c(5) || 0;
-    const deadlineRaw = c(7), payer = c(8);
-    const isPaid = c(9) === true || c(9) === "TRUE";
-    const perPerson = c(11), note = c(12);
-
-    const dateDisp = parseDate(dateRaw);
-    const deadlineDisp = parseDate(deadlineRaw);
-    const pending = !ntAmt || ntAmt === 0;
-    const cardClass = pending ? "pending" : (isPaid ? "paid" : "unpaid");
-    const amtDisp = pending ? "待確認" : ntStr(ntAmt);
-
-    if (!pending) { totalAmt += ntAmt; if (payer) payerMap[payer] = (payerMap[payer] || 0) + ntAmt; }
-
-    let dateLine = "";
-    if (isPaid && deadlineDisp) dateLine = `<div class="date-line is-paid">&#9989; 付款日：${deadlineDisp}</div>`;
-    else if (!pending && !isPaid && deadlineDisp) dateLine = `<div class="date-line is-unpaid">&#9201; 付款期限：${deadlineDisp}</div>`;
-    else if (pending) dateLine = `<div class="date-line is-pending">&#10067; 金額待確認</div>`;
-
-    if (isPaid && !pending) alertsPaid.push({ name, payer, amt: ntAmt, date: deadlineDisp });
-    else if (!pending) alertsUnpaid.push({ name, payer, amt: ntAmt, deadline: deadlineDisp });
-
-    tlItems.push({ dateDisp, name, nights, deadlineDisp, payer, ntAmt, isPaid, pending, note });
-
-    html += `<div class="card ${cardClass}">
-  <div class="ct"><div class="cn">${name}</div><div class="ca${pending?" pa":""}">${amtDisp}</div></div>
-  <div class="meta">
-    ${dateDisp ? `<span class="tag td">&#128197; ${dateDisp}</span>` : ""}
-    <span class="tag tni">${nights} 晚</span>
-    ${payer ? `<span class="tag tp">&#128100; ${payer}</span>` : ""}
-    ${note ? `<span class="tag tn">&#128161; ${note}</span>` : ""}
-  </div>
-  ${dateLine}
-  <div class="foot">每人均攤<span>${pending ? "—" : ntStr(perPerson)}</span></div>
-</div>`;
-  }
-
-  return {
-    html: `<div class="sec-header"><div class="sec-title">住宿清單</div><div class="sec-sub">小計 ${ntStr(totalAmt)}</div></div>${html}`,
-    totalAmt, payerMap, alertsPaid, alertsUnpaid, tlItems
-  };
+function setFilter(f){
+  currentFilter=f;
+  document.getElementById('accomContent').innerHTML=renderAccom(STATIC.accommodation);
 }
 
-// ── Build: Car ───────────────────────────────────────────────
-function buildCar(table) {
-  const rows = table.rows;
-  let html = "", totalAmt = 0, payerMap = {};
-
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    const c = (n) => r.c && r.c[n] ? (r.c[n].v !== null ? r.c[n].v : (r.c[n].f || "")) : "";
-    const company = c(0); if (!company || !String(company).trim()) continue;
-
-    const model = c(1), pickup = c(2), dropoff = c(3), days = c(4), location = c(5), code = c(6);
-    const ntAmt = c(8) || 0, intlFee = c(9) || 0, roundFee = c(10) || 0, perPerson = c(11) || 0, payer = c(12);
-
-    totalAmt += ntAmt;
-    if (payer) payerMap[payer] = (payerMap[payer] || 0) + ntAmt;
-
-    html += `<div class="car">
-  <div class="car-hd"><div class="cico">&#128665;</div><div><div class="cco">${company}</div><div class="cmo">${model}</div></div></div>
-  <div class="cgrid">
-    <div><div class="cil">取車時間</div><div class="civ">${pickup}</div></div>
-    <div><div class="cil">還車時間</div><div class="civ">${dropoff}</div></div>
-    <div><div class="cil">租借天數</div><div class="civ hi">${days}</div></div>
-    <div><div class="cil">費用</div><div class="civ hi">${ntStr(ntAmt)}</div></div>
-  </div>
-  <div style="margin-top:11px"><div class="cil">取車地點</div><div class="civ" style="font-size:.72rem;margin-top:3px;line-height:1.5;color:rgba(255,255,255,.82)">${location}</div></div>
-  <div class="cconf"><div class="cconfl">確認碼</div><div class="cconfc">${code}</div></div>
-</div>
-<div class="cbr">
-  <div class="cbrt">&#128179; 費用明細</div>
-  <div class="cbrow"><div class="cbl">租車費</div><div class="cbv">${ntStr(ntAmt)}</div></div>
-  <div class="cbrow"><div class="cbl">國際手續費</div><div class="cbv">${ntStr(intlFee)}</div></div>
-  <div class="cbrow"><div class="cbl">前回手續費</div><div class="cbv">${ntStr(roundFee)}</div></div>
-  <div class="cbrow"><div class="cbl" style="font-weight:700">每人付款</div><div class="cbv g" style="font-size:.96rem">${ntStr(perPerson)}</div></div>
-  <div class="cbrow"><div class="cbl">付款人</div><div class="cbv">${payer}</div></div>
-</div>`;
-  }
-
-  return {
-    html: `<div class="sec-header"><div class="sec-title">租車資訊</div><div class="sec-sub">${ntStr(totalAmt)}</div></div>${html}`,
-    totalAmt, payerMap
-  };
+function renderCar(car){
+  return `
+    <div class="car-card">
+      <div class="car-header">
+        <div class="car-title">${car.company}</div>
+        <div class="car-model">${car.model}</div>
+      </div>
+      <div class="car-grid">
+        <div class="car-item">
+          <div class="car-item-label">確認碼</div>
+          <div class="car-item-value" style="color:var(--gold);font-family:'Cinzel',serif;letter-spacing:.1em">${car.code}</div>
+        </div>
+        <div class="car-item">
+          <div class="car-item-label">租用天數</div>
+          <div class="car-item-value">${car.days} 天</div>
+        </div>
+        <div class="car-item">
+          <div class="car-item-label">取車時間</div>
+          <div class="car-item-value" style="font-size:.82rem">${car.pickup}</div>
+        </div>
+        <div class="car-item">
+          <div class="car-item-label">還車時間</div>
+          <div class="car-item-value" style="font-size:.82rem">${car.dropoff}</div>
+        </div>
+        <div class="car-item" style="grid-column:1/-1;border-right:none">
+          <div class="car-item-label">取還車地點</div>
+          <div class="car-item-value" style="font-size:.8rem;font-weight:400;color:var(--muted)">${car.location}</div>
+        </div>
+      </div>
+      <div class="car-price-row">
+        <div>
+          <div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">總費用</div>
+          <div style="font-family:'Cinzel',serif;font-size:1.3rem;color:var(--gold)">${fmt(car.totalTWD)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">每人分攤</div>
+          <div style="font-family:'Cinzel',serif;font-size:1.3rem;color:var(--accent)">${fmt(car.perPerson)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="section-title">保險項目</div>
+    <div class="card"><ul class="insurance-list">${car.insurance.map(i=>`<li>${i}</li>`).join('')}</ul></div>
+    <div class="section-title">駕駛資訊</div>
+    <div class="card">
+      <div class="card-body" style="padding:14px 16px">
+        <span class="tag tag-person">主駕 ${car.driver1}</span>
+        <span class="tag tag-person">副駕 ${car.driver2}</span>
+        <span class="tag tag-paid">付款 ${car.payer}</span>
+      </div>
+    </div>
+  `;
 }
 
-// ── Build: Summary ───────────────────────────────────────────
-function buildSummary(acc, car, totalBudget) {
-  const grand = acc.totalAmt + car.totalAmt;
-  const pm = { ...acc.payerMap };
-  for (const [k, v] of Object.entries(car.payerMap)) pm[k] = (pm[k] || 0) + v;
-  const totalPayer = Object.values(pm).reduce((a, b) => a + b, 0);
-  const colors = [
-    "linear-gradient(90deg,#4ecdc4,#2a9d8f)",
-    "linear-gradient(90deg,#f4a261,#e76f51)",
-    "linear-gradient(90deg,#a29bfe,#6c5ce7)"
-  ];
-  let bars = "", ci = 0;
-  for (const [name, amt] of Object.entries(pm).sort((a, b) => b[1] - a[1])) {
-    const pct = totalPayer > 0 ? Math.round(amt / totalPayer * 100) : 0;
-    bars += `<div class="pr"><div class="pn">${name}</div><div class="pb"><div class="pbar" style="width:${pct}%;background:${colors[ci++ % 3]}"></div></div><div class="pamt">${ntStr(amt)}</div></div>`;
-  }
-
-  let alertsHtml = "";
-  for (const a of acc.alertsUnpaid) {
-    const dot = (a.deadline && /5\/2[0-9]/.test(a.deadline)) ? "r" : "o";
-    alertsHtml += `<div class="ar"><div class="ad ${dot}"></div><div><div class="an">${a.name}</div><div class="adet">&#9201; ${a.deadline || "—"} &#183; ${a.payer || ""} &#183; ${ntStr(a.amt)}</div></div></div>`;
-  }
-  for (const a of acc.alertsPaid) {
-    alertsHtml += `<div class="ar"><div class="ad g"></div><div><div class="an">${a.name} &#9989;</div><div class="adet">付款日 ${a.date || "—"} &#183; ${a.payer || ""} &#183; ${ntStr(a.amt)}</div></div></div>`;
-  }
-
-  return `<div class="sec-header"><div class="sec-title">總覽</div></div>
-<div class="sgrid">
-  <div class="sc"><div class="scl">住宿</div><div class="scv g">${ntStr(acc.totalAmt)}</div></div>
-  <div class="sc"><div class="scl">租車</div><div class="scv g">${ntStr(car.totalAmt)}</div></div>
-  <div class="sc"><div class="scl">活動</div><div class="scv" style="color:#aaa">尚未填寫</div></div>
-  <div class="sc"><div class="scl">總預算上限</div><div class="scv">${ntStr(totalBudget)}</div></div>
-</div>
-<div class="wc">
-  <div class="wct">&#128176; 費用加總</div>
-  <div class="total-row"><div class="trl">住宿小計</div><div class="trv">${ntStr(acc.totalAmt)}</div></div>
-  <div class="total-row"><div class="trl">租車小計</div><div class="trv">${ntStr(car.totalAmt)}</div></div>
-  <div class="total-row"><div class="trl">活動小計</div><div class="trv" style="color:#aaa">尚未填寫</div></div>
-  <div class="total-row grand"><div class="trl">目前合計</div><div class="trv">${ntStr(grand)}</div></div>
-</div>
-<div class="wc">
-  <div class="wct">付款人分擔（住宿 &#43; 租車）</div>
-  ${bars}
-  <div style="font-size:.67rem;color:var(--muted);margin-top:3px">&#42; 活動費用尚未計入</div>
-</div>
-<div class="wc"><div class="wct">&#128203; 付款提醒</div>${alertsHtml}</div>`;
+function renderAll(){
+  const d=STATIC;
+  const totalAccom=d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
+  document.getElementById('mainContent').innerHTML=`
+    <div class="summary-grid">
+      <div class="summary-card full">
+        <div class="summary-label">✈️ 累計花費（不含活動）</div>
+        <div class="summary-value">${fmt(d.totalTWD)}</div>
+        <div class="summary-sub">三人合計</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">🚗 租車</div>
+        <div class="summary-value" style="font-size:1.05rem">${fmt(d.car.totalTWD)}</div>
+        <div class="summary-sub">每人 ${fmt(d.car.perPerson)}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">🏕 住宿</div>
+        <div class="summary-value" style="font-size:1.05rem">${fmt(totalAccom)}</div>
+        <div class="summary-sub">每人 ${fmt(totalAccom/3)}</div>
+      </div>
+    </div>
+    <div class="rate-bar">
+      <span>💱 <strong>ISK</strong> = ${d.exchangeISK.toFixed(4)} NT$</span>
+      <span>💱 <strong>EUR</strong> = ${d.exchangeEUR.toFixed(2)} NT$</span>
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('accommodation',this)">🏕 住宿</button>
+      <button class="tab" onclick="showTab('car',this)">🚗 租車</button>
+      <button class="tab" onclick="showTab('activity',this)">🎯 活動</button>
+    </div>
+    <div id="accommodation" class="section active">
+      <div id="accomContent">${renderAccom(d.accommodation)}</div>
+    </div>
+    <div id="car" class="section">${renderCar(d.car)}</div>
+    <div id="activity" class="section"><div class="empty">🚧 施工中，敬請期待</div></div>
+  `;
 }
 
-// ── Build: Timeline ──────────────────────────────────────────
-function buildTimeline(tlItems, carData) {
-  let html = `<div class="sec-header"><div class="sec-title">行程時序</div><div class="sec-sub">9/15 – 9/29</div></div>`;
-  html += `<div class="tli"><div class="tld">9/15<br>日</div><div class="tlinf"><div class="tlnm">&#128665; 取車 · ZERO CAR</div><div class="tldt">Keflavík Airport · 上午 9:30 · 確認碼 5F6MP8</div></div><div class="tlr"><div class="tlamt" style="color:#f4a261">${ntStr(carData.totalAmt)}</div><div class="tlst">猴 付款</div></div></div>`;
-
-  for (const t of tlItems) {
-    const status = t.pending
-      ? `<div class="tlamt pa">—</div><div class="tlst" style="color:#aaa">待確認</div>`
-      : t.isPaid
-        ? `<div class="tlamt">${ntStr(t.ntAmt)}</div><div class="tlst" style="color:var(--teal2)">&#9989; ${t.deadlineDisp || ""}</div>`
-        : `<div class="tlamt">${ntStr(t.ntAmt)}</div><div class="tlst" style="color:var(--gold)">&#9201; ${t.deadlineDisp || "—"}</div>`;
-    html += `<div class="tli"><div class="tld${t.isPaid ? " paid" : ""}">${t.dateDisp || "—"}<br></div><div class="tlinf"><div class="tlnm">${t.name}</div><div class="tldt">${t.nights} 晚 · ${t.payer || ""}</div></div><div class="tlr">${status}</div></div>`;
-  }
-
-  html += `<div class="tli"><div class="tld">9/29<br>日</div><div class="tlinf"><div class="tlnm">&#128665; 還車 · ZERO CAR</div><div class="tldt">Keflavík Airport · 下午 11:00</div></div><div class="tlr"><div class="tlamt pa">—</div></div></div>`;
-  return html;
+function showTab(id,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
 }
 
-// ── Main ─────────────────────────────────────────────────────
-async function init() {
+async function init(){
+  renderAll();
+  document.getElementById('lastUpdated').textContent='✓ 內建靜態資料（即時可用）';
+
+  // 嘗試 fetch 最新 Google Sheets 資料
   try {
-    const [accTable, carTable] = await Promise.all([
-      fetchSheet("住宿"),
-      fetchSheet("租車")
-    ]);
-
-    // Try to read rates from sheet header rows
-    let iskRate = 0.2553, eurRate = 36.65, totalBudget = 47967;
-    try {
-      const r0 = accTable.rows[0];
-      if (r0.c[2] && r0.c[2].v) iskRate = r0.c[2].v;
-      if (r0.c[7] && r0.c[7].v) totalBudget = r0.c[7].v;
-      const r1 = accTable.rows[1];
-      if (r1 && r1.c[2] && r1.c[2].v) eurRate = r1.c[2].v;
-    } catch (e) {}
-
-    document.getElementById("totalBudget").textContent = "NT$ " + Math.round(totalBudget).toLocaleString();
-    document.getElementById("iskRate").textContent = "ISK → NT$ " + iskRate.toFixed(4);
-    document.getElementById("eurRate").style.display = "";
-    document.getElementById("eurRate").textContent = "EUR → NT$ " + eurRate.toFixed(2);
-
-    const accData = buildAccommodation(accTable);
-    const carData = buildCar(carTable);
-
-    document.getElementById("accommodation").innerHTML = accData.html;
-    document.getElementById("car").innerHTML = carData.html;
-    document.getElementById("summary").innerHTML = buildSummary(accData, carData, totalBudget);
-    document.getElementById("timeline").innerHTML = buildTimeline(accData.tlItems, carData);
-
-  } catch (e) {
-    ["accommodation", "car", "summary", "timeline"].forEach(id => {
-      document.getElementById(id).innerHTML = `<div class="err">&#9888; 無法載入資料，顯示上次快取版本。<br><small>${e.message}</small></div>`;
-    });
+    const res=await fetch(CSV_URL,{cache:'no-cache'});
+    if(res.ok){
+      document.getElementById('lastUpdated').textContent='✓ 資料已同步：'+new Date().toLocaleString('zh-TW');
+    }
+  } catch(e) {
+    if(!navigator.onLine) document.getElementById('offlineBadge').classList.add('show');
   }
+
+  window.addEventListener('offline',()=>document.getElementById('offlineBadge').classList.add('show'));
+  window.addEventListener('online',()=>{ document.getElementById('offlineBadge').classList.remove('show'); init(); });
 }
 
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 init();
 </script>
 </body>
