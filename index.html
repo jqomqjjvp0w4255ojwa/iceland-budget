@@ -653,8 +653,8 @@ async function init(){
     ids.forEach((id,i)=>{
       const el=document.getElementById(id);
       if(!el)return;
-      if(isOver){el.classList.add('dead');el.style.left=(25+i*10)+'%';}
-      else{el.classList.remove('dead');el.style.left=Math.min(pct*0.85+i*4,86)+'%';}
+      if(isOver){el.classList.add('dead');el.style.left=(25+i*12)+'%';}
+      else{el.classList.remove('dead');el.style.left=Math.min(pct*0.85+i*5,86)+'%';}
     });
 
     const msg=document.getElementById('pxMsg');
