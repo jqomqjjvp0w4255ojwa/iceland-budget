@@ -172,6 +172,23 @@
     .px-loc{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.75);border:2px solid #fff;font-family:'Silkscreen',monospace;font-size:8px;color:#fff;padding:2px 6px;z-index:20;}
     .px-weather{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.75);border:2px solid #ffcc00;font-family:'Silkscreen',monospace;font-size:8px;color:#ffcc00;padding:2px 6px;z-index:20;}
     .px-runner{position:absolute;bottom:27%;display:flex;flex-direction:column;align-items:center;gap:2px;transform:translateX(-50%);transition:left .8s steps(12);z-index:10;}
+    @media (max-width: 480px) {
+  #pxBgSvg {
+    width: 760px !important;
+    max-width: none;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .px-runner {
+    bottom: 31%;
+  }
+
+  #pxCarWrap {
+    bottom: 18% !important;
+  }
+}
     .px-runner-name{font-family:'Silkscreen',monospace;font-size:7px;color:#fff;background:rgba(0,0,0,.65);padding:1px 4px;border:1px solid #fff;white-space:nowrap;}
     .px-runner svg{transition:transform .4s steps(3);image-rendering:pixelated;}
     .px-runner.dead{bottom:20% !important;}
