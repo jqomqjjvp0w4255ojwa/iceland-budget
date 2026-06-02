@@ -140,7 +140,13 @@
     .progress-wrap{margin:14px 0 8px;}
     .progress-label{display:flex;justify-content:space-between;font-size:.73rem;color:var(--muted);margin-bottom:5px;}
     .progress-bar{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
-    .progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--aurora1));transition:width .8s ease;}
+    .progress-fill {
+  height: 100%;
+  /* 核心修改：設定從左到右（to right）的漸層顏色 */
+  background: linear-gradient(to right, #4caf50, #ffeb3b, #f44336);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
 
     /* ── Misc */
     .loading{text-align:center;padding:60px 20px;color:var(--muted);}
@@ -192,7 +198,7 @@
   <header>
     <div class="aurora-line"></div>
     <h1>🇮🇸 冰島預算清單</h1>
-    <div class="subtitle">Iceland · September 2024</div>
+    <div class="subtitle">Iceland · September 2026</div>
     <div class="sync-bar">
       <span class="sync-status" id="syncStatus">載入中…</span>
       <button class="sync-btn" id="syncBtn" onclick="manualSync()" title="點擊同步雲端資料">
@@ -291,10 +297,6 @@ function renderAccom(items){
     <div class="progress-wrap">
       <div class="progress-label"><span>已付款進度 ${pct}%</span><span>${fmt(paidTotal)} / ${fmt(total)}</span></div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-    </div>
-    <div class="total-bar">
-      <span class="total-bar-label">住宿合計（每人）</span>
-      <span class="total-bar-value">${fmtPer(total)}</span>
     </div>
     <div class="filter-row">
       <button class="filter-btn ${currentFilter==='all'?'active':''}" onclick="setFilter('all')">全部 ${items.length}</button>
