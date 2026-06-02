@@ -16,7 +16,7 @@
       --gold:#f0c040; --green:#4caf6e; --red:#e05555;
       --text:#e8f4fd; --muted:#7eb3d4;
       --aurora1:#00e5cc; --aurora2:#7c4dff; --aurora3:#ff6e40;
-    }有
+    }
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;min-height:100vh;overflow-x:hidden;}
     body::before{
@@ -221,7 +221,7 @@
           <span id="pxTimeIS">🇮🇸 --:--</span>
         </div>
 
-        <div id="pxCarEl" style="position:absolute;bottom:13%;left:2%;transform:translateX(-50%);z-index:9;image-rendering:pixelated;transition:left .8s steps(12);">
+        <div id="pxCarEl" style="position:absolute;bottom:18%;left:2%;transform:translateX(-50%);z-index:9;image-rendering:pixelated;transition:left .8s steps(12);">
           <svg id="pxCar" width="64" height="40" viewBox="0 0 32 20" style="image-rendering:pixelated;display:block;"></svg>
         </div>
         <div class="px-runner" id="pxHana" style="left:5%">
@@ -573,7 +573,7 @@ async function init(){
     };
     el.style.background=skies[type]||skies.sunny;
   }
-  function startParticles(type){
+  function startParticles(type, windSpeed){
     const canvas=document.getElementById('pxCanvas');
     if(!canvas)return;
     const ctx=canvas.getContext('2d');
@@ -591,6 +591,29 @@ async function init(){
       (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);sunP+=0.05;ctx.fillStyle=`rgba(255,220,100,${0.06+Math.sin(sunP)*0.02})`;ctx.beginPath();ctx.arc(canvas.width-50,25,35,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,220,100,0.85)';ctx.fillRect(canvas.width-58,22,14,7);requestAnimationFrame(draw);})();
     }else if(type==='fog'){
       (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);fogOff+=0.3;ctx.fillStyle='rgba(180,200,210,0.12)';[0,40,80].forEach(o=>{const x=(fogOff*0.5+o*3)%(canvas.width+100)-100;ctx.fillRect(x,50,200,30);ctx.fillRect(x+canvas.width/2,70,180,25);});requestAnimationFrame(draw);})();
+    }
+    // 雲：所有天氣都顯示，速度由風速決定（夜晚跳過，極光更好看）
+    if(type!=='night'){
+      const spd = Math.max((windSpeed||0)*0.18, 0.15); // 最慢 0.15，風速每 m/s 加 0.18
+      const clouds=[
+        {x:Math.random()*canvas.width, y:8,  w:44, h:10, thick:6},
+        {x:Math.random()*canvas.width, y:18, w:58, h:10, thick:6},
+        {x:Math.random()*canvas.width, y:12, w:32, h:7,  thick:4},
+        {x:Math.random()*canvas.width, y:24, w:28, h:7,  thick:4},
+        {x:Math.random()*canvas.width, y:6,  w:22, h:6,  thick:4},
+      ];
+      (function drawClouds(){
+        // 清掉整個天空上半部（地景以上）
+        ctx.clearRect(0, 0, canvas.width, 100);
+        clouds.forEach(c=>{
+          c.x=(c.x+spd);
+          if(c.x>canvas.width+c.w) c.x=-c.w-10;
+          ctx.fillStyle='rgba(255,255,255,0.28)';
+          ctx.fillRect(Math.round(c.x), c.y, c.w, c.h);
+          ctx.fillRect(Math.round(c.x)+4, c.y-c.thick, c.w-8, c.thick+2);
+        });
+        requestAnimationFrame(drawClouds);
+      })();
     }
   }
 
@@ -623,7 +646,7 @@ async function init(){
     // 車子跟在角色群前面（花的位置再往前一段）
     const carEl=document.getElementById('pxCarEl');
     if(carEl){
-      const carLeft = isOver ? 8 : Math.max(Math.min(pct*0.85-15, 74), 2);
+      const carLeft = isOver ? 8 : Math.max(Math.min(pct*0.85-12, 74), 2);
       carEl.style.left = carLeft+'%';
     }
 
@@ -675,10 +698,10 @@ async function init(){
       const wind=Math.round(data.current.windspeed_10m);
       _weatherCache = { loc, w, temp, wind };
       applyWeatherToDOM();
-      setSky(w.type);startParticles(w.type);
+      setSky(w.type);startParticles(w.type, wind);
     }catch(e){
       if(wEl)wEl.textContent='⚠ 天氣讀取失敗';
-      setSky('cloudy');startParticles('cloudy');
+      setSky('cloudy');startParticles('cloudy', 5);
     }
     // 時鐘每分鐘更新
     updateClocks();
