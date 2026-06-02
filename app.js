@@ -12,74 +12,101 @@
     const s = String(value ?? '').trim().toLowerCase();
     return ['true', 'yes', 'y', '1', '✓', '勾選', '已付', '已付款'].includes(s);
   }
+
+  // cells 格式 → [{欄位名: 值, ...}, ...] 的 rows 格式
+  function cellsToRows(sheet) {
+    const cells = sheet?.cells;
+    if (!Array.isArray(cells) || cells.length < 2) return [];
+    const headers = cells[0].map(h => String(h ?? '').trim());
+    return cells.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h, i) => { if (h) obj[h] = row[i] ?? ''; });
+      return obj;
+    });
+  }
+
   function pick(row, keys, fallback = '') {
     for (const key of keys) if (row && row[key] !== undefined && row[key] !== '') return row[key];
     return fallback;
   }
-  function rowsOf(sheet) { return Array.isArray(sheet?.rows) ? sheet.rows : []; }
-  function firstDataRow(sheet) {
-    return rowsOf(sheet).find(row => Object.values(row).some(v => String(v ?? '').trim() !== '')) || {};
-  }
-  function findOverviewValue(rows, keywords, fallback) {
-    for (const row of rows) {
-      const values = Object.values(row);
-      if (keywords.some(k => values.join(' ').includes(k))) {
-        const found = values.find(v => num(v) !== 0);
-        if (found !== undefined) return num(found);
-      }
-    }
-    return fallback;
-  }
+
   function transformData({ overview, accommodation, car, activity }) {
-    const overviewRows = rowsOf(overview);
-    const carRow = firstDataRow(car);
-    const accom = rowsOf(accommodation)
+    const overviewRows = cellsToRows(overview);
+    const carRows = cellsToRows(car);
+    const carRow = carRows.find(row => Object.values(row).some(v => String(v ?? '').trim() !== '')) || {};
+
+    // 總覽：ISK/EUR 匯率從 cells 直接讀
+    // cells[0] = ["花費累計:","","NT$47,948","","今日匯率：","ISK","0.25503"]
+    // cells[1] = ["","","","","","EUR","36.6213"]
+    const oCells = overview?.cells ?? [];
+    const iskRow = oCells.find(r => r.includes('ISK')) || [];
+    const eurRow = oCells.find(r => r.includes('EUR')) || [];
+    const iskIdx = iskRow.indexOf('ISK');
+    const eurIdx = eurRow.indexOf('EUR');
+    const exchangeISK = iskIdx >= 0 ? num(iskRow[iskIdx + 1]) : (window.STATIC?.exchangeISK ?? 0);
+    const exchangeEUR = eurIdx >= 0 ? num(eurRow[eurIdx + 1]) : (window.STATIC?.exchangeEUR ?? 0);
+
+    // 住宿
+    const accomRows = cellsToRows(accommodation);
+    const accom = accomRows
       .filter(row => Object.values(row).some(v => String(v ?? '').trim() !== ''))
       .map(row => ({
-        name: pick(row, ['住宿地點', '住宿名稱', '名稱', 'name']),
-        date: pick(row, ['日期', '入住日期', 'date']),
-        nights: num(pick(row, ['天數', '晚數', 'nights'], 1)) || 1,
-        cur: pick(row, ['幣別', 'currency', 'cur'], 'NT'),
-        orig: num(pick(row, ['原價', '金額', '原幣金額', 'price', 'orig'])),
-        twd: num(pick(row, ['換算台幣', '台幣', 'TWD', 'twd', 'NTD'])),
-        paid: yes(pick(row, ['已付款', '付款', 'paid'])),
-        cancel: yes(pick(row, ['可取消', 'cancel'])),
-        payer: pick(row, ['付款人', 'payer'], ''),
-        payDate: pick(row, ['付款日', '付款日期', 'payDate'], ''),
-        deductDate: pick(row, ['扣款日', '扣款日期', 'deductDate'], ''),
-        foreignFee: num(pick(row, ['海外手續費', '手續費', 'foreignFee'])),
-        note: pick(row, ['備註', 'note'], ''),
+        name:        pick(row, ['住宿地點', '住宿名稱', '名稱', 'name']),
+        date:        pick(row, ['日期', '入住日期', 'date']),
+        nights:      num(pick(row, ['天數', '晚數', 'nights'], 1)) || 1,
+        cur:         pick(row, ['幣別', 'currency', 'cur'], 'NT'),
+        orig:        num(pick(row, ['原價', '金額', '原幣金額', 'price', 'orig'])),
+        twd:         num(pick(row, ['換算台幣', '台幣', 'TWD', 'twd', 'NTD'])),
+        paid:        yes(pick(row, ['已付款', '付款', 'paid'])),
+        cancel:      yes(pick(row, ['可取消', 'cancel'])),
+        payer:       pick(row, ['付款人', 'payer'], ''),
+        payDate:     pick(row, ['付款日', '付款日期', 'payDate'], ''),
+        deductDate:  pick(row, ['扣款日', '扣款日期', 'deductDate'], ''),
+        foreignFee:  num(pick(row, ['海外手續費', '手續費', 'foreignFee'])),
+        note:        pick(row, ['備註', 'note'], ''),
       }))
       .filter(item => item.name || item.date || item.twd);
+
+    // 租車：欄位名稱對應你的 Sheet 標題列
+    const carData = {
+      company:   pick(carRow, ['租車公司', '公司', 'company'],      window.STATIC?.car?.company ?? ''),
+      model:     pick(carRow, ['車種', '車款', 'model'],            window.STATIC?.car?.model ?? ''),
+      code:      pick(carRow, ['確認碼', '訂單編號', 'code'],        window.STATIC?.car?.code ?? ''),
+      pickup:    pick(carRow, ['取車時間', 'pickup'],               window.STATIC?.car?.pickup ?? ''),
+      dropoff:   pick(carRow, ['換車時間', '還車時間', 'dropoff'],   window.STATIC?.car?.dropoff ?? ''),
+      days:      num(pick(carRow, ['天數', 'days'], 0))             || window.STATIC?.car?.days || 0,
+      location:  pick(carRow, ['取車地點', '取還車地點', 'location'], window.STATIC?.car?.location ?? ''),
+      totalTWD:  num(pick(carRow, ['台幣', '總額', 'totalTWD']))    || window.STATIC?.car?.totalTWD || 0,
+      perPerson: num(pick(carRow, ['每人付款', '每人', 'perPerson']))|| window.STATIC?.car?.perPerson || 0,
+      driver1:   pick(carRow, ['主駕', 'driver1'],                  window.STATIC?.car?.driver1 ?? ''),
+      driver2:   pick(carRow, ['副駕', 'driver2'],                  window.STATIC?.car?.driver2 ?? ''),
+      payer:     pick(carRow, ['付款人', 'payer'],                  window.STATIC?.car?.payer ?? ''),
+      insurance: window.STATIC?.car?.insurance ?? [],
+    };
+
+    // 租車駕駛／保險從 cells 底部備註列讀取
+    const carCells = car?.cells ?? [];
+    const driver1Row = carCells.find(r => String(r[0] ?? '').includes('主要駕駛'));
+    const driver2Row = carCells.find(r => String(r[0] ?? '').includes('額外駕駛'));
+    if (driver1Row) carData.driver1 = String(driver1Row[0]).replace('主要駕駛:', '').trim();
+    if (driver2Row) carData.driver2 = String(driver2Row[0]).replace('額外駕駛:', '').trim();
+
     return {
-      exchangeISK: findOverviewValue(overviewRows, ['ISK', 'ISK匯率'], window.STATIC?.exchangeISK ?? 0),
-      exchangeEUR: findOverviewValue(overviewRows, ['EUR', 'EUR匯率'], window.STATIC?.exchangeEUR ?? 0),
-      totalTWD: findOverviewValue(overviewRows, ['花費累計', '累計花費', '總額'], window.STATIC?.totalTWD ?? 0),
-      car: {
-        company: pick(carRow, ['租車公司', '公司', 'company'], window.STATIC?.car?.company ?? ''),
-        model: pick(carRow, ['車種', '車款', 'model'], window.STATIC?.car?.model ?? ''),
-        code: pick(carRow, ['確認碼', '訂單編號', 'code'], window.STATIC?.car?.code ?? ''),
-        pickup: pick(carRow, ['取車時間', 'pickup'], window.STATIC?.car?.pickup ?? ''),
-        dropoff: pick(carRow, ['還車時間', 'dropoff'], window.STATIC?.car?.dropoff ?? ''),
-        days: num(pick(carRow, ['天數', 'days'], window.STATIC?.car?.days ?? 0)) || window.STATIC?.car?.days || 0,
-        location: pick(carRow, ['地點', '取還車地點', 'location'], window.STATIC?.car?.location ?? ''),
-        totalTWD: num(pick(carRow, ['台幣', '總額', 'totalTWD', 'TWD'])) || window.STATIC?.car?.totalTWD || 0,
-        perPerson: num(pick(carRow, ['每人付款', '每人', 'perPerson'])) || window.STATIC?.car?.perPerson || 0,
-        driver1: pick(carRow, ['主駕', 'driver1'], window.STATIC?.car?.driver1 ?? ''),
-        driver2: pick(carRow, ['副駕', 'driver2'], window.STATIC?.car?.driver2 ?? ''),
-        payer: pick(carRow, ['付款人', 'payer'], window.STATIC?.car?.payer ?? ''),
-        insurance: window.STATIC?.car?.insurance ?? [],
-      },
+      exchangeISK,
+      exchangeEUR,
+      car: carData,
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
-      activity: rowsOf(activity),
+      activity: cellsToRows(activity),
     };
   }
+
   async function fetchSheet(sheetKey) {
     const sheetName = SHEET_MAP[sheetKey] || sheetKey;
     const res = await fetch(API_BASE + '?sheet=' + encodeURIComponent(sheetName), { cache: 'no-store', redirect: 'follow' });
     if (!res.ok) throw new Error(`${sheetKey} 讀取失敗：HTTP ${res.status}`);
     return res.json();
   }
+
   window.__syncIcelandBudgetFromSheets = async function () {
     if (!navigator.onLine) { window.setSyncState?.('offline', '離線中，使用本地資料'); return; }
     window.setSyncState?.('syncing', '同步中…');
