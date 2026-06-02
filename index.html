@@ -187,6 +187,7 @@ function renderAccom(items){
   const total=items.reduce((s,a)=>s+(a.twd||0),0);
   const paidTotal=items.filter(a=>a.paid).reduce((s,a)=>s+(a.twd||0),0);
   const pct=total?Math.round(paidTotal/total*100):0;
+
   return `
     <div class="progress-wrap">
       <div class="progress-label"><span>已付款進度 ${pct}%</span><span>${fmt(paidTotal)} / ${fmt(total)}</span></div>
@@ -201,27 +202,50 @@ function renderAccom(items){
       <button class="filter-btn ${currentFilter==='paid'?'active':''}" onclick="setFilter('paid')">✓ 已付款 ${items.filter(a=>a.paid).length}</button>
       <button class="filter-btn ${currentFilter==='unpaid'?'active':''}" onclick="setFilter('unpaid')">未付款 ${items.filter(a=>!a.paid).length}</button>
     </div>
-    ${show.map(a=>`
+    ${show.map(a=>{
+      // --- 自動判斷住宿類型符號 ---
+      let typeIcon = '🏨'; // 預設一般旅館
+      const name = a.name || '';
+      if (name.includes('Camping') || name.includes('Þakgil') || name.includes('Campsite') || name.includes('營') || name.includes('Tjald')) {
+          typeIcon = '🏕️';
+      } else if (name.includes('Apartment') || name.includes('Cottage') || name.includes('House') || name.includes('house') || name.includes('屋')) {
+          typeIcon = '🏡';
+      } else if (name.includes('Hostel')) {
+          typeIcon = '🎒';
+      }
+
+      return `
       <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">${a.name}</div>
-            <div class="card-subtitle">${a.date} · ${a.nights}晚</div>
+        <div style="padding: 14px 16px 8px;">
+          <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent); margin-bottom: 6px;">
+            📅 ${a.date} <span style="font-size: 0.75rem; font-weight: normal; color: var(--muted);">· ${a.nights}晚</span>
           </div>
-          <div class="card-price">
-            <div class="price-nt">${a.twd?fmt(a.twd):'—'}</div>
-            ${a.orig?`<div class="price-orig">${fmtOrig(a.orig,a.cur)}</div>`:''}
-            ${a.twd?`<div class="price-per">每人 ${fmt(a.twd/3)}</div>`:''}
+          <div style="font-size: 0.95rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; line-height: 1.3;">
+            <span style="font-size: 1.25rem;">${typeIcon}</span>
+            <span>${a.name}</span>
           </div>
         </div>
-        <div class="card-body">
+
+        <div style="margin: 4px 16px 12px; background: rgba(79,195,247,0.06); border: 1px solid rgba(79,195,247,0.15); border-radius: 8px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.75rem; color: var(--muted); letter-spacing: 0.05em;">每人預估負擔</span>
+          <span style="font-family: 'Cinzel', serif; font-size: 1.4rem; color: var(--gold); font-weight: 600;">
+            ${a.twd ? fmt(a.twd/3) : '—'}
+          </span>
+        </div>
+
+        <div style="padding: 0 16px 12px; display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted);">
+          <div>三人總計: <span style="color: #ccc;">${a.twd ? fmt(a.twd) : '—'}</span></div>
+          <div>${a.orig ? `外幣原價: <span style="color: #ccc;">${fmtOrig(a.orig,a.cur)}</span>` : ''}</div>
+        </div>
+
+        <div class="card-body" style="padding-top: 0;">
           <span class="tag ${a.paid?'tag-paid':'tag-unpaid'}">${a.paid?'✓ 已付款':'未付款'}</span>
           <span class="tag ${a.cancel?'tag-cancel':'tag-nocancel'}">${a.cancel?'可取消':'不可退'}</span>
           <span class="tag tag-person">${a.payer}</span>
         </div>
         ${a.note?`<div class="card-note">📌 ${a.note}</div>`:''}
       </div>
-    `).join('')}
+    `}).join('')}
   `;
 }
 
