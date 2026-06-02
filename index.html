@@ -302,7 +302,7 @@ let dataSource='local'; // 'local'|'cloud'|'syncing'|'offline'
 
 // ── 格式化
 function fmt(n){if(!n||isNaN(n))return'—';return'NT$ '+Math.round(n).toLocaleString('zh-TW');}
-function fmtPer(n){if(!n||isNaN(n))return'—';return'NT$ '+Math.round(n/3).toLocaleString('zh-TW')+'/人';}
+function fmtPer(n){if(!n||isNaN(n))return'—';return'NT$ '+Math.round(n/3).toLocaleString('zh-TW')+'<span style="font-size:.6em;color:var(--muted)">/人</span>';}
 function fmtOrig(n,cur){
   if(!n||isNaN(n))return'';
   const sym={'ISK':'ISK ','EUR':'€','EU':'€','NT':'NT$'}[(cur||'').replace(/\./g,'').toUpperCase()]||(cur+' ');
@@ -366,7 +366,8 @@ function renderAccom(items){
           </div>
           <div class="card-price">
             ${a.twd ? `
-              <div class="price-per">${fmtPer(a.twd)}<span style="font-size:.6rem;color:var(--muted);font-family:'Lato',sans-serif;margin-left:2px;">/人</span></div>
+              <div class="price-per-label">&nbsp;</div>
+              <div class="price-per">${fmtPer(a.twd)}</div>
               <div class="price-total">${fmt(a.twd)} 合計</div>
               ${a.orig && a.cur !== 'NT' ? `<div class="price-orig">${fmtOrig(a.orig,a.cur)}</div>` : ''}
             ` : `<div class="price-per" style="color:var(--muted);font-size:.85rem">現場付</div>`}
@@ -459,13 +460,20 @@ function renderAll(){
       </div>
       <div class="summary-card">
         <div class="summary-label">🚗 租車</div>
-        <div class="summary-value" style="font-size:1rem">${fmt(d.car.perPerson)}/人</div>
+        <div class="summary-label-sub">&nbsp;</div>
+        <div class="summary-value" style="font-size:1rem">${'NT$ '+d.car.perPerson.toLocaleString('zh-TW')+'<span style="font-size:.6em;color:var(--muted)">/人</span>'}</div>
         <div class="summary-sub">合計 ${fmt(d.car.totalTWD)}</div>
       </div>
       <div class="summary-card">
         <div class="summary-label">🏕 住宿</div>
+        <div class="summary-label-sub">&nbsp;</div>
         <div class="summary-value" style="font-size:1rem">${fmtPer(totalAccom)}</div>
         <div class="summary-sub">合計 ${fmt(totalAccom)}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">🎯 活動</div>
+        <div class="summary-label-sub">&nbsp;</div>
+        ${totalActivity ? `<div class="summary-value" style="font-size:1rem">${fmtPer(totalActivity)}</div><div class="summary-sub">合計 ${fmt(totalActivity)}</div>` : '<div class="summary-value" style="font-size:.85rem;color:var(--muted)">待新增</div><div class="summary-sub">—</div>'}
       </div>
     </div>
     <div class="rate-bar">
