@@ -1,5 +1,6 @@
 // 每次你修改了 index.html 內容，請順便把這個 v1 改成 v2、v3... 以此類推
-const CACHE_NAME = 'iceland-budget-v5';
+const CACHE_NAME = 'iceland-budget-v6
+';
 
 const ASSETS = [
   '/',
