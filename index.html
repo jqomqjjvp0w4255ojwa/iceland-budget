@@ -163,32 +163,15 @@
     .filter-btn.active{background:var(--aurora2);border-color:var(--aurora2);color:white;}
 
     /* ── Pixel Weather Scene */
-    .px-scene-wrap{margin-bottom:14px;border-radius:12px;overflow:hidden;border:1px solid var(--border);}
-    .px-scene{position:relative;width:100%;height:150px;overflow:hidden;border-bottom:3px solid #000;image-rendering:pixelated;}
+    .px-scene-wrap{margin-bottom:14px;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:transparent;}
+    .px-scene{position:relative;width:100%;height:175px;overflow:hidden;border-bottom:3px solid #000;image-rendering:pixelated;background:#a8dff0;}
     .px-ground{position:absolute;bottom:0;left:0;right:0;height:44%;background:repeating-linear-gradient(90deg,#3a6a4a 0 16px,#2a5a3a 16px 32px);}
     .px-path{position:absolute;bottom:0;left:5%;right:5%;height:28%;background:repeating-linear-gradient(90deg,#8a7a5a 0 14px,#7a6a4a 14px 28px);}
     .px-mtn{position:absolute;bottom:44%;width:0;height:0;}
     .px-particles{position:absolute;inset:0;pointer-events:none;}
     .px-loc{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.75);border:2px solid #fff;font-family:'Silkscreen',monospace;font-size:8px;color:#fff;padding:2px 6px;z-index:20;}
     .px-weather{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.75);border:2px solid #ffcc00;font-family:'Silkscreen',monospace;font-size:8px;color:#ffcc00;padding:2px 6px;z-index:20;}
-    .px-runner{position:absolute;bottom:27%;display:flex;flex-direction:column;align-items:center;gap:2px;transform:translateX(-50%);transition:left .8s steps(12);z-index:10;}
-    @media (max-width: 480px) {
-  #pxBgSvg {
-    width: 760px !important;
-    max-width: none;
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-  }
-
-  .px-runner {
-    bottom: 31%;
-  }
-
-  #pxCarWrap {
-    bottom: 18% !important;
-  }
-}
+    .px-runner{position:absolute;bottom:20%;display:flex;flex-direction:column;align-items:center;gap:2px;transform:translateX(-50%);transition:left .8s steps(12);z-index:10;}
     .px-runner-name{font-family:'Silkscreen',monospace;font-size:7px;color:#fff;background:rgba(0,0,0,.65);padding:1px 4px;border:1px solid #fff;white-space:nowrap;}
     .px-runner svg{transition:transform .4s steps(3);image-rendering:pixelated;}
     .px-runner.dead{bottom:20% !important;}
@@ -226,7 +209,7 @@
   </header>
   <div class="px-scene-wrap">
       <div class="px-scene" id="pxScene">
-        <canvas class="px-particles" id="pxCanvas" width="680" height="150" style="z-index:1"></canvas>
+        <canvas class="px-particles" id="pxCanvas" width="680" height="175" style="z-index:1"></canvas>
         <svg id="pxBgSvg" width="100%" viewBox="0 0 680 150" style="position:absolute;inset:0;z-index:2;image-rendering:pixelated" xmlns="http://www.w3.org/2000/svg"></svg>
         <div class="px-loc" id="pxLoc">📍 讀取中...</div>
         <div id="pxWeatherWind" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.75);border:2px solid #ffcc00;font-family:'Silkscreen',monospace;font-size:8px;color:#ffcc00;padding:3px 7px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
@@ -237,12 +220,8 @@
           <span id="pxTimeTW">🇹🇼 --:--</span>
           <span id="pxTimeIS">🇮🇸 --:--</span>
         </div>
-      <div id="pxCarWrap"
-     style="position:absolute;
-            bottom:5;
-            left:2%;
-            z-index:8;
-            image-rendering:pixelated;">
+        <div id="pxCarWrap" style="position:absolute;bottom:20%;left:2%;z-index:8;image-rendering:pixelated;transform:translateY(100%);">
+          <svg id="pxCar" width="64" height="40" viewBox="0 0 32 20" style="image-rendering:pixelated;display:block;"></svg>
         </div>
         <div class="px-runner" id="pxHana" style="left:5%">
           <svg id="svgHana" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
@@ -385,10 +364,9 @@ function renderAccom(items){
           </div>
           <div class="card-price">
             ${a.twd ? `
-              <div class="price-per-label">每人</div>
-              <div class="price-per">${fmtPer(a.twd)}</div>
+              <div class="price-per">${fmtPer(a.twd)}<span style="font-size:.6rem;color:var(--muted);font-family:'Lato',sans-serif;margin-left:2px;">/人</span></div>
               <div class="price-total">${fmt(a.twd)} 合計</div>
-              ${a.orig ? `<div class="price-orig">${fmtOrig(a.orig,a.cur)}</div>` : ''}
+              ${a.orig && a.cur !== 'NT' ? `<div class="price-orig">${fmtOrig(a.orig,a.cur)}</div>` : ''}
             ` : `<div class="price-per" style="color:var(--muted);font-size:.85rem">現場付</div>`}
           </div>
         </div>
@@ -586,24 +564,19 @@ async function init(){
   function setSky(type){
     const el=document.getElementById('pxScene');
     if(!el)return;
-    const m={
-      sunny:'linear-gradient(180deg,#1a6fa8 0%,#3a9fd4 40%,#7bbdd4 55%,#4a7a5a 55%,#2a5a3a 100%)',
-      night:'linear-gradient(180deg,#050d1a 0%,#0a1a2e 40%,#0d2040 55%,#2a3a2a 55%,#1a2a1a 100%)',
-      cloudy:'linear-gradient(180deg,#4a6070 0%,#6a8090 40%,#8aaaba 55%,#4a6a4a 55%,#2a4a2a 100%)',
-      overcast:'linear-gradient(180deg,#3a3f48 0%,#555e6a 40%,#707880 55%,#3a4a3a 55%,#2a3a2a 100%)',
-      fog:'linear-gradient(180deg,#8090a0 0%,#a0b0c0 40%,#c0d0d8 55%,#6a7a6a 55%,#4a5a4a 100%)',
-      rain:'linear-gradient(180deg,#2a3540 0%,#3a4a58 40%,#506070 55%,#3a4a3a 55%,#2a3a2a 100%)',
-      drizzle:'linear-gradient(180deg,#3a4a58 0%,#4a5a68 40%,#607080 55%,#3a4a3a 55%,#2a3a2a 100%)',
-      snow:'linear-gradient(180deg,#6070a0 0%,#8090b8 40%,#a0b0d0 55%,#8090a0 55%,#6a7a8a 100%)',
-      thunder:'linear-gradient(180deg,#1a1a28 0%,#2a2a40 40%,#404050 55%,#2a3020 55%,#1a2018 100%)',
+    // 天空背景色（SVG 天空已移除，改用純色背景配合天氣）
+    const skies={
+      sunny:'#a8dff0', night:'#050d1a', cloudy:'#7a9aaa',
+      overcast:'#606878', fog:'#a0b8c0', rain:'#4a5a68',
+      drizzle:'#5a6a78', snow:'#8090b8', thunder:'#2a2a40',
     };
-    el.style.background=m[type]||m.cloudy;
+    el.style.background=skies[type]||skies.sunny;
   }
   function startParticles(type){
     const canvas=document.getElementById('pxCanvas');
     if(!canvas)return;
     const ctx=canvas.getContext('2d');
-    canvas.width=canvas.offsetWidth||680;canvas.height=140;
+    canvas.width=canvas.offsetWidth||680;canvas.height=175;
     let pts=[],aOff=0,sunP=0,fogOff=0;
     if(type==='rain'||type==='drizzle'||type==='thunder'){
       for(let i=0;i<50;i++) pts.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,speed:type==='drizzle'?2:4,len:type==='drizzle'?6:12});
