@@ -623,7 +623,7 @@ async function init(){
     // 車子跟在角色群前面（花的位置再往前一段）
     const carEl=document.getElementById('pxCarEl');
     if(carEl){
-      const carLeft = isOver ? 8 : Math.max(Math.min(pct*0.85-20, 74), 2);
+      const carLeft = isOver ? 8 : Math.max(Math.min(pct*0.85-15, 74), 2);
       carEl.style.left = carLeft+'%';
     }
 
