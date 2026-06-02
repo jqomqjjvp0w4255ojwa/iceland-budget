@@ -380,12 +380,14 @@ function renderCar(car){
 function renderAll(){
   const d=window.APP_DATA || window.STATIC;
   const totalAccom=d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
+  const totalActivity=(d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
+  const grandTotal=(d.car.totalTWD||0)+totalAccom+totalActivity;
   document.getElementById('mainContent').innerHTML=`
     <div class="summary-grid">
       <div class="summary-card full">
-        <div class="summary-label">✈️ 累計花費（不含活動）</div>
-        <div class="summary-value">${fmt(d.totalTWD)}</div>
-        <div class="summary-sub">三人合計</div>
+        <div class="summary-label">✈️ 累計花費</div>
+        <div class="summary-value">${fmt(grandTotal/3)}</div>
+        <div class="summary-sub">合計 ${fmt(grandTotal)}</div>
       </div>
       <div class="summary-card">
         <div class="summary-label">🚗 租車</div>
