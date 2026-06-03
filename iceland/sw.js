@@ -1,8 +1,12 @@
-// 每次你修改了 index.html 內容，請順便把這個 v1 改成 v2、v3... 以此類推
-const CACHE_NAME = 'iceland-budget-v12.6';
+// 每次你修改了 index.html 內容，請順便把這個版本號往上加
+const CACHE_NAME = 'iceland-budget-v11';
 
-const ASSETS = ['/iceland/', '/iceland/index.html', '/iceland/manifest.json', '/iceland/app.js', '/iceland/sprites.js'
-  
+const ASSETS = [
+  '/iceland-budget/iceland/',
+  '/iceland-budget/iceland/index.html',
+  '/iceland-budget/iceland/manifest.json',
+  '/iceland-budget/iceland/app.js',
+  '/iceland-budget/iceland/sprites.js'
 ];
 
 // 安裝時強制跳過等待
@@ -30,7 +34,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 網路請求攔截（維持你原本的離線瀏覽功能）
+// 網路請求攔截（維持離線瀏覽功能）
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
