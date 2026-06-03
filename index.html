@@ -161,6 +161,8 @@
     .filter-row{display:flex;gap:6px;margin-bottom:11px;flex-wrap:wrap;}
     .filter-btn{font-size:.7rem;padding:4px 11px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;transition:all .2s;}
     .filter-btn.active{background:var(--aurora2);border-color:var(--aurora2);color:white;}
+    .countdown-bar{background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--border);border-radius:11px;padding:10px 16px;text-align:center;font-size:.85rem;color:var(--accent);margin-bottom:10px;letter-spacing:.05em;}
+    .countdown-bar strong{font-size:1.2em;color:var(--gold);}
 
     /* ── Pixel Weather Scene */
     .px-scene-wrap{margin-bottom:14px;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:transparent;}
@@ -221,6 +223,7 @@
           <span id="pxTimeTW">🇹🇼 --:--</span>
           <span id="pxTimeIS">🇮🇸 --:--</span>
         </div>
+        <div id="pxCountdown" style="position:absolute;top:25%;left:0;right:0;text-align:center;font-family:'Silkscreen',monospace;font-size:10px;color:#fff;z-index:20;text-shadow:1px 1px 0 #000,0 0 8px rgba(255,255,255,0.5);pointer-events:none;line-height:2;"></div>
 
         <div id="pxCarEl" style="position:absolute;bottom:14%;left:2%;transform:translateX(-50%);z-index:9;image-rendering:pixelated;transition:left .8s steps(12);">
           <svg id="pxCar" width="64" height="40" viewBox="0 0 32 20" style="image-rendering:pixelated;display:block;"></svg>
@@ -294,7 +297,8 @@ window.STATIC = {
     {name:'Miðjanes Reykhólahrepp 米歐傑恩瑞科拉',date:'9/25', nights:1,cur:'EUR',orig:121.06,twd:4416.38, paid:false,cancel:true, payer:'猴🙉',payDate:null,  deductDate:'9/25',foreignFee:null,note:''},
     {name:'Between sea and big mountains',    date:'9/26',     nights:1,cur:'EUR',orig:160,   twd:5836.95,  paid:false,cancel:true, payer:'寧',  payDate:null,  deductDate:'9/26',foreignFee:null,note:''},
     {name:'Icelandic Apartments by Heimaleiga',date:'9/27–9/28',nights:2,cur:'EUR',orig:351,  twd:12804.81, paid:false,cancel:true, payer:'猴🙉',payDate:null,  deductDate:'9/27',foreignFee:null,note:''},
-  ]
+  ],
+  activity: [],
 };
 window.APP_DATA = JSON.parse(JSON.stringify(window.STATIC));
 let currentFilter='all';
@@ -467,8 +471,47 @@ function renderAll(){
   const totalAccom=d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
   const totalActivity=(d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
   const grandTotal=(d.car.totalTWD||0)+totalAccom+totalActivity;
+
+  // ── 負債試算（誰付了多少 vs 應付）
+  const MEMBERS = ['花','猴','寧'];
+  const paid = {'花':0,'猴':0,'寧':0};
+  // 住宿付款
+  d.accommodation.forEach(a=>{
+    if(!a.payer||!a.twd) return;
+    for(const m of MEMBERS){ if(a.payer.includes(m)){ paid[m]+=a.twd; break; } }
+  });
+  // 租車付款
+  if(d.car.totalTWD && d.car.payer){
+    for(const m of MEMBERS){ if(d.car.payer.includes(m)){ paid[m]+=d.car.totalTWD; break; } }
+  }
+  const shouldPay = grandTotal/3;
+  const debt = {};
+  MEMBERS.forEach(m=>{ debt[m]=Math.round(paid[m]-shouldPay); });
+
+  // ── 倒數計時
+  const DEPART = new Date('2026-09-14T00:00:00+08:00');
+  const ARRIVE = new Date('2026-09-15T00:00:00+00:00');
+  const RETURN_NING = new Date('2026-09-28T14:00:00+00:00');  // 寧回程班機（冰島時間，請自行填入）
+  const RETURN_ALL  = new Date('2026-09-29T00:00:00+00:00');   // 花猴回程（冰島時間，請自行填入）
+  const now = new Date();
+  let countdownHtml = '';
+  if(now < DEPART){
+    const days = Math.ceil((DEPART-now)/86400000);
+    countdownHtml = `<div class="countdown-bar">✈️ 距離出發還有 <strong>${days}</strong> 天</div>`;
+  } else if(now < ARRIVE){
+    countdownHtml = `<div class="countdown-bar">🛫 飛往冰島中！</div>`;
+  } else if(now < RETURN_NING){
+    const day = Math.floor((now-ARRIVE)/86400000)+1;
+    countdownHtml = `<div class="countdown-bar">🇮🇸 冰島旅行第 <strong>${day}</strong> 天</div>`;
+  } else if(now < RETURN_ALL){
+    countdownHtml = `<div class="countdown-bar">🐱 寧已踏上歸途！花猴明天見～</div>`;
+  } else {
+    countdownHtml = `<div class="countdown-bar">🎉 旅行結束！回到台灣了！</div>`;
+  }
+
+  // ── 角色站位依付款金額排序
+  const memberOrder = [...MEMBERS].sort((a,b)=>paid[b]-paid[a]);
   document.getElementById('mainContent').innerHTML=`
-        </div>
     <div class="summary-grid">
       <div class="summary-card full">
         <div class="summary-label">✈️ 累計花費</div>
@@ -693,9 +736,20 @@ async function init(){
     const spentEl=document.getElementById('pxSpent');
     if(spentEl)spentEl.textContent='NT$ '+perPerson.toLocaleString('zh-TW');
 
-    const ids=['pxHana','pxMonkey','pxNing'];
-    ids.forEach((id,i)=>{
-      const el=document.getElementById(id);
+    // 付款多的站前面
+    const d2=window.APP_DATA||window.STATIC;
+    const paid2={'花':0,'猴':0,'寧':0};
+    (d2.accommodation||[]).forEach(a=>{
+      if(!a.payer||!a.twd)return;
+      for(const m of ['花','猴','寧']){if(a.payer.includes(m)){paid2[m]+=a.twd;break;}}
+    });
+    if(d2.car&&d2.car.totalTWD&&d2.car.payer){
+      for(const m of ['花','猴','寧']){if(d2.car.payer.includes(m)){paid2[m]+=d2.car.totalTWD;break;}}
+    }
+    const membersSorted=[...['花','猴','寧']].sort((a,b)=>paid2[b]-paid2[a]);
+    const idMap={'花':'pxHana','猴':'pxMonkey','寧':'pxNing'};
+    membersSorted.forEach((name,i)=>{
+      const el=document.getElementById(idMap[name]);
       if(!el)return;
       if(isOver){el.classList.add('dead');el.style.left=(25+i*12)+'%';}
       else{el.classList.remove('dead');el.style.left=Math.min(pct*0.85+i*5,86)+'%';}
@@ -723,7 +777,6 @@ async function init(){
 
   function updateClocks(){
     const now = new Date();
-    // 台灣 UTC+8
     const tw = new Date(now.toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
     const is = new Date(now.toLocaleString('en-US',{timeZone:'Atlantic/Reykjavik'}));
     const fmt2 = n => String(n).padStart(2,'0');
@@ -731,6 +784,44 @@ async function init(){
     const isEl = document.getElementById('pxTimeIS');
     if(twEl) twEl.textContent = '🇹🇼 '+fmt2(tw.getHours())+':'+fmt2(tw.getMinutes());
     if(isEl) isEl.textContent = '🇮🇸 '+fmt2(is.getHours())+':'+fmt2(is.getMinutes());
+
+    // 倒數計時（場景天空中央）
+    const cdEl = document.getElementById('pxCountdown');
+    if(!cdEl) return;
+    // ── 航班時間（請填入確認後的班機時間，格式：ISO 字串）
+    const DEPART      = new Date('2026-09-14T00:00:00+08:00'); // 台灣出發日
+    const ARRIVE_IS   = new Date('2026-09-15T00:00:00+00:00'); // 抵達冰島
+    const DEPART_NING = new Date('2026-09-28T14:00:00+00:00'); // 寧離開冰島 ← 填入班機時間
+    const DEPART_ALL  = new Date('2026-09-29T00:00:00+00:00'); // 花猴離開冰島 ← 填入班機時間
+    const ARRIVE_TW   = new Date('2026-09-30T00:00:00+08:00'); // 全員回台灣
+
+    let cdText='';
+    if(now < DEPART){
+      const days = Math.ceil((DEPART-now)/86400000);
+      cdText = '倒數 '+days+' 天！';
+    } else if(now < ARRIVE_IS){
+      cdText = '飛往冰島中！';
+    } else {
+      const day = Math.floor((now-ARRIVE_IS)/86400000)+1;
+      let extra='';
+      // 寧回程當天（9/28）
+      // 寧/花猴回程當天：直接跟日期物件比較即可
+      const isNingDay = now >= new Date(DEPART_NING.getFullYear(),8,28) && now < new Date(DEPART_NING.getFullYear(),8,29);
+      const isAllDay  = now >= new Date(DEPART_ALL.getFullYear(),8,29)  && now < new Date(DEPART_ALL.getFullYear(),8,30);
+      if(now >= ARRIVE_TW){
+        const goneDay = Math.floor((now-ARRIVE_TW)/86400000)+1;
+        cdText = '離開冰島第 '+goneDay+' 天';
+      } else if(isAllDay && now < DEPART_ALL){
+        cdText = '在冰島第 '+day+' 天<br>01:15 大家告別冰島';
+      } else if(now >= DEPART_ALL){
+        cdText = '在冰島第 '+day+' 天<br>01:15 大家告別冰島';
+      } else if(isNingDay){
+        cdText = '在冰島第 '+day+' 天<br>14:05 憶寧要飛走了';
+      } else {
+        cdText = '在冰島第 '+day+' 天';
+      }
+    }
+    cdEl.innerHTML = cdText;
   }
 
   function windColor(speed){
