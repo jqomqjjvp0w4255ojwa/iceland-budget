@@ -1,11 +1,8 @@
 // 每次你修改了 index.html 內容，請順便把這個 v1 改成 v2、v3... 以此類推
 const CACHE_NAME = 'iceland-budget-v12.6';
 
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/app.js'
+const ASSETS = ['/iceland/', '/iceland/index.html', '/iceland/manifest.json', '/iceland/app.js', '/iceland/sprites.js'
+  
 ];
 
 // 安裝時強制跳過等待
