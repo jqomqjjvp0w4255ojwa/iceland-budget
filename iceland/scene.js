@@ -279,16 +279,13 @@
     if(boxEl) boxEl.style.borderColor = '#ffcc00';
   }
 
-  // renderAll 執行後再更新人偶位置
-  const _origRenderAll = window.renderAll;
-  window.renderAll = function(){
-    _origRenderAll && _origRenderAll();
-    setTimeout(window.updatePixelBudget, 100);
-    // 場景已是靜態 DOM，只需回填文字資料即可
-    applyWeatherToDOM();
-  };
-
   document.addEventListener('DOMContentLoaded', ()=>{
+    const _origRenderAll = window.renderAll;
+    window.renderAll = function(){
+      _origRenderAll && _origRenderAll();
+      setTimeout(window.updatePixelBudget, 100);
+      applyWeatherToDOM();
+    };
     setTimeout(initWeather, 200);
     setTimeout(window.updatePixelBudget, 500);
   });
