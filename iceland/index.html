@@ -198,7 +198,7 @@
 <div class="container">
   <header>
     <div class="aurora-line"></div>
-    <h1>🇮🇸 冰島旅行帳</h1>
+    <h1>🇮🇸 冰島旅行小帳</h1>
     <div class="subtitle">Iceland · September 2026</div>
     <div class="sync-bar">
       <span class="sync-status" id="syncStatus">載入中…</span>
@@ -457,9 +457,9 @@ function renderCar(car){
     <div class="section-title">駕駛資訊</div>
     <div class="car-card">
       <div class="card-body" style="padding:13px 16px">
-        <span class="tag tag-person" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">🚗 ${avatarSvg(car.driver1)}</span>
-        <span class="tag tag-person" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">🔄 ${avatarSvg(car.driver2)}</span>
-        <span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">💳 ${avatarSvg(car.payer)}</span>
+        <span class="tag tag-person" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">主要駕駛 ${avatarSvg(car.driver1)}</span>
+        <span class="tag tag-person" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">副駕駛 ${avatarSvg(car.driver2)}</span>
+        <span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">付款 ${avatarSvg(car.payer)}</span>
       </div>
     </div>
   `;
