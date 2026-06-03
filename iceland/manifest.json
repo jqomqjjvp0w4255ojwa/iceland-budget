@@ -1,8 +1,8 @@
 {
-  "name": "冰島預算清單",
-  "short_name": "冰島預算",
-  "description": "Iceland 2024 旅遊預算追蹤",
-  "start_url": "/",
+  "name": "冰島旅行小帳",
+  "short_name": "冰島小帳",
+  "description": "Iceland 2026 夏 · 旅遊計劃",
+  "start_url": "/iceland-budget/iceland/",
   "display": "standalone",
   "background_color": "#07111f",
   "theme_color": "#07111f",
