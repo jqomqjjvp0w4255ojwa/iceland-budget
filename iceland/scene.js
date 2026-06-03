@@ -297,5 +297,3 @@
 if('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/iceland-budget/iceland/sw.js').catch(()=>{});
 }
-
-init();
