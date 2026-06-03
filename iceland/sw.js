@@ -1,5 +1,5 @@
 // 每次你修改了 index.html 內容，請順便把這個版本號往上加
-const CACHE_NAME = 'iceland-budget-v13';
+const CACHE_NAME = 'iceland-budget-v13.2';
 
 const ASSETS = [
   '/iceland-budget/iceland/',
