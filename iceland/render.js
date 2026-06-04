@@ -701,11 +701,16 @@ function renderAll(){
 
     let flightDisplay, flightLabel;
     if(mode==='none'){
-      flightDisplay=0; flightLabel='—';
+      flightDisplay=0;
+      flightLabel='—';
     } else if(mode==='equal'){
-      flightDisplay=totalFlight; flightLabel=fmt(totalFlight/3);
+      flightDisplay=totalFlight;
+      flightLabel=fmt(totalFlight/3);
     } else {
-      flightDisplay=totalFlight; flightLabel=fmt((flightByPerson[mode]||0));
+      // 個人模式：/人 和 合計 都只顯示那個人的機票
+      const personal = flightByPerson[mode]||0;
+      flightDisplay=personal;
+      flightLabel=fmt(personal);
     }
     const gt = grandTotal||1;
     const cats=[
