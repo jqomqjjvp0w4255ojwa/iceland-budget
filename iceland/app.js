@@ -121,23 +121,6 @@
       dialogLines[char][state] = [line1, line2].filter(Boolean);
     });
 
-    // ── 還款記錄（從 寫入_分帳 的還款區讀取）
-    const repayRows = cellsToRows(split);
-    const repayHistory = repayRows
-      .filter(row => {
-        const from = String(row['還款人'] ?? '').trim();
-        const to   = String(row['還給'] ?? '').trim();
-        return from && to;
-      })
-      .map(row => ({
-        from:   String(row['還款人'] ?? '').trim(),
-        to:     String(row['還給'] ?? '').trim(),
-        amount: num(pick(row, ['還款金額', '金額'])),
-        date:   String(row['還款日期'] ?? '').trim(),
-        note:   String(row['備註'] ?? '').trim(),
-      }))
-      .filter(r => r.amount > 0);
-
     // ── 航班
     const flightRows = cellsToRows(flight);
     // 先找出所有有乘客名的行（第一段），建立乘客索引
