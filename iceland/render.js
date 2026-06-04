@@ -435,23 +435,26 @@ if(window._flightMode === undefined) window._flightMode = 'equal';
 function calcFlightDisplay(sharedTotal, totalFlight, flights){
   const flightByPerson = {};
   (flights||[]).forEach(f=>{ flightByPerson[f.person] = f.totalTWD||0; });
-  const allFlight = totalFlight;
   const mode = window._flightMode;
-  let perPersonAmt, grandDisplay, whoLabel;
+  let perPersonAmt, grandDisplay, whoLabel, flightForDisplay;
   if(mode==='none'){
-    perPersonAmt  = sharedTotal/3;
-    grandDisplay  = sharedTotal;
-    whoLabel      = '不含機票';
+    perPersonAmt   = sharedTotal/3;
+    grandDisplay   = sharedTotal;
+    flightForDisplay = 0;
+    whoLabel       = '不含機票';
   } else if(mode==='equal'){
-    perPersonAmt  = (sharedTotal + allFlight)/3;
-    grandDisplay  = sharedTotal + allFlight;
-    whoLabel      = '含機票均分';
+    perPersonAmt   = (sharedTotal + totalFlight)/3;
+    grandDisplay   = sharedTotal + totalFlight;
+    flightForDisplay = totalFlight;
+    whoLabel       = '含機票均分';
   } else {
-    perPersonAmt  = sharedTotal/3 + (flightByPerson[mode]||0);
-    grandDisplay  = sharedTotal + allFlight;
-    whoLabel      = mode+' 的機票';
+    const personal   = flightByPerson[mode]||0;
+    perPersonAmt     = sharedTotal/3 + personal;
+    grandDisplay     = sharedTotal + personal;   // 只加個人機票
+    flightForDisplay = personal;
+    whoLabel         = '+ '+mode+' 的機票';
   }
-  return { perPersonAmt, grandDisplay, whoLabel, flightByPerson };
+  return { perPersonAmt, grandDisplay, whoLabel, flightByPerson, flightForDisplay };
 }
 
 // ── 畫圓餅（canvas，在 renderAll 之後由 initDonutCanvas 呼叫）
@@ -526,15 +529,14 @@ function initDonutPicker(){
   const idx = PICKER_OPTIONS.findIndex(o=>o.key===window._flightMode);
   list.scrollTop = (idx+1)*ITEM_H;
 
-  // ── 點選支援
+  // ── 點選：點一下換下一個選項
   list.addEventListener('click', e=>{
     const item = e.target.closest('.donut-picker-item');
     if(!item) return;
-    const newKey = item.dataset.key;
-    if(!newKey || newKey===window._flightMode) return;
-    window._flightMode = newKey;
-    const newIdx = PICKER_OPTIONS.findIndex(o=>o.key===newKey);
-    list.scrollTo({top:(newIdx+1)*ITEM_H, behavior:'smooth'});
+    const curIdx = PICKER_OPTIONS.findIndex(o=>o.key===window._flightMode);
+    const nextIdx = (curIdx+1) % PICKER_OPTIONS.length;
+    window._flightMode = PICKER_OPTIONS[nextIdx].key;
+    list.scrollTo({top:(nextIdx+1)*ITEM_H, behavior:'smooth'});
     updatePickerStyle();
     refreshDonut();
     window.updatePixelBudget?.();
@@ -573,20 +575,11 @@ function refreshDonut(){
   const totalFlight  = d.totalFlightTWD||0;
   const carTotal     = d.car.totalTWD||0;
   const sharedTotal  = carTotal+totalAccom+totalActivity;
-  const {perPersonAmt, grandDisplay, whoLabel} =
+  const {perPersonAmt, grandDisplay, whoLabel, flightForDisplay} =
     calcFlightDisplay(sharedTotal, totalFlight, d.flights);
 
-  // 依 mode 決定圓餅機票色塊大小
-  const mode = window._flightMode||'equal';
-  const flightByPerson = {};
-  (d.flights||[]).forEach(f=>{ flightByPerson[f.person]=f.totalTWD||0; });
-  let flightForPie;
-  if(mode==='none')       flightForPie = 0;
-  else if(mode==='equal') flightForPie = totalFlight;
-  else                    flightForPie = flightByPerson[mode]||0;
-
-  // grandTotal 用於小計進度條基準，也依 mode
-  const grandForCat = sharedTotal + flightForPie;
+  // grandForCat = grandDisplay（已依 mode 計算好）
+  const grandForCat = grandDisplay;
 
   // 數字
   const elAmt    = document.getElementById('donutPerPerson');
@@ -596,11 +589,11 @@ function refreshDonut(){
   if(elAmt)    elAmt.textContent    = Math.round(perPersonAmt).toLocaleString('zh-TW');
   if(elWho)    elWho.textContent    = whoLabel;
   if(elAll)    elAll.textContent    = '合計 '+fmt(grandDisplay);
-  if(elApprox) elApprox.textContent = mode==='equal'?'約':'';
+  if(elApprox) elApprox.textContent = (window._flightMode==='equal')?'約':'';
 
-  // 圓餅
+  // 圓餅：分母用 grandDisplay，分子用 flightForDisplay，比例正確
   const pt = grandDisplay||1;
-  drawDonutCanvas(carTotal/pt, flightForPie/pt, totalAccom/pt, totalActivity/pt);
+  drawDonutCanvas(carTotal/pt, flightForDisplay/pt, totalAccom/pt, totalActivity/pt);
 
   // 小計進度條
   const elCat = document.getElementById('catRowsContent');
@@ -662,13 +655,12 @@ function renderAll(){
   // ── 角色站位依付款金額排序
   const memberOrder = [...MEMBERS].sort((a,b)=>paid[b]-paid[a]);
 
-  // ── 圓餅比例（依 flightMode，供 initDonutPicker 初始繪製用）
-  const { perPersonAmt, grandDisplay, whoLabel } =
+  // ── 圓餅比例（依 flightMode）
+  const { perPersonAmt, grandDisplay, whoLabel, flightForDisplay } =
     calcFlightDisplay(sharedTotal, totalFlight, d.flights||[]);
-  const flightDisp = window._flightMode==='none' ? 0 : totalFlight;
   const pieTotal   = grandDisplay || 1;
   const carPct     = carTotal/pieTotal;
-  const flightPct  = flightDisp/pieTotal;
+  const flightPct  = flightForDisplay/pieTotal;
   const accomPct   = totalAccom/pieTotal;
   const actPct     = totalActivity/pieTotal;
 
@@ -728,7 +720,7 @@ function renderAll(){
         <div style="font-size:.63rem;color:var(--muted);margin-top:2px">合計 ${c.total?fmt(c.total):'—'}</div>
       </div>`).join('');
   }
-  const catRows = buildCatRows(carTotal, totalFlight, totalAccom, totalActivity, grandTotal);
+  const catRows = buildCatRows(carTotal, totalFlight, totalAccom, totalActivity, grandDisplay);
 
   // ── 分帳明細（從 寫入_分帳 Sheet 讀取，若無則 fallback 自算）
   const splitData = d.split || {};
