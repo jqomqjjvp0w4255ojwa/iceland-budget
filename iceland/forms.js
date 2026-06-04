@@ -54,9 +54,7 @@ window.openPxModal = function(type) {
 };
 
 window.cancelPxModal = function(id) {
-  if (confirm('確定取消？填寫內容不會儲存。')) {
-    document.getElementById(id).classList.remove('show');
-  }
+  document.getElementById(id).classList.remove('show');
 };
 window.closePxModalOutside = function(e, id) {
   if (e.target === document.getElementById(id)) window.cancelPxModal(id);

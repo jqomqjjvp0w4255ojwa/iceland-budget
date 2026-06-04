@@ -322,36 +322,59 @@ function renderAll(){
   }).join('');
 
   document.getElementById('mainContent').innerHTML=`
-    <!-- ══ 主分頁標籤：帳簿 / 情報 / 地圖 / 背包 ══ -->
-    <div style="display:flex;gap:0;margin-bottom:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-      <button class="main-tab main-tab-active" id="mainTab-ledger"   onclick="switchMainTab('ledger',this)"  style="flex:1;padding:10px 4px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--accent);border:none;color:var(--bg);cursor:pointer;font-family:'Lato',sans-serif;font-weight:700;border-radius:0"><span style="font-size:1.1rem">🍔</span>帳簿</button>
-      <button class="main-tab" id="mainTab-info"    onclick="switchMainTab('info',this)"    style="flex:1;padding:10px 4px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;border-radius:0"><span style="font-size:1.1rem">ℹ️</span>情報</button>
-      <button class="main-tab" id="mainTab-map"     onclick="switchMainTab('map',this)"     style="flex:1;padding:10px 4px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;border-radius:0"><span style="font-size:1.1rem">🗺️</span>地圖</button>
-      <button class="main-tab" id="mainTab-bag"     onclick="switchMainTab('bag',this)"     style="flex:1;padding:10px 4px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;border-radius:0"><span style="font-size:1.1rem">🎒</span>背包</button>
+    <!-- ══ 主分頁標籤：資料夾耳朵樣式 ══ -->
+    <div style="display:flex;gap:4px;padding:0 2px;margin-bottom:0">
+      <button id="mainTab-ledger" onclick="switchMainTab('ledger',this)"
+        style="flex:1;padding:7px 4px 10px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:2px;
+               background:var(--card);border:1px solid var(--border);border-bottom:none;
+               border-radius:8px 8px 0 0;color:var(--accent);cursor:pointer;font-family:'Lato',sans-serif;font-weight:700;
+               box-shadow:inset 0 2px 0 var(--accent);">
+        <span style="font-size:1rem">🍔</span>帳簿
+      </button>
+      <button id="mainTab-info" onclick="switchMainTab('info',this)"
+        style="flex:1;padding:7px 4px 10px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:2px;
+               background:var(--bg3);border:1px solid var(--border);border-bottom:none;
+               border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;">
+        <span style="font-size:1rem">ℹ️</span>情報
+      </button>
+      <button id="mainTab-map" onclick="switchMainTab('map',this)"
+        style="flex:1;padding:7px 4px 10px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:2px;
+               background:var(--bg3);border:1px solid var(--border);border-bottom:none;
+               border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;">
+        <span style="font-size:1rem">🗺️</span>地圖
+      </button>
+      <button id="mainTab-bag" onclick="switchMainTab('bag',this)"
+        style="flex:1;padding:7px 4px 10px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:2px;
+               background:var(--bg3);border:1px solid var(--border);border-bottom:none;
+               border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;">
+        <span style="font-size:1rem">🎒</span>背包
+      </button>
     </div>
 
-    <!-- ══ 帳簿分頁內容 ══ -->
-    <div id="mainSection-ledger">
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;">
-        <div style="font-size:.7rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:12px">總覽</div>
+    <!-- ══ 分頁內容容器（接在耳朵下面，共用邊框） ══ -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:0 0 14px 14px;padding:16px;margin-bottom:14px;">
 
-        <!-- 圓餅左 + 累計花費右 -->
-        <div style="display:flex;gap:14px;align-items:center;margin-bottom:16px">
-          <div style="flex-shrink:0">${donutSvg}</div>
-          <div style="flex:1">
-            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費</div>
-            <div style="font-family:'Cinzel',serif;font-size:1.55rem;color:var(--gold);font-weight:600;line-height:1.1">NT$ ${Math.round(grandTotal/3).toLocaleString('zh-TW')}<span style="font-size:.5em;color:var(--muted)">/人</span></div>
-            <div style="font-size:.7rem;color:var(--muted);margin-top:2px">合計 ${fmt(grandTotal)}</div>
-            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-              <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#f0c040;display:inline-block;border-radius:1px"></span>交通 ${carPct>0?(carPct*100).toFixed(0)+'%':'—'}</span>
-              <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#7c4dff;display:inline-block;border-radius:1px"></span>住宿 ${accomPct>0?(accomPct*100).toFixed(0)+'%':'—'}</span>
-              <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#4caf6e;display:inline-block;border-radius:1px"></span>活動 ${actPct>0?(actPct*100).toFixed(0)+'%':'—'}</span>
+      <!-- 帳簿 -->
+      <div id="mainSection-ledger">
+        <!-- 圓餅+累計花費：置中群組 -->
+        <div style="display:flex;justify-content:center;margin-bottom:16px">
+          <div style="display:flex;gap:16px;align-items:center">
+            <div style="flex-shrink:0">${donutSvg}</div>
+            <div>
+              <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費</div>
+              <div style="font-family:'Cinzel',serif;font-size:1.55rem;color:var(--gold);font-weight:600;line-height:1.1">NT$ ${Math.round(grandTotal/3).toLocaleString('zh-TW')}<span style="font-size:.5em;color:var(--muted)">/人</span></div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:2px">合計 ${fmt(grandTotal)}</div>
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#f0c040;display:inline-block;border-radius:1px"></span>交通 ${carPct>0?(carPct*100).toFixed(0)+'%':'—'}</span>
+                <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#7c4dff;display:inline-block;border-radius:1px"></span>住宿 ${accomPct>0?(accomPct*100).toFixed(0)+'%':'—'}</span>
+                <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#4caf6e;display:inline-block;border-radius:1px"></span>活動 ${actPct>0?(actPct*100).toFixed(0)+'%':'—'}</span>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- 小計 | 分帳：左右並排 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border);padding-top:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border);padding-top:12px;margin-bottom:14px">
           <div style="padding-right:12px;border-right:1px solid var(--border)">
             <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">小計</div>
             ${catRows}
@@ -361,30 +384,30 @@ function renderAll(){
             ${debtRows}
           </div>
         </div>
+
+        <div class="rate-bar" style="margin-bottom:14px">
+          <span>💱 <strong>ISK</strong> = ${d.exchangeISK.toFixed(4)} NT$</span>
+          <span>💱 <strong>EUR</strong> = ${d.exchangeEUR.toFixed(2)} NT$</span>
+        </div>
+        <div class="tabs">
+          <button class="tab active" onclick="showTab('accommodation',this)">🏕 住宿</button>
+          <button class="tab" onclick="showTab('car',this)">🚗 交通</button>
+          <button class="tab" onclick="showTab('activity',this)">🎯 活動</button>
+          <button class="tab" onclick="showTab('daily',this)">🛒 日常</button>
+        </div>
+        <div id="accommodation" class="section active">
+          <div id="accomContent">${renderAccom(d.accommodation)}</div>
+        </div>
+        <div id="car" class="section">${renderCar(d.car)}</div>
+        <div id="activity" class="section"><div class="empty">🚧 施工中，敬請期待</div></div>
+        <div id="daily" class="section"><div id="dailyContent" class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div></div>
       </div>
 
-      <div class="rate-bar">
-        <span>💱 <strong>ISK</strong> = ${d.exchangeISK.toFixed(4)} NT$</span>
-        <span>💱 <strong>EUR</strong> = ${d.exchangeEUR.toFixed(2)} NT$</span>
-      </div>
-      <div class="tabs">
-        <button class="tab active" onclick="showTab('accommodation',this)">🏕 住宿</button>
-        <button class="tab" onclick="showTab('car',this)">🚗 交通</button>
-        <button class="tab" onclick="showTab('activity',this)">🎯 活動</button>
-        <button class="tab" onclick="showTab('daily',this)">🛒 日常</button>
-      </div>
-      <div id="accommodation" class="section active">
-        <div id="accomContent">${renderAccom(d.accommodation)}</div>
-      </div>
-      <div id="car" class="section">${renderCar(d.car)}</div>
-      <div id="activity" class="section"><div class="empty">🚧 施工中，敬請期待</div></div>
-      <div id="daily" class="section"><div id="dailyContent" class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div></div>
+      <!-- 其他分頁（待開發） -->
+      <div id="mainSection-info" style="display:none"><div class="empty">ℹ️ 情報頁面施工中</div></div>
+      <div id="mainSection-map"  style="display:none"><div class="empty">🗺️ 地圖頁面施工中</div></div>
+      <div id="mainSection-bag"  style="display:none"><div class="empty">🎒 背包頁面施工中</div></div>
     </div>
-
-    <!-- ══ 其他分頁（待開發） ══ -->
-    <div id="mainSection-info"  style="display:none"><div class="empty">ℹ️ 情報頁面施工中</div></div>
-    <div id="mainSection-map"   style="display:none"><div class="empty">🗺️ 地圖頁面施工中</div></div>
-    <div id="mainSection-bag"   style="display:none"><div class="empty">🎒 背包頁面施工中</div></div>
   `;
 }
 
@@ -396,15 +419,20 @@ function showTab(id,btn){
 }
 
 function switchMainTab(key, btn){
-  ['ledger','info','map','bag'].forEach(k=>{
+  const KEYS = ['ledger','info','map','bag'];
+  KEYS.forEach(k=>{
     const s = document.getElementById('mainSection-'+k);
     const b = document.getElementById('mainTab-'+k);
     if(!s||!b) return;
     const isActive = k===key;
-    s.style.display = isActive ? '' : 'none';
-    b.style.background  = isActive ? 'var(--accent)' : 'transparent';
-    b.style.color       = isActive ? 'var(--bg)'     : 'var(--muted)';
-    b.style.fontWeight  = isActive ? '700'           : '400';
+    s.style.display    = isActive ? '' : 'none';
+    b.style.background = isActive ? 'var(--card)'  : 'var(--bg3)';
+    b.style.color      = isActive ? 'var(--accent)': 'var(--muted)';
+    b.style.fontWeight = isActive ? '700' : '400';
+    b.style.boxShadow  = isActive ? 'inset 0 2px 0 var(--accent)' : 'none';
+    b.style.borderBottomColor = isActive ? 'var(--card)' : 'var(--border)';
+    b.style.zIndex     = isActive ? '2' : '1';
+    b.style.marginBottom = isActive ? '-1px' : '0';
   });
 }
 
