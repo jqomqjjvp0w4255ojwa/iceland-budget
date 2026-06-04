@@ -128,7 +128,12 @@
     if(!d||!document.getElementById('pxBar'))return;
     const totalAccom=(d.accommodation||[]).reduce((s,a)=>s+(a.twd||0),0);
     const totalAct=(d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
-    const grandTotal=(d.car.totalTWD||0)+totalAccom+totalAct;
+    const totalFlight=d.totalFlightTWD||0;
+    const carTotal=d.car.totalTWD||0;
+    // sharedTotal = 可平攤費用；grandTotal = 含機票全部
+    // 機票各付各的，進度條用 grandTotal/3 才能反映每人實際負擔
+    const sharedTotal=carTotal+totalAccom+totalAct;
+    const grandTotal=sharedTotal+totalFlight;
     const perPerson=Math.round(grandTotal/3);
     const pct=Math.min(Math.round(perPerson/BUDGET*100),100);
     const remain=BUDGET-perPerson;
