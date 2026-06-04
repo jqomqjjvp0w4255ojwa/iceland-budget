@@ -210,9 +210,9 @@
     .px-form{padding:12px;}
     .px-field{margin-bottom:12px;}
     .px-label{font-size:7px;color:#2a4a1a;letter-spacing:1px;display:block;margin-bottom:5px;}
-    .px-input{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:9px;color:#2a4a1a;}
+    .px-input{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;}
     .px-input:focus{outline:none;background:#fff;}
-    .px-select{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:9px;color:#2a4a1a;}
+    .px-select{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;}
     .px-member-row{display:flex;gap:6px;}
     .px-member-btn{flex:1;background:#c8d8a8;border:2px solid #2a4a1a;padding:8px 4px;font-family:'Silkscreen',monospace;font-size:8px;color:#2a4a1a;cursor:pointer;text-align:center;transition:background .15s;}
     .px-member-btn.sel{background:#2a4a1a;color:#c8d8a8;}
@@ -373,6 +373,7 @@
 </div>
 
 <!-- ══ 新增開銷 Modal ══ -->
+<!-- ══ 新增開銷 Modal ══ -->
 <div class="px-modal-overlay" id="pxModalExpense" onclick="closePxModalOutside(event,'pxModalExpense')">
   <div class="px-modal-box">
     <div class="px-modal-header">
@@ -384,17 +385,17 @@
         <label class="px-label">▸ 類別 *</label>
         <select class="px-select" id="pxExpCat" onchange="pxCheckSubmit()">
           <option value="">-- 選擇類別 --</option>
-          <option value="fuel">⛽ 油費（交通）</option>
-          <option value="parking">P 停車費（交通）</option>
-          <option value="accommodation">＋訂房（住宿）</option>
-          <option value="activity">★ 門票 / 體驗（活動）</option>
-          <option value="daily">日 日常（超市 / 餐飲 / 其他）</option>
+          <option value="fuel">油費</option>
+          <option value="parking">停車費</option>
+          <option value="accommodation">訂房</option>
+          <option value="activity">門票 / 體驗</option>
+          <option value="daily">日常</option>
         </select>
       </div>
       <div class="px-field">
         <label class="px-label">▸ 金額 *</label>
         <div style="display:flex;gap:6px;">
-          <input class="px-input" type="number" id="pxExpAmt" placeholder="0" style="flex:2" oninput="pxUpdateSplit()">
+          <input class="px-input" type="number" inputmode="decimal" id="pxExpAmt" placeholder="0" style="flex:2" oninput="pxUpdateSplit()">
           <select class="px-select" id="pxExpCur" style="flex:1">
             <option value="NT">NT$</option>
             <option value="ISK">ISK</option>
@@ -404,26 +405,15 @@
       </div>
       <div class="px-field">
         <label class="px-label">▸ 付款人 *（單選）</label>
-        <div class="px-member-row" id="pxPayerBtns">
-          <button class="px-member-btn" onclick="pxSelectPayer(this,'花')">花</button>
-          <button class="px-member-btn" onclick="pxSelectPayer(this,'猴')">猴</button>
-          <button class="px-member-btn" onclick="pxSelectPayer(this,'寧')">寧</button>
-        </div>
+        <div class="px-member-row" id="pxPayerBtns"></div>
       </div>
       <div class="px-field">
-        <label class="px-label">▸ 如何分攤 *</label>
-        <div class="px-member-row" id="pxSplitModeBtns" style="margin-bottom:8px;">
-          <button class="px-member-btn sel" onclick="pxSetSplitMode('equal',this)">均分</button>
-          <button class="px-member-btn" onclick="pxSetSplitMode('custom',this)">自訂</button>
-        </div>
-        <div id="pxSplitDetail" style="display:none;">
-          <div class="px-split-row"><span class="px-split-name">花</span><input class="px-split-input" id="pxSplit花" type="number" placeholder="0" oninput="pxCheckSplit()"></div>
-          <div class="px-split-row"><span class="px-split-name">猴</span><input class="px-split-input" id="pxSplit猴" type="number" placeholder="0" oninput="pxCheckSplit()"></div>
-          <div class="px-split-row"><span class="px-split-name">寧</span><input class="px-split-input" id="pxSplit寧" type="number" placeholder="0" oninput="pxCheckSplit()"></div>
-          <div class="px-split-total">
-            <span>分攤合計</span>
-            <span id="pxSplitTotal" class="px-total-ok">0</span>
-          </div>
+        <label class="px-label">▸ 如何分攤（點角色取消分攤）</label>
+        <div class="px-member-row" id="pxSplitBtns" style="margin-bottom:8px;"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div id="pxSplitSummary" style="font-size:7px;color:#2a4a1a;flex:1;">均分（三人）</div>
+          <button class="px-member-btn" onclick="pxOpenCustomSplit()"
+            style="flex:0 0 auto;padding:5px 10px;font-size:7px;white-space:nowrap;">自訂金額</button>
         </div>
       </div>
       <hr class="px-divider">
@@ -447,6 +437,13 @@
   </div>
 </div>
 
+<!-- ══ 自訂金額 Sub-Modal ══ -->
+<div class="px-modal-overlay" id="pxCustomSplitOverlay" style="z-index:170;">
+  <div class="px-modal-box" id="pxCustomSplitBox" style="max-height:70vh;">
+    <!-- 由 forms.js 動態填入 -->
+  </div>
+</div>
+
 <!-- ══ 還錢 Modal ══ -->
 <div class="px-modal-overlay" id="pxModalRepay" onclick="closePxModalOutside(event,'pxModalRepay')">
   <div class="px-modal-box">
@@ -457,23 +454,15 @@
     <div class="px-form">
       <div class="px-field">
         <label class="px-label">▸ 誰還錢 *</label>
-        <div class="px-member-row" id="pxRepayFromBtns">
-          <button class="px-member-btn" onclick="pxSelectRepayFrom(this,'花')">花</button>
-          <button class="px-member-btn" onclick="pxSelectRepayFrom(this,'猴')">猴</button>
-          <button class="px-member-btn" onclick="pxSelectRepayFrom(this,'寧')">寧</button>
-        </div>
+        <div class="px-member-row" id="pxRepayFromBtns"></div>
       </div>
       <div class="px-field">
         <label class="px-label">▸ 還給誰 *</label>
-        <div class="px-member-row" id="pxRepayToBtns">
-          <button class="px-member-btn" onclick="pxSelectRepayTo(this,'花')">花</button>
-          <button class="px-member-btn" onclick="pxSelectRepayTo(this,'猴')">猴</button>
-          <button class="px-member-btn" onclick="pxSelectRepayTo(this,'寧')">寧</button>
-        </div>
+        <div class="px-member-row" id="pxRepayToBtns"></div>
       </div>
       <div class="px-field">
         <label class="px-label">▸ 金額（NT$）*</label>
-        <input class="px-input" type="number" id="pxRepayAmt" placeholder="0" oninput="pxValidateRepay()">
+        <input class="px-input" type="number" inputmode="decimal" id="pxRepayAmt" placeholder="0" oninput="pxValidateRepay()">
       </div>
       <hr class="px-divider">
       <div class="px-field">
