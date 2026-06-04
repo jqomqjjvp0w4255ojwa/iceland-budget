@@ -281,60 +281,48 @@
   }
 
   // ── 對話框輪播
-  const CHAR_MAP = { '花':'bubbleHana', '猴':'bubbleMonkey', '寧':'bubbleNing' };
+  const CHAR_MAP = {'花':'bubbleHana','猴':'bubbleMonkey','寧':'bubbleNing'};
   const CHARS    = ['花','猴','寧'];
   let _bubbleIdx  = 0;
-  let _bubbleLine = 0; // 0 或 1（兩句輪流）
+  let _bubbleLine = 0;
   let _bubbleTimer = null;
 
   function getBubbleText(name) {
-    const d = window.APP_DATA || window.STATIC;
-    const lines  = d?.dialogLines;
-    const split  = d?.split;
+    const d     = window.APP_DATA || window.STATIC;
+    const lines = d && d.dialogLines;
+    const split = d && d.split;
     if (!lines || !lines[name]) return null;
-
-    // 判斷狀態
-    const bal = split?.[name]?.balance ?? 0;
+    const bal   = (split && split[name] && split[name].balance) ? split[name].balance : 0;
     let state;
     if (Math.abs(bal) < 1) state = '打平';
-    else if (bal < 0) state = '欠債';   // 負 = 欠別人
-    else state = '債主';                 // 正 = 被欠
-
+    else if (bal < 0)      state = '欠債';
+    else                   state = '債主';
     const pool = lines[name][state];
     if (!pool || !pool.length) return null;
-
-    // 找債主名字和金額（欠債時用）
     let text = pool[_bubbleLine % pool.length] || pool[0];
     if (state === '欠債' && split) {
-      const amt = Math.abs(Math.round(bal)).toLocaleString('zh-TW');
-      // 找誰是債主（餘額最高的那個）
+      const amt      = Math.abs(Math.round(bal)).toLocaleString('zh-TW');
       const creditor = CHARS.filter(m => m !== name)
-        .sort((a,b) => (split[b]?.balance||0) - (split[a]?.balance||0))[0] || '？';
-      text = text.replace(/\{A\}/g, creditor).replace(/\{n\}/g, 'NT$' + amt);
+        .sort((a,b) => ((split[b]&&split[b].balance)||0) - ((split[a]&&split[a].balance)||0))[0] || '？';
+      text = text.replace(/\{A\}/g, creditor).replace(/\{n\}/g, 'NT$'+amt);
     }
     return text;
   }
 
   function showNextBubble() {
-    // 隱藏所有對話框
     CHARS.forEach(m => {
       const el = document.getElementById(CHAR_MAP[m]);
       if (el) el.classList.remove('show');
     });
-    // 找當前角色
     const name = CHARS[_bubbleIdx];
     const el   = document.getElementById(CHAR_MAP[name]);
     if (el) {
       const text = getBubbleText(name);
       if (text) {
         el.textContent = text;
-        // 短暫延遲再顯示（配合 opacity transition）
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => el.classList.add('show'));
-        });
+        requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
       }
     }
-    // 下一次
     _bubbleLine++;
     _bubbleIdx = (_bubbleIdx + 1) % CHARS.length;
   }
@@ -344,6 +332,7 @@
     showNextBubble();
     _bubbleTimer = setInterval(showNextBubble, 4000);
   }
+  window.startBubbleLoop = startBubbleLoop;
 
   document.addEventListener('DOMContentLoaded', ()=>{
     const _origRenderAll = window.renderAll;
@@ -351,12 +340,11 @@
       _origRenderAll && _origRenderAll();
       setTimeout(window.updatePixelBudget, 100);
       applyWeatherToDOM();
-      // 資料更新後重啟輪播
       setTimeout(startBubbleLoop, 300);
     };
     setTimeout(initWeather, 200);
     setTimeout(window.updatePixelBudget, 500);
-    setTimeout(startBubbleLoop, 800);
+    setTimeout(startBubbleLoop, 1000);
   });
 })();
 

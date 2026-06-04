@@ -191,6 +191,37 @@
     .px-bar-limit{position:absolute;right:0;top:-3px;bottom:-3px;width:3px;background:#000;z-index:5;}
     .px-gb-msg{margin-top:7px;text-align:center;font-family:'Silkscreen',monospace;font-size:8px;padding:4px;border:2px solid #2a4a1a;background:#c8d8a8;}
     .px-gb-msg.safe{color:#1a5a1a;} .px-gb-msg.warn{color:#7a5a00;} .px-gb-msg.danger{color:#8a1010;}
+    /* ── 角色對話框泡泡 */
+    .px-bubble{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+      background:#e8f0d0;border:2px solid #2a4a1a;padding:4px 7px;
+      font-family:'Silkscreen',monospace;font-size:7px;color:#1a3a0a;line-height:1.6;
+      pointer-events:none;opacity:0;transition:opacity .4s;z-index:30;
+      max-width:110px;white-space:normal;text-align:center;min-width:60px;}
+    .px-bubble::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+      border:4px solid transparent;border-top-color:#2a4a1a;}
+    .px-bubble::before{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+      margin-top:-1px;border:4px solid transparent;border-top-color:#e8f0d0;z-index:1;}
+    .px-bubble.show{opacity:1;}
+    /* ── 卷軸選擇器 */
+    .px-scroll-picker-list{overflow-y:scroll;scroll-snap-type:y mandatory;border:2px solid #2a4a1a;background:#f8fce8;scrollbar-width:none;}
+    .px-scroll-picker-list::-webkit-scrollbar{display:none;}
+    .px-scroll-picker-item{scroll-snap-align:center;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;border-bottom:1px solid #b8c8a0;transition:background .15s;}
+    .px-scroll-picker-item.sel{background:#2a4a1a;}
+    .px-scroll-picker-item.sel span{color:#c8d8a8;}
+    .px-scroll-picker-item span{font-size:7px;color:#2a4a1a;font-family:'Silkscreen',monospace;}
+    /* ── 算盤 */
+    .px-calc-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:180;align-items:flex-end;justify-content:center;padding-bottom:32px;}
+    .px-calc-overlay.show{display:flex;}
+    .px-calc-box{background:#e8f0d0;border:3px solid #000;width:100%;max-width:400px;border-radius:4px 4px 0 0;font-family:'Silkscreen',monospace;}
+    .px-calc-header{background:#2a4a1a;color:#c8d8a8;font-size:8px;padding:5px 10px;display:flex;justify-content:space-between;align-items:center;}
+    .px-calc-display{background:#c8d8a8;border:2px solid #2a4a1a;margin:8px;padding:8px 10px;font-size:20px;color:#1a3a0a;text-align:right;min-height:44px;word-break:break-all;}
+    .px-calc-expr{font-size:8px;color:#3a5a2a;min-height:12px;text-align:right;}
+    .px-calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:0 8px 8px;}
+    .px-calc-btn{background:#c8d8a8;border:2px solid #2a4a1a;padding:16px 4px;font-family:'Silkscreen',monospace;font-size:13px;color:#1a3a0a;cursor:pointer;text-align:center;border-radius:2px;}
+    .px-calc-btn:active{background:#a8c888;}
+    .px-calc-btn.op{background:#a8c088;}
+    .px-calc-btn.eq{background:#2a4a1a;color:#c8d8a8;grid-column:span 2;}
+    .px-calc-btn.cancel{background:#c8a8a8;border-color:#8a2a2a;color:#5a1a1a;}
 
     /* ── 像素風表單 */
     .px-add-menu{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:150;align-items:flex-end;justify-content:center;}
@@ -202,17 +233,17 @@
     .px-add-choice{flex:1;background:#c8d8a8;border:none;border-right:2px solid #2a4a1a;padding:16px 8px;font-family:'Silkscreen',monospace;font-size:9px;color:#2a4a1a;cursor:pointer;text-align:center;line-height:1.8;transition:background .15s;}
     .px-add-choice:last-child{border-right:none;}
     .px-add-choice:hover{background:#a8c888;}
-    .px-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:160;align-items:flex-end;justify-content:center;}
+    .px-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:160;align-items:flex-end;justify-content:center;padding-bottom:28px;}
     .px-modal-overlay.show{display:flex;}
-    .px-modal-box{background:#e8f0d0;border-top:3px solid #000;width:100%;max-width:680px;max-height:88vh;overflow-y:auto;font-family:'Silkscreen',monospace;}
+    .px-modal-box{background:#e8f0d0;border:3px solid #000;width:100%;max-width:680px;max-height:82vh;overflow-y:auto;font-family:'Silkscreen',monospace;border-radius:4px 4px 0 0;}
     .px-modal-header{background:#2a4a1a;color:#c8d8a8;font-size:8px;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px;position:sticky;top:0;}
     .px-modal-header button{background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:8px;padding:2px 8px;cursor:pointer;}
     .px-form{padding:12px;}
     .px-field{margin-bottom:12px;}
     .px-label{font-size:7px;color:#2a4a1a;letter-spacing:1px;display:block;margin-bottom:5px;}
-    .px-input{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:9px;color:#2a4a1a;}
+    .px-input{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;box-sizing:border-box;}
     .px-input:focus{outline:none;background:#fff;}
-    .px-select{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:9px;color:#2a4a1a;}
+    .px-select{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;}
     .px-member-row{display:flex;gap:6px;}
     .px-member-btn{flex:1;background:#c8d8a8;border:2px solid #2a4a1a;padding:8px 4px;font-family:'Silkscreen',monospace;font-size:8px;color:#2a4a1a;cursor:pointer;text-align:center;transition:background .15s;}
     .px-member-btn.sel{background:#2a4a1a;color:#c8d8a8;}
@@ -229,13 +260,6 @@
     .px-btn-submit:hover{background:#3a6a2a;}
     .px-btn-submit:disabled{background:#888;cursor:not-allowed;}
     .px-divider{border:none;border-top:1px solid #2a4a1a;margin:10px 0;}
-    /* 還錢卷軸 */
-    .px-scroll-picker-list{overflow-y:scroll;scroll-snap-type:y mandatory;border:2px solid #2a4a1a;background:#f8fce8;scrollbar-width:none;}
-    .px-scroll-picker-list::-webkit-scrollbar{display:none;}
-    .px-scroll-picker-item{scroll-snap-align:center;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;border-bottom:1px solid #b8c8a0;transition:background .15s;}
-    .px-scroll-picker-item.sel{background:#2a4a1a;}
-    .px-scroll-picker-item.sel span{color:#c8d8a8;}
-    .px-scroll-picker-item span{font-size:7px;color:#2a4a1a;font-family:'Silkscreen',monospace;}
 
     /* ── 輪盤選單 */
     .radial-overlay{
@@ -334,12 +358,15 @@
           <svg id="pxCar" width="64" height="40" viewBox="0 0 32 20" style="image-rendering:pixelated;display:block;"></svg>
         </div>
         <div class="px-runner" id="pxHana" style="left:5%">
+          <div class="px-bubble" id="bubbleHana"></div>
           <svg id="svgHana" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
         </div>
         <div class="px-runner" id="pxMonkey" style="left:5%">
+          <div class="px-bubble" id="bubbleMonkey"></div>
           <svg id="svgMonkey" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
         </div>
         <div class="px-runner" id="pxNing" style="left:5%">
+          <div class="px-bubble" id="bubbleNing"></div>
           <svg id="svgNing" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
         </div>
       </div>
@@ -418,8 +445,7 @@
         <div class="px-member-row" id="pxSplitBtns" style="margin-bottom:8px;"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <div id="pxSplitSummary" style="font-size:7px;color:#2a4a1a;flex:1;">均分（三人）</div>
-          <button class="px-member-btn" onclick="pxOpenCustomSplit()"
-            style="flex:0 0 auto;padding:5px 10px;font-size:7px;white-space:nowrap;">自訂金額</button>
+          <button class="px-member-btn" onclick="pxOpenCustomSplit()" style="flex:0 0 auto;padding:5px 10px;font-size:7px;white-space:nowrap;">自訂金額</button>
         </div>
       </div>
       <hr class="px-divider">
@@ -446,7 +472,6 @@
 <div class="px-modal-overlay" id="pxCustomSplitOverlay" style="z-index:170;">
   <div class="px-modal-box" id="pxCustomSplitBox" style="max-height:70vh;"></div>
 </div>
-
 <!-- ══ 還錢 Modal ══ -->
 <div class="px-modal-overlay" id="pxModalRepay" onclick="closePxModalOutside(event,'pxModalRepay')">
   <div class="px-modal-box">
@@ -461,7 +486,7 @@
           <div class="px-scroll-picker-list" id="pxRepayFromList" style="flex:1;height:110px;"></div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
             <div style="font-size:8px;color:#2a4a1a;font-family:'Silkscreen',monospace;">還錢給</div>
-            <div style="font-size:16px;color:#2a4a1a;">→</div>
+            <div style="font-size:18px;color:#2a4a1a;">→</div>
           </div>
           <div class="px-scroll-picker-list" id="pxRepayToList" style="flex:1;height:110px;"></div>
         </div>
@@ -482,6 +507,42 @@
       <div class="px-form-actions" style="margin-bottom:12px;">
         <button class="px-btn-submit" id="pxBtnRepay" onclick="pxSubmitRepay()" disabled style="flex:1;">[ 確認送出 ]</button>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 像素風算盤 ══ -->
+<div class="px-calc-overlay" id="pxCalcOverlay">
+  <div class="px-calc-box">
+    <div class="px-calc-header">
+      <span>▶ 輸入金額</span>
+      <button onclick="pxCancelCalc()" style="background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:8px;padding:2px 8px;cursor:pointer;">取消</button>
+    </div>
+    <div class="px-calc-display">
+      <div class="px-calc-expr" id="pxCalcExpr"></div>
+      <div id="pxCalcDisplay">0</div>
+    </div>
+    <div class="px-calc-grid">
+      <button class="px-calc-btn cancel" onclick="pxCalcInput('C')">C</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('(')">(</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput(')')">)</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('/')">÷</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('7')">7</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('8')">8</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('9')">9</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('*')">×</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('4')">4</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('5')">5</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('6')">6</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('-')">−</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('1')">1</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('2')">2</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('3')">3</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('+')">+</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('0')">0</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('.')">.</button>
+      <button class="px-calc-btn eq" onclick="pxCalcConfirm()">[ 確認 ]</button>
     </div>
   </div>
 </div>
