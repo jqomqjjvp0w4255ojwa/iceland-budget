@@ -255,28 +255,56 @@ function renderAll(){
   // ── 角色站位依付款金額排序
   const memberOrder = [...MEMBERS].sort((a,b)=>paid[b]-paid[a]);
 
-  // ── 圓餅圖資料
+  // ── 像素圓餅圖（用 rect 網格模擬，16×16 像素格）
   const carTotal = d.car.totalTWD || 0;
   const pieTotal = carTotal + totalAccom + totalActivity;
   const carPct   = pieTotal ? carTotal/pieTotal : 0;
   const accomPct = pieTotal ? totalAccom/pieTotal : 0;
   const actPct   = pieTotal ? totalActivity/pieTotal : 0;
-  // SVG 圓餅（cx=cy=50 r=40，用 stroke-dasharray 疊加）
-  const C = 2*Math.PI*40; // 251.33
-  function pieSlice(offset,pct,color){
-    if(pct<=0) return '';
-    return `<circle cx="50" cy="50" r="40" fill="none" stroke="${color}" stroke-width="20"
-      stroke-dasharray="${(pct*C).toFixed(2)} ${C.toFixed(2)}"
-      stroke-dashoffset="${(-offset*C).toFixed(2)}"
-      transform="rotate(-90 50 50)" style="image-rendering:pixelated"/>`;
-  }
-  const donutSvg=`<svg width="110" height="110" viewBox="0 0 100 100" style="display:block">
-    <circle cx="50" cy="50" r="40" fill="none" stroke="#1e3a5f" stroke-width="20"/>
-    ${pieSlice(0,         carPct,  '#f0c040')}
-    ${pieSlice(carPct,    accomPct,'#7c4dff')}
-    ${pieSlice(carPct+accomPct, actPct, '#4caf6e')}
-    <circle cx="50" cy="50" r="28" fill="#0d1f35"/>
-  </svg>`;
+
+  (function(){
+    // 在 32×32 網格上畫甜甜圈，每格 = 3px → 96×96 SVG
+    const G = 32, S = 3;
+    const cx = 15.5, cy = 15.5, rOuter = 13.5, rInner = 7.5;
+    // 依比例分配顏色（交通→金、住宿→紫、活動→綠、空→深藍）
+    const slices = [
+      {pct: carPct,   color:'#f0c040'},
+      {pct: accomPct, color:'#7c4dff'},
+      {pct: actPct,   color:'#4caf6e'},
+    ];
+    function angleColor(angle){
+      // angle: 0=12點鐘，順時針，rad
+      let cumulative = 0;
+      for(const sl of slices){
+        if(sl.pct <= 0) continue;
+        cumulative += sl.pct * 2 * Math.PI;
+        if(angle <= cumulative) return sl.color;
+      }
+      return '#1e3a5f';
+    }
+    let rects = '';
+    for(let row=0; row<G; row++){
+      for(let col=0; col<G; col++){
+        const dx = col - cx, dy = row - cy;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if(dist < rInner || dist > rOuter) continue;
+        // angle from 12 o'clock, clockwise
+        const angle = (Math.atan2(dx, -dy) + 2*Math.PI) % (2*Math.PI);
+        const color = angleColor(angle);
+        rects += `<rect x="${col*S}" y="${row*S}" width="${S}" height="${S}" fill="${color}"/>`;
+      }
+    }
+    // 中心暗底
+    for(let row=0; row<G; row++){
+      for(let col=0; col<G; col++){
+        const dx=col-cx, dy=row-cy, dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist >= rInner) continue;
+        rects += `<rect x="${col*S}" y="${row*S}" width="${S}" height="${S}" fill="#0d1f35"/>`;
+      }
+    }
+    window._pixelDonutSvg = `<svg width="96" height="96" viewBox="0 0 96 96" style="display:block;image-rendering:pixelated">${rects}</svg>`;
+  })();
+  const donutSvg = window._pixelDonutSvg || '';
 
   // ── 各類別進度條（相對於 grandTotal）
   const cats = [
@@ -323,31 +351,31 @@ function renderAll(){
 
   document.getElementById('mainContent').innerHTML=`
     <!-- ══ 主分頁標籤：資料夾耳朵樣式 ══ -->
-    <div style="display:flex;gap:4px;padding:0 2px;margin-bottom:0">
+    <div style="display:flex;gap:4px;padding:0 2px;margin-bottom:0;margin-top:12px">
       <button id="mainTab-ledger" onclick="switchMainTab('ledger',this)"
-        style="flex:1;padding:7px 4px 10px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:2px;
+        style="flex:1;padding:6px 4px 9px;font-size:.72rem;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
                background:var(--card);border:1px solid var(--border);border-bottom:none;
                border-radius:8px 8px 0 0;color:var(--accent);cursor:pointer;font-family:'Lato',sans-serif;font-weight:700;
-               box-shadow:inset 0 2px 0 var(--accent);">
-        <span style="font-size:1rem">🍔</span>帳簿
+               box-shadow:inset 0 2px 0 var(--accent);margin-bottom:-1px;z-index:2;position:relative;">
+        <span style="font-size:.95rem">🍔</span><span>帳簿</span>
       </button>
       <button id="mainTab-info" onclick="switchMainTab('info',this)"
-        style="flex:1;padding:7px 4px 10px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:2px;
+        style="flex:1;padding:6px 4px 9px;font-size:.72rem;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
                background:var(--bg3);border:1px solid var(--border);border-bottom:none;
-               border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;">
-        <span style="font-size:1rem">ℹ️</span>情報
+               border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;position:relative;z-index:1;">
+        <span style="font-size:.95rem">ℹ️</span><span>情報</span>
       </button>
       <button id="mainTab-map" onclick="switchMainTab('map',this)"
-        style="flex:1;padding:7px 4px 10px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:2px;
+        style="flex:1;padding:6px 4px 9px;font-size:.72rem;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
                background:var(--bg3);border:1px solid var(--border);border-bottom:none;
-               border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;">
-        <span style="font-size:1rem">🗺️</span>地圖
+               border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;position:relative;z-index:1;">
+        <span style="font-size:.95rem">🗺️</span><span>地圖</span>
       </button>
       <button id="mainTab-bag" onclick="switchMainTab('bag',this)"
-        style="flex:1;padding:7px 4px 10px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:2px;
+        style="flex:1;padding:6px 4px 9px;font-size:.72rem;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
                background:var(--bg3);border:1px solid var(--border);border-bottom:none;
-               border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;">
-        <span style="font-size:1rem">🎒</span>背包
+               border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;position:relative;z-index:1;">
+        <span style="font-size:.95rem">🎒</span><span>背包</span>
       </button>
     </div>
 
@@ -425,14 +453,14 @@ function switchMainTab(key, btn){
     const b = document.getElementById('mainTab-'+k);
     if(!s||!b) return;
     const isActive = k===key;
-    s.style.display    = isActive ? '' : 'none';
-    b.style.background = isActive ? 'var(--card)'  : 'var(--bg3)';
-    b.style.color      = isActive ? 'var(--accent)': 'var(--muted)';
-    b.style.fontWeight = isActive ? '700' : '400';
-    b.style.boxShadow  = isActive ? 'inset 0 2px 0 var(--accent)' : 'none';
+    s.style.display           = isActive ? '' : 'none';
+    b.style.background        = isActive ? 'var(--card)'  : 'var(--bg3)';
+    b.style.color             = isActive ? 'var(--accent)': 'var(--muted)';
+    b.style.fontWeight        = isActive ? '700' : '400';
+    b.style.boxShadow         = isActive ? 'inset 0 2px 0 var(--accent)' : 'none';
     b.style.borderBottomColor = isActive ? 'var(--card)' : 'var(--border)';
-    b.style.zIndex     = isActive ? '2' : '1';
-    b.style.marginBottom = isActive ? '-1px' : '0';
+    b.style.zIndex            = isActive ? '2' : '1';
+    b.style.marginBottom      = isActive ? '-1px' : '0';
   });
 }
 
