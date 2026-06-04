@@ -180,6 +180,95 @@ function renderRepay(items) {
   }).join('');
 }
 
+function renderTransport(d) {
+  const car = d.car;
+  const flights = d.flights || [];
+  const currentFilter = window._transportFilter || 'all';
+
+  const filterBtns = ['all','car','flight','fuel','parking'].map(f => {
+    const labels = {all:'全部', car:'🚗 租車', flight:'✈️ 機票', fuel:'⛽ 油費', parking:'🅿 停車'};
+    return `<button class="filter-btn${currentFilter===f?' active':''}" onclick="setTransportFilter('${f}')">${labels[f]}</button>`;
+  }).join('');
+
+  // 租車卡片（簡潔版）
+  const carCard = (currentFilter === 'all' || currentFilter === 'car') ? `
+    <div class="card paid-card" style="margin-bottom:11px;">
+      <div class="card-header">
+        <div>
+          <div class="card-date">${car.pickup ? car.pickup.replace('上午','AM').replace('下午','PM') : '—'} → ${car.dropoff ? car.dropoff.replace('上午','AM').replace('下午','PM') : '—'}</div>
+          <div class="card-name-row" style="margin-top:4px;">
+            <span style="font-size:.85rem">🚗</span>
+            <span class="card-name">${car.company}　${car.model}</span>
+          </div>
+          ${car.location ? `<div style="font-size:.72rem;color:var(--muted);margin-top:4px;">📍 ${car.location.replace('Zero Car, ','').replace(', Iceland','')}</div>` : ''}
+        </div>
+        <div class="card-price">
+          <div class="price-per-label">&nbsp;</div>
+          <div class="price-per">${fmtPer(car.totalTWD)}</div>
+          <div class="price-total">${fmt(car.totalTWD)} 合計</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;">付款 ${avatarSvg(car.payer)}</span>
+        <span class="tag tag-person">${car.days} 天</span>
+        ${car.startMileage ? `<span class="tag" style="background:rgba(79,195,247,.1);color:var(--accent);border:1px solid rgba(79,195,247,.25);">取車 ${car.startMileage.toLocaleString()} km</span>` : ''}
+      </div>
+    </div>` : '';
+
+  // 航班卡片（一人一張）
+  const flightCards = (currentFilter === 'all' || currentFilter === 'flight') ?
+    flights.map(f => {
+      const goSegs  = f.segments.filter(s => s.isGo);
+      const retSegs = f.segments.filter(s => !s.isGo);
+      const renderSegs = segs => segs.map(s => `
+        <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border);font-size:.72rem;">
+          <span style="color:var(--accent2);font-weight:700;min-width:70px;">${s.from}${s.fromTerm?'('+s.fromTerm+')':''} → ${s.to}${s.toTerm?'('+s.toTerm+')':''}</span>
+          <span style="color:var(--muted);flex:1;">${s.flightNo||'—'}</span>
+          ${s.isTransit ? `<span class="tag" style="background:rgba(255,152,0,.1);color:#ffa726;border:1px solid rgba(255,152,0,.3);padding:1px 6px;">轉機${s.wait?' '+s.wait:''}</span>` : ''}
+        </div>
+        <div style="font-size:.68rem;color:var(--muted);padding:2px 0 4px;">${s.depTime||'—'} → ${s.arrTime||'—'}</div>
+      `).join('');
+      return `
+        <div class="card" style="margin-bottom:11px;">
+          <div class="card-header">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:1.1rem;">✈️</span>
+              <div>
+                <div style="font-size:.85rem;font-weight:700;color:var(--accent2);">${f.person}</div>
+                ${f.luggage ? `<div style="font-size:.68rem;color:var(--muted);">🧳 ${f.luggage}</div>` : ''}
+              </div>
+            </div>
+            <div class="card-price">
+              <div class="price-per-label">&nbsp;</div>
+              <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${f.totalTWD ? fmt(f.totalTWD) : '—'}</div>
+              <div style="font-size:.65rem;color:var(--muted);">各付各的</div>
+            </div>
+          </div>
+          <div style="padding:0 16px 12px;">
+            ${goSegs.length ? `<div style="font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">去程</div>${renderSegs(goSegs)}` : ''}
+            ${retSegs.length ? `<div style="font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin:8px 0 4px;">回程</div>${renderSegs(retSegs)}` : ''}
+          </div>
+        </div>`;
+    }).join('') : '';
+
+  // 油費 / 停車佔位
+  const fuelCard = (currentFilter === 'all' || currentFilter === 'fuel') ?
+    `<div class="empty" style="padding:16px;margin-bottom:8px;">⛽ 旅途中加油記錄會顯示在這裡</div>` : '';
+  const parkCard = (currentFilter === 'all' || currentFilter === 'parking') ?
+    `<div class="empty" style="padding:16px;margin-bottom:8px;">🅿 旅途中停車費記錄會顯示在這裡</div>` : '';
+
+  return `
+    <div class="filter-row">${filterBtns}</div>
+    ${carCard}${flightCards}${fuelCard}${parkCard}
+  `;
+}
+
+window.setTransportFilter = function(f) {
+  window._transportFilter = f;
+  const d = window.APP_DATA || window.STATIC;
+  document.getElementById('carContent').innerHTML = renderTransport(d);
+};
+
 function renderCar(car){
   return `
     <div class="car-card">
@@ -242,7 +331,8 @@ function renderAll(){
   const d=window.APP_DATA || window.STATIC;
   const totalAccom=d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
   const totalActivity=(d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
-  const grandTotal=(d.car.totalTWD||0)+totalAccom+totalActivity;
+  const totalFlight=d.totalFlightTWD||0;
+  const grandTotal=(d.car.totalTWD||0)+totalAccom+totalActivity+totalFlight;
 
   // ── 負債試算（誰付了多少 vs 應付）
   const MEMBERS = ['花','猴','寧'];
@@ -421,7 +511,7 @@ function renderAll(){
           <div style="display:flex;gap:16px;align-items:center">
             <div style="flex-shrink:0">${donutSvg}</div>
             <div>
-              <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費</div>
+              <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費（含機票）</div>
               <div style="font-family:'Cinzel',serif;font-size:1.55rem;color:var(--gold);font-weight:600;line-height:1.1">NT$ ${Math.round(grandTotal/3).toLocaleString('zh-TW')}<span style="font-size:.5em;color:var(--muted)">/人</span></div>
               <div style="font-size:.7rem;color:var(--muted);margin-top:2px">合計 ${fmt(grandTotal)}</div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
@@ -459,7 +549,7 @@ function renderAll(){
         <div id="accommodation" class="section active">
           <div id="accomContent">${renderAccom(d.accommodation)}</div>
         </div>
-        <div id="car" class="section">${renderCar(d.car)}</div>
+        <div id="car" class="section"><div id="carContent">${renderTransport(d)}</div></div>
         <div id="activity" class="section"><div class="empty">🚧 施工中，敬請期待</div></div>
         <div id="daily" class="section"><div id="dailyContent" class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div></div>
         <div id="repay" class="section"><div id="repayContent">${renderRepay(d.repayHistory||[])}</div></div>

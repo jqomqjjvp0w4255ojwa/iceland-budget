@@ -1,6 +1,6 @@
 (function () {
   const API_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
-  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", repay: "寫入_分帳" };
+  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function num(value) {
@@ -30,7 +30,7 @@
     return fallback;
   }
 
-  function transformData({ overview, accommodation, car, activity, split, lines }) {
+  function transformData({ overview, accommodation, car, activity, split, lines, flight }) {
 
     // ── 匯率（總覽）
     const oCells = overview?.cells ?? [];
@@ -138,6 +138,54 @@
       }))
       .filter(r => r.amount > 0);
 
+    // ── 航班
+    const flightRows = cellsToRows(flight);
+    // 先找出所有有乘客名的行（第一段），建立乘客索引
+    const flightByPerson = {};
+    let currentPerson = null;
+    flightRows.forEach(row => {
+      const person = String(row['乘客'] ?? '').trim();
+      if (person) currentPerson = person;
+      if (!currentPerson) return;
+      if (!flightByPerson[currentPerson]) flightByPerson[currentPerson] = { segments: [], totalTWD: 0, luggage: '' };
+      const seg = {
+        isGo:      String(row['去?'] ?? '').toLowerCase() === 'true' || row['去?'] === true,
+        isTransit: String(row['轉機?'] ?? '').toLowerCase() === 'true' || row['轉機?'] === true,
+        segNo:     num(pick(row, ['航段'], 0)),
+        from:      String(row['出發地'] ?? '').trim(),
+        fromTerm:  String(row['出發航廈'] ?? '').trim(),
+        to:        String(row['目的地'] ?? '').trim(),
+        toTerm:    String(row['目的地航廈'] ?? '').trim(),
+        wait:      String(row['等待時間(轉機用)'] ?? '').trim(),
+        depTime:   String(row['出發時間'] ?? '').trim(),
+        arrTime:   String(row['抵達時間'] ?? '').trim(),
+        airline:   String(row['航空公司'] ?? '').trim(),
+        flightNo:  String(row['航班號'] ?? '').trim(),
+        luggage:   String(row['行李額度'] ?? '').trim(),
+        cost:      num(pick(row, ['機票費用(寫在第一筆)', '費用'])),
+        twd:       num(pick(row, ['換算台幣'])),
+        note:      String(row['備註'] ?? '').trim(),
+      };
+      if (seg.cost > 0) flightByPerson[currentPerson].totalTWD = seg.twd || seg.cost;
+      if (seg.luggage) flightByPerson[currentPerson].luggage = seg.luggage;
+      if (seg.from || seg.to || seg.flightNo) flightByPerson[currentPerson].segments.push(seg);
+    });
+    const flights = Object.entries(flightByPerson).map(([person, data]) => ({ person, ...data }));
+    const totalFlightTWD = flights.reduce((s, f) => s + (f.totalTWD || 0), 0);
+
+    // ── 還款記錄
+    const repayRows = cellsToRows(split);
+    const repayHistory = repayRows
+      .filter(row => String(row['還款人'] ?? '').trim() && String(row['還給'] ?? '').trim())
+      .map(row => ({
+        from:   String(row['還款人'] ?? '').trim(),
+        to:     String(row['還給'] ?? '').trim(),
+        amount: num(pick(row, ['還款金額', '金額'])),
+        date:   String(row['還款日期'] ?? '').trim(),
+        note:   String(row['備註'] ?? '').trim(),
+      }))
+      .filter(r => r.amount > 0);
+
     return {
       exchangeISK,
       exchangeEUR,
@@ -146,6 +194,9 @@
       activity: cellsToRows(activity),
       split: splitData,
       dialogLines,
+      flights,
+      totalFlightTWD,
+      repayHistory,
     };
   }
 
@@ -175,11 +226,11 @@
   window.setSyncState?.('syncing', '同步中…');
 
   try {
-    const [overview, accommodation, car, activity, split, lines] = await Promise.all([
-      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity'), fetchSheet('split'), fetchSheet('lines')
+    const [overview, accommodation, car, activity, split, lines, flight] = await Promise.all([
+      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity'), fetchSheet('split'), fetchSheet('lines'), fetchSheet('flight')
     ]);
     
-    window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines });
+    window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight });
     
     // ─── 【防禦 2：成功拿到雲端資料時】偷偷打包存進手機口袋 ───
     localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
