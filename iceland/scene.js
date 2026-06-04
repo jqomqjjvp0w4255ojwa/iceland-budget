@@ -334,6 +334,23 @@
   }
   window.startBubbleLoop = startBubbleLoop;
 
+  // 切換分頁回來時重設輪播，避免三個泡泡同時出現
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      // 先隱藏全部再重新開始
+      CHARS.forEach(m => {
+        const el = document.getElementById(CHAR_MAP[m]);
+        if (el) el.classList.remove('show');
+      });
+      _bubbleIdx = 0;
+      if (_bubbleTimer) { clearInterval(_bubbleTimer); _bubbleTimer = null; }
+      setTimeout(startBubbleLoop, 400);
+    } else {
+      // 離開時暫停
+      if (_bubbleTimer) { clearInterval(_bubbleTimer); _bubbleTimer = null; }
+    }
+  });
+
   document.addEventListener('DOMContentLoaded', ()=>{
     const _origRenderAll = window.renderAll;
     window.renderAll = function(){
