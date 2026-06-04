@@ -556,7 +556,7 @@ function initDonutPicker(carPct, flightPct, accomPct, actPct, flightByPerson){
   },{passive:true});
 }
 
-// ── 只更新圓餅+數字（不重建整個頁面）
+// ── 只更新圓餅+數字+小計（不重建整個頁面）
 function refreshDonut(){
   const d = window.APP_DATA||window.STATIC;
   const totalAccom   = d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
@@ -564,21 +564,28 @@ function refreshDonut(){
   const totalFlight  = d.totalFlightTWD||0;
   const carTotal     = d.car.totalTWD||0;
   const sharedTotal  = carTotal+totalAccom+totalActivity;
-  const {perPersonAmt, grandDisplay, whoLabel, flightByPerson} =
+  const grandTotal   = sharedTotal+totalFlight;
+  const {perPersonAmt, grandDisplay, whoLabel} =
     calcFlightDisplay(sharedTotal, totalFlight, d.flights);
 
-  // 更新數字
-  const elAmt = document.getElementById('donutPerPerson');
-  const elWho = document.getElementById('donutWhoLabel');
-  const elAll = document.getElementById('donutGrandTotal');
-  if(elAmt){ elAmt.textContent='NT$ '+Math.round(perPersonAmt).toLocaleString('zh-TW'); }
-  if(elWho){ elWho.textContent=whoLabel; }
-  if(elAll){ elAll.textContent='合計 '+fmt(grandDisplay); }
+  // 數字
+  const elAmt    = document.getElementById('donutPerPerson');
+  const elWho    = document.getElementById('donutWhoLabel');
+  const elAll    = document.getElementById('donutGrandTotal');
+  const elApprox = document.getElementById('donutApprox');
+  if(elAmt)    elAmt.textContent    = Math.round(perPersonAmt).toLocaleString('zh-TW');
+  if(elWho)    elWho.textContent    = whoLabel;
+  if(elAll)    elAll.textContent    = '合計 '+fmt(grandDisplay);
+  if(elApprox) elApprox.textContent = window._flightMode==='equal'?'約':'';
 
-  // 更新圓餅
+  // 圓餅
   const pt = grandDisplay||1;
   const flightDisp = window._flightMode==='none'?0:totalFlight;
   drawDonutCanvas(carTotal/pt, flightDisp/pt, totalAccom/pt, totalActivity/pt);
+
+  // 小計進度條
+  const elCat = document.getElementById('catRowsContent');
+  if(elCat) elCat.innerHTML = buildCatRows(carTotal, totalFlight, totalAccom, totalActivity, grandTotal);
 }
 
 // ── 主渲染
@@ -651,38 +658,57 @@ function renderAll(){
     <div style="position:relative;width:120px;height:120px;flex-shrink:0;">
       <canvas id="donutCanvas" width="120" height="120"
         style="position:absolute;top:0;left:0;image-rendering:pixelated;display:block;"></canvas>
-      <!-- 中心卷軸 -->
+      <!-- 中心卷軸：overflow:hidden + border-radius 裁成圓 -->
       <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-                  width:46px;height:46px;overflow:hidden;border-radius:50%;cursor:pointer;">
+                  width:46px;height:46px;overflow:hidden;border-radius:50%;cursor:pointer;z-index:2;">
         <div id="donutPickerList"
           style="overflow-y:scroll;scroll-snap-type:y mandatory;
-                 -webkit-overflow-scrolling:touch;scrollbar-width:none;height:100%;"></div>
+                 -webkit-overflow-scrolling:touch;scrollbar-width:none;
+                 width:100%;height:46px;display:block;"></div>
       </div>
       <!-- 選中框 -->
       <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-                  width:40px;height:40px;border-radius:50%;
-                  border:1.5px solid rgba(79,195,247,.5);pointer-events:none;"></div>
+                  width:44px;height:44px;border-radius:50%;
+                  border:1.5px solid rgba(79,195,247,.55);pointer-events:none;z-index:3;"></div>
     </div>`;
 
-  // ── 各類別進度條（相對於 grandTotal）
-  const cats = [
-    {label:'🚗 租車', total:carTotal,      color:'#f0c040', pct: grandTotal?carTotal/grandTotal:0},
-    {label:'✈️ 機票', total:totalFlight,   color:'#4fc3f7', pct: grandTotal?totalFlight/grandTotal:0},
-    {label:'🏕 住宿', total:totalAccom,    color:'#7c4dff', pct: grandTotal?totalAccom/grandTotal:0},
-    {label:'🎯 活動', total:totalActivity, color:'#4caf6e', pct: grandTotal?totalActivity/grandTotal:0},
-    {label:'🛒 日常', total:0,             color:'#4fc3f7', pct: 0},
-  ];
-  const catRows = cats.map(c=>`
-    <div style="margin-bottom:9px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
-        <span style="font-size:.72rem;color:var(--text)">${c.label}</span>
-        <span style="font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold)">${c.total?fmt(c.total/3):'—'}<span style="font-size:.6em;color:var(--muted)">/人</span></span>
-      </div>
-      <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
-        <div style="height:100%;width:${(c.pct*100).toFixed(1)}%;background:${c.color};border-radius:3px;transition:width .6s"></div>
-      </div>
-      <div style="font-size:.63rem;color:var(--muted);margin-top:2px">合計 ${c.total?fmt(c.total):'—'}</div>
-    </div>`).join('');
+  // ── 各類別進度條（用 id="catRows" 讓 refreshDonut 可以單獨更新）
+  // 實際內容由 buildCatRows() 產生，依 _flightMode 決定機票欄位
+  function buildCatRows(carTotal, totalFlight, totalAccom, totalActivity, grandTotal){
+    const mode = window._flightMode||'equal';
+    const flightByPerson = {};
+    const flights = (window.APP_DATA||window.STATIC).flights||[];
+    flights.forEach(f=>{ flightByPerson[f.person]=f.totalTWD||0; });
+
+    let flightDisplay, flightLabel;
+    if(mode==='none'){
+      flightDisplay=0; flightLabel='—';
+    } else if(mode==='equal'){
+      flightDisplay=totalFlight; flightLabel=fmt(totalFlight/3);
+    } else {
+      flightDisplay=totalFlight; flightLabel=fmt((flightByPerson[mode]||0));
+    }
+    const gt = grandTotal||1;
+    const cats=[
+      {label:'🚗 租車', total:carTotal,       perLabel:fmt(carTotal/3),    color:'#f0c040', pct:carTotal/gt},
+      {label:'✈️ 機票', total:flightDisplay,  perLabel:flightLabel,        color:'#4fc3f7', pct:flightDisplay/gt},
+      {label:'🏕 住宿', total:totalAccom,     perLabel:fmt(totalAccom/3),  color:'#7c4dff', pct:totalAccom/gt},
+      {label:'🎯 活動', total:totalActivity,  perLabel:fmt(totalActivity/3),color:'#4caf6e',pct:totalActivity/gt},
+      {label:'🛒 日常', total:0,              perLabel:'—',                color:'#4fc3f7', pct:0},
+    ];
+    return cats.map(c=>`
+      <div style="margin-bottom:9px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+          <span style="font-size:.72rem;color:var(--text)">${c.label}</span>
+          <span style="font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold)">${c.total?c.perLabel:'—'}<span style="font-size:.6em;color:var(--muted)">/人</span></span>
+        </div>
+        <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${(c.pct*100).toFixed(1)}%;background:${c.color};border-radius:3px;transition:width .6s"></div>
+        </div>
+        <div style="font-size:.63rem;color:var(--muted);margin-top:2px">合計 ${c.total?fmt(c.total):'—'}</div>
+      </div>`).join('');
+  }
+  const catRows = buildCatRows(carTotal, totalFlight, totalAccom, totalActivity, grandTotal);
 
   // ── 分帳明細（從 寫入_分帳 Sheet 讀取，若無則 fallback 自算）
   const splitData = d.split || {};
@@ -753,7 +779,7 @@ function renderAll(){
             <div>
               <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費</div>
               <div style="font-family:'Cinzel',serif;font-size:1.55rem;color:var(--gold);font-weight:600;line-height:1.1">
-                NT$ <span id="donutPerPerson">${Math.round(perPersonAmt).toLocaleString('zh-TW')}</span><span style="font-size:.5em;color:var(--muted)">/人</span>
+                <span id="donutApprox" style="font-size:.7rem;color:var(--muted);font-family:'Lato',sans-serif;margin-right:1px">${window._flightMode==='equal'?'約':''}</span>NT$ <span id="donutPerPerson">${Math.round(perPersonAmt).toLocaleString('zh-TW')}</span><span style="font-size:.5em;color:var(--muted)">/人</span>
               </div>
               <div style="font-size:.65rem;color:var(--accent);margin-top:1px;min-height:14px" id="donutWhoLabel">${whoLabel}</div>
               <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="donutGrandTotal">合計 ${fmt(grandDisplay)}</div>
@@ -771,7 +797,7 @@ function renderAll(){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border);padding-top:12px;margin-bottom:14px">
           <div style="padding-right:12px;border-right:1px solid var(--border)">
             <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">小計</div>
-            ${catRows}
+            <div id="catRowsContent">${catRows}</div>
           </div>
           <div style="padding-left:12px">
             <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">分帳明細</div>
