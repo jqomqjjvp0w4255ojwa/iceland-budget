@@ -278,69 +278,81 @@ function renderAll(){
     <circle cx="50" cy="50" r="28" fill="#0d1f35"/>
   </svg>`;
 
-  // ── 分帳明細
-  const memberEmoji = {'花':'🌸','猴':'🐒','寧':'🌙'};
-  const memberDebtHtml = MEMBERS.map(m=>{
-    const d_val = debt[m]; // 正 = 別人欠他，負 = 他欠別人
-    const barPct = grandTotal ? Math.min(Math.abs(paid[m])/(grandTotal)*100,100) : 0;
-    const debtText = d_val > 0
-      ? `<span style="color:var(--green);font-size:.65rem">→ 要收回 ${fmt(d_val)}</span>`
-      : d_val < 0
-        ? `<span style="color:var(--red);font-size:.65rem">→ 要給出 ${fmt(-d_val)}</span>`
-        : `<span style="color:var(--muted);font-size:.65rem">→ 剛好平</span>`;
-    const barColor = d_val >= 0 ? 'var(--green)' : '#e8c020';
+  // ── 各類別進度條（相對於 grandTotal）
+  const cats = [
+    {label:'🚗 交通', total:carTotal,      color:'#f0c040', pct: grandTotal?carTotal/grandTotal:0},
+    {label:'🏕 住宿', total:totalAccom,    color:'#7c4dff', pct: grandTotal?totalAccom/grandTotal:0},
+    {label:'🎯 活動', total:totalActivity, color:'#4caf6e', pct: grandTotal?totalActivity/grandTotal:0},
+    {label:'🛒 日常', total:0,             color:'#4fc3f7', pct: 0},
+  ];
+  const catRows = cats.map(c=>`
+    <div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+        <span style="font-size:.72rem;color:var(--text)">${c.label}</span>
+        <span style="font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold)">${c.total?fmt(c.total/3):'—'}<span style="font-size:.6em;color:var(--muted)">/人</span></span>
+      </div>
+      <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${(c.pct*100).toFixed(1)}%;background:${c.color};border-radius:3px;transition:width .6s"></div>
+      </div>
+      <div style="font-size:.63rem;color:var(--muted);margin-top:2px">合計 ${c.total?fmt(c.total):'—'}</div>
+    </div>`).join('');
+
+  // ── 分帳明細列（帶頭像 + 進度條）
+  const maxPaid = Math.max(...MEMBERS.map(m=>paid[m]), 1);
+  const debtRows = MEMBERS.map(m=>{
+    const paidAmt = paid[m];
+    const d_val   = debt[m]; // 正=要收回，負=要給出
+    const barPct  = (paidAmt/maxPaid*100).toFixed(1);
+    const barColor= d_val >= 0 ? 'var(--green)' : '#e8c020';
+    let debtLabel = '';
+    if(d_val > 0)       debtLabel = `→ 要收回 ${fmt(d_val)}`;
+    else if(d_val < 0)  debtLabel = `→ 要給出 ${fmt(-d_val)}`;
+    else                debtLabel = `→ 剛好平`;
+    const debtColor = d_val > 0 ? 'var(--green)' : d_val < 0 ? 'var(--red)' : 'var(--muted)';
     return `
-      <div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-          <span style="font-size:.8rem;display:flex;align-items:center;gap:4px">${memberEmoji[m]} ${m}</span>
-          <span style="font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold)">${fmt(paid[m])}</span>
+    <div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        ${avatarSvg(m)}
+        <div style="flex:1;min-width:0">
+          <div style="height:8px;background:var(--bg3);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${barPct}%;background:${barColor};border-radius:2px;transition:width .6s"></div>
+          </div>
         </div>
-        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-bottom:3px">
-          <div style="height:100%;width:${barPct.toFixed(1)}%;background:${barColor};border-radius:3px;transition:width .6s"></div>
-        </div>
-        ${debtText}
-      </div>`;
+        <span style="font-family:'Cinzel',serif;font-size:.78rem;color:var(--gold);white-space:nowrap">${paidAmt?fmt(paidAmt):'—'}</span>
+      </div>
+      <div style="font-size:.65rem;padding-left:22px;color:${debtColor}">${debtLabel}</div>
+    </div>`;
   }).join('');
 
   document.getElementById('mainContent').innerHTML=`
     <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;">
       <div style="font-size:.7rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:12px">總覽</div>
-      <div style="display:flex;gap:14px;align-items:center;margin-bottom:16px">
-        <div style="flex-shrink:0">${donutSvg}</div>
-        <div style="flex:1">
-          <div style="font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費</div>
-          <div style="font-family:'Cinzel',serif;font-size:1.6rem;color:var(--gold);font-weight:600;line-height:1.1">NT$ ${Math.round(grandTotal/3).toLocaleString('zh-TW')}<span style="font-size:.55em;color:var(--muted)">/人</span></div>
-          <div style="font-size:.72rem;color:var(--muted);margin-top:2px">合計 ${fmt(grandTotal)}</div>
-          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-            <span style="font-size:.65rem;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#f0c040;display:inline-block;border-radius:1px"></span>交通 ${carPct>0?(carPct*100).toFixed(0)+'%':'—'}</span>
-            <span style="font-size:.65rem;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#7c4dff;display:inline-block;border-radius:1px"></span>住宿 ${accomPct>0?(accomPct*100).toFixed(0)+'%':'—'}</span>
-            <span style="font-size:.65rem;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#4caf6e;display:inline-block;border-radius:1px"></span>活動 ${actPct>0?(actPct*100).toFixed(0)+'%':'—'}</span>
+
+      <!-- 圓餅 + 累計花費：置中 -->
+      <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:16px">
+        ${donutSvg}
+        <div style="margin-top:8px;text-align:center">
+          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費</div>
+          <div style="font-family:'Cinzel',serif;font-size:1.7rem;color:var(--gold);font-weight:600;line-height:1.1">NT$ ${Math.round(grandTotal/3).toLocaleString('zh-TW')}<span style="font-size:.5em;color:var(--muted)">/人</span></div>
+          <div style="font-size:.7rem;color:var(--muted);margin-top:2px">合計 ${fmt(grandTotal)}</div>
+          <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
+            <span style="font-size:.63rem;display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;background:#f0c040;display:inline-block;border-radius:1px"></span>交通 ${carPct>0?(carPct*100).toFixed(0)+'%':'—'}</span>
+            <span style="font-size:.63rem;display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;background:#7c4dff;display:inline-block;border-radius:1px"></span>住宿 ${accomPct>0?(accomPct*100).toFixed(0)+'%':'—'}</span>
+            <span style="font-size:.63rem;display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;background:#4caf6e;display:inline-block;border-radius:1px"></span>活動 ${actPct>0?(actPct*100).toFixed(0)+'%':'—'}</span>
           </div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 12px">
-          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">🚗 交通</div>
-          <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold)">${fmt(carTotal/3)}<span style="font-size:.6em;color:var(--muted)">/人</span></div>
-          <div style="font-size:.68rem;color:var(--muted);margin-top:2px">合計 ${fmt(carTotal)}</div>
+
+      <!-- 小計 | 分帳：左右並排 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border);padding-top:12px">
+        <div style="padding-right:12px;border-right:1px solid var(--border)">
+          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">小計</div>
+          ${catRows}
         </div>
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 12px">
-          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">🏕 住宿</div>
-          <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold)">${fmtPer(totalAccom)}</div>
-          <div style="font-size:.68rem;color:var(--muted);margin-top:2px">合計 ${fmt(totalAccom)}</div>
+        <div style="padding-left:12px">
+          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">分帳明細</div>
+          ${debtRows}
         </div>
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 12px">
-          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">🎯 活動</div>
-          ${totalActivity ? `<div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold)">${fmtPer(totalActivity)}</div><div style="font-size:.68rem;color:var(--muted);margin-top:2px">合計 ${fmt(totalActivity)}</div>` : '<div style="font-size:.8rem;color:var(--muted)">待新增</div>'}
-        </div>
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 12px">
-          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">🛒 日常</div>
-          <div style="font-size:.8rem;color:var(--muted)">旅途中新增</div>
-        </div>
-      </div>
-      <div style="border-top:1px solid var(--border);padding-top:12px">
-        <div style="font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px">分帳明細</div>
-        ${memberDebtHtml}
       </div>
     </div>
     <div class="rate-bar">

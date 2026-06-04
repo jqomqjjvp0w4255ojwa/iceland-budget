@@ -168,9 +168,10 @@
     }
 
     const msg=document.getElementById('pxMsg');
-    if(isOver){msg.className='px-gb-msg danger';msg.textContent='✖ 超支！全員倒地！';}
-    else if(pct>=70){msg.className='px-gb-msg warn';msg.textContent='！注意！剩 NT$'+remain.toLocaleString()+' 要小心了';}
-    else{msg.className='px-gb-msg safe';msg.textContent='▶ 安全！還可以花 NT$'+remain.toLocaleString();}
+    const openMenu=()=>window.openRadialMenu&&window.openRadialMenu();
+    if(isOver){msg.className='px-gb-msg danger';msg.onclick=null;msg.textContent='✖ 超支！全員倒地！';}
+    else if(pct>=70){msg.className='px-gb-msg warn';msg.onclick=openMenu;msg.textContent='！注意！剩 NT$'+remain.toLocaleString()+' 要小心了';}
+    else{msg.className='px-gb-msg safe';msg.onclick=openMenu;msg.textContent='▶ 安全！還可以花 NT$'+remain.toLocaleString();}
   };
 
 

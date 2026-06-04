@@ -229,6 +229,67 @@
     .px-btn-submit:hover{background:#3a6a2a;}
     .px-btn-submit:disabled{background:#888;cursor:not-allowed;}
     .px-divider{border:none;border-top:1px solid #2a4a1a;margin:10px 0;}
+
+    /* ── 輪盤選單 */
+    .radial-overlay{
+      display:none;position:fixed;inset:0;z-index:200;
+      background:rgba(0,0,0,0);transition:background .15s;
+      touch-action:none;
+    }
+    .radial-overlay.show{display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);}
+    .radial-menu{
+      position:relative;width:220px;height:220px;
+      pointer-events:none;
+    }
+    /* 中心關閉鈕 */
+    .radial-center{
+      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+      width:52px;height:52px;border-radius:50%;
+      background:#1a1a2e;border:3px solid #fff;
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Silkscreen',monospace;font-size:18px;color:#fff;
+      pointer-events:all;cursor:pointer;z-index:5;
+      box-shadow:0 0 0 4px rgba(0,0,0,.4);
+    }
+    /* 各方向按鈕 */
+    .radial-btn{
+      position:absolute;
+      width:68px;height:68px;border-radius:50%;
+      background:#e8f0d0;border:3px solid #2a4a1a;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+      font-family:'Silkscreen',monospace;font-size:7px;color:#2a4a1a;
+      pointer-events:all;cursor:pointer;
+      transition:background .12s,transform .12s,box-shadow .12s;
+      user-select:none;-webkit-user-select:none;
+    }
+    .radial-btn .radial-icon{font-size:22px;line-height:1;}
+    .radial-btn:hover,.radial-btn.hover{
+      background:#2a4a1a;color:#c8d8a8;
+      transform:scale(1.15);
+      box-shadow:0 0 0 4px rgba(42,74,26,.4),0 0 16px rgba(200,216,168,.3);
+    }
+    /* 右：記帳  左：還錢 */
+    .radial-btn-expense{ left:50%;top:50%;transform:translate(44px,-50%); }
+    .radial-btn-repay  { left:50%;top:50%;transform:translate(calc(-100% - 44px),-50%); }
+    .radial-btn-expense.hover{ transform:translate(44px,-50%) scale(1.15); }
+    .radial-btn-repay.hover  { transform:translate(calc(-100% - 44px),-50%) scale(1.15); }
+
+    /* 連接線（裝飾用） */
+    .radial-line{
+      position:absolute;left:50%;top:50%;
+      height:2px;background:rgba(42,74,26,.35);
+      transform-origin:left center;pointer-events:none;
+      width:44px;
+    }
+    .radial-line-r{transform:translateY(-50%);}
+    .radial-line-l{transform:translateY(-50%) rotate(180deg);}
+
+    /* px-gb-msg 點擊提示 */
+    .px-gb-msg{cursor:pointer;position:relative;}
+    .px-gb-msg::after{
+      content:'▶';position:absolute;right:8px;top:50%;transform:translateY(-50%);
+      font-size:8px;opacity:.6;
+    }
   </style>
 </head>
 <body>
@@ -431,6 +492,96 @@
     </div>
   </div>
 </div>
+
+<!-- ══ 輪盤選單 ══ -->
+<div class="radial-overlay" id="radialOverlay">
+  <div class="radial-menu" id="radialMenu">
+    <div class="radial-line radial-line-r"></div>
+    <div class="radial-line radial-line-l"></div>
+    <div class="radial-center" id="radialClose">✕</div>
+    <div class="radial-btn radial-btn-expense" id="radialExpense" data-action="expense">
+      <span class="radial-icon">＋</span>
+      <span>記帳</span>
+    </div>
+    <div class="radial-btn radial-btn-repay" id="radialRepay" data-action="repay">
+      <span class="radial-icon">💰</span>
+      <span>還錢</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const overlay = document.getElementById('radialOverlay');
+  const btns = overlay.querySelectorAll('.radial-btn');
+  let dragging = false;
+  let hovered = null;
+
+  function openRadial(){ overlay.classList.add('show'); }
+  function closeRadial(){ overlay.classList.remove('show'); hovered=null; btns.forEach(b=>b.classList.remove('hover')); }
+
+  function getBtnAt(x, y){
+    for(const b of btns){
+      const r = b.getBoundingClientRect();
+      if(x>=r.left && x<=r.right && y>=r.top && y<=r.bottom) return b;
+    }
+    return null;
+  }
+
+  function fireAction(btn){
+    if(!btn) return;
+    closeRadial();
+    const action = btn.dataset.action;
+    if(action === 'expense') openPxModal('expense');
+    else if(action === 'repay') openPxModal('repay');
+  }
+
+  // 點擊關閉鈕
+  document.getElementById('radialClose').addEventListener('click', e=>{ e.stopPropagation(); closeRadial(); });
+
+  // 點擊 overlay 背景關閉
+  overlay.addEventListener('click', e=>{ if(e.target === overlay) closeRadial(); });
+
+  // 點擊按鈕（一般點擊）
+  btns.forEach(b => b.addEventListener('click', e=>{ e.stopPropagation(); fireAction(b); }));
+
+  // ── 長按 + 滑動（touch）
+  overlay.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    dragging = true;
+    const t = e.touches[0];
+    const b = getBtnAt(t.clientX, t.clientY);
+    if(b !== hovered){
+      btns.forEach(x=>x.classList.remove('hover'));
+      hovered = b;
+      if(b) b.classList.add('hover');
+    }
+  }, {passive:false});
+
+  overlay.addEventListener('touchend', e=>{
+    if(dragging && hovered){ fireAction(hovered); dragging=false; return; }
+    dragging=false;
+  });
+
+  // ── 長按 + 滑動（mouse，桌機測試用）
+  overlay.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    const b = getBtnAt(e.clientX, e.clientY);
+    if(b !== hovered){
+      btns.forEach(x=>x.classList.remove('hover'));
+      hovered = b;
+      if(b) b.classList.add('hover');
+    }
+  });
+  overlay.addEventListener('mouseup', e=>{
+    if(dragging && hovered){ fireAction(hovered); dragging=false; return; }
+    dragging=false;
+  });
+
+  // 開放給外部呼叫
+  window.openRadialMenu = function(){ dragging=false; hovered=null; openRadial(); };
+})();
+</script>
 
 <script src="app.js"></script>
 <script src="sprites.js"></script>
