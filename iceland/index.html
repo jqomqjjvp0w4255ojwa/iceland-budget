@@ -436,6 +436,24 @@
           </select>
         </div>
       </div>
+      <!-- 油費特殊欄位 -->
+      <div id="pxFuelFields" style="display:none;background:#f0f8e8;border:1px solid #b8c8a0;border-radius:4px;padding:8px;margin-bottom:8px;">
+        <div style="font-size:7px;color:#2a4a1a;margin-bottom:6px;letter-spacing:1px;">▸ 加油紀錄（選填）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div>
+            <div style="font-size:7px;color:#2a4a1a;margin-bottom:3px;">目前里程 (km)</div>
+            <input class="px-input" type="number" inputmode="decimal" id="pxFuelMileage" placeholder="0" style="padding:5px 8px;">
+          </div>
+          <div>
+            <div style="font-size:7px;color:#2a4a1a;margin-bottom:3px;">公升數 (L)</div>
+            <input class="px-input" type="number" inputmode="decimal" id="pxFuelLiters" placeholder="0" style="padding:5px 8px;">
+          </div>
+        </div>
+        <div style="margin-top:6px;">
+          <div style="font-size:7px;color:#2a4a1a;margin-bottom:3px;">品牌（選填）</div>
+          <input class="px-input" type="text" id="pxFuelBrand" placeholder="例：Orkan">
+        </div>
+      </div>
       <div class="px-field">
         <label class="px-label">▸ 付款人 *（單選）</label>
         <div class="px-member-row" id="pxPayerBtns"></div>

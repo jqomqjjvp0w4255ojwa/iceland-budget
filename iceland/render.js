@@ -155,6 +155,31 @@ function setFilter(f){
 }
 
 // ── 租車
+function renderRepay(items) {
+  if (!items.length) return `<div class="empty">💸 還款記錄會顯示在這裡</div>`;
+  return items.map(r => {
+    const date = r.date ? r.date.split('T')[0] : '—';
+    return `
+      <div class="card" style="margin-bottom:10px;">
+        <div class="card-header">
+          <div>
+            <div class="card-date" style="font-size:.85rem">${date}</div>
+            <div class="card-name-row" style="margin-top:5px;display:flex;align-items:center;gap:6px;">
+              ${avatarSvg(r.from)}
+              <span style="font-size:.8rem;color:var(--muted)">→</span>
+              ${avatarSvg(r.to)}
+              <span style="font-size:.75rem;color:var(--muted)">${r.from} 還給 ${r.to}</span>
+            </div>
+          </div>
+          <div class="card-price">
+            <div class="price-per" style="font-size:1.1rem">NT$ ${Math.round(r.amount).toLocaleString('zh-TW')}</div>
+          </div>
+        </div>
+        ${r.note ? `<div class="card-note">📌 ${r.note}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
 function renderCar(car){
   return `
     <div class="car-card">
@@ -182,6 +207,10 @@ function renderCar(car){
         <div class="car-item" style="grid-column:1/-1;border-right:none">
           <div class="car-item-label">取還車地點</div>
           <div class="car-item-value" style="font-size:.78rem;font-weight:400;color:var(--muted)">${car.location}</div>
+        </div>
+        <div class="car-item" style="grid-column:1/-1;border-right:none;border-top:1px solid var(--border)">
+          <div class="car-item-label">取車里程</div>
+          <div class="car-item-value">${car.startMileage ? car.startMileage.toLocaleString()+' km' : '<span style="color:var(--muted);font-size:.75rem">待填入</span>'}</div>
         </div>
       </div>
       <div class="car-price-row">
@@ -425,6 +454,7 @@ function renderAll(){
           <button class="tab" onclick="showTab('car',this)">🚗 交通</button>
           <button class="tab" onclick="showTab('activity',this)">🎯 活動</button>
           <button class="tab" onclick="showTab('daily',this)">🛒 日常</button>
+          <button class="tab" onclick="showTab('repay',this)">💸 還款</button>
         </div>
         <div id="accommodation" class="section active">
           <div id="accomContent">${renderAccom(d.accommodation)}</div>
@@ -432,6 +462,7 @@ function renderAll(){
         <div id="car" class="section">${renderCar(d.car)}</div>
         <div id="activity" class="section"><div class="empty">🚧 施工中，敬請期待</div></div>
         <div id="daily" class="section"><div id="dailyContent" class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div></div>
+        <div id="repay" class="section"><div id="repayContent">${renderRepay(d.repayHistory||[])}</div></div>
       </div>
 
       <!-- 其他分頁（待開發） -->

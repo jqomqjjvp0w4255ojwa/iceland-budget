@@ -153,6 +153,9 @@ function pxUpdateSplitSummary() {
 function pxCheckSubmit() {
   const amt = parseFloat(document.getElementById('pxExpAmt').value) || 0;
   const cat = document.getElementById('pxExpCat').value;
+  // 油費欄位顯示/隱藏
+  const fuelFields = document.getElementById('pxFuelFields');
+  if (fuelFields) fuelFields.style.display = cat === 'fuel' ? 'block' : 'none';
   document.getElementById('pxBtnExpense').disabled =
     !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
 }
@@ -241,8 +244,14 @@ window.pxSubmitExpense = async function() {
     const each = Math.round((amt/sel.length)*100)/100;
     sel.forEach(m => { splits[m] = each; });
   }
+  // 油費特殊欄位
+  const fuelMileage = cat === 'fuel' ? (parseFloat(document.getElementById('pxFuelMileage')?.value)||0) : 0;
+  const fuelLiters  = cat === 'fuel' ? (parseFloat(document.getElementById('pxFuelLiters')?.value)||0)  : 0;
+  const fuelBrand   = cat === 'fuel' ? (document.getElementById('pxFuelBrand')?.value||'')              : '';
+
   const payload = { action:'addExpense', category:cat, amount:amt, currency:cur, payer:_pxPayer,
-    split花:splits['花'], split猴:splits['猴'], split寧:splits['寧'], date, location:loc, note };
+    split花:splits['花'], split猴:splits['猴'], split寧:splits['寧'], date, location:loc, note,
+    fuelMileage, fuelLiters, fuelBrand };
   console.log('[forms] 新增開銷:', payload);
   // TODO: await postToGAS(payload);
   window.cancelPxModal('pxModalExpense');

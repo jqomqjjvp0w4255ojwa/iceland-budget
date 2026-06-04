@@ -1,6 +1,6 @@
 (function () {
   const API_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
-  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞" };
+  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", repay: "寫入_分帳" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function num(value) {
@@ -82,8 +82,9 @@
       perPerson: num(pick(carRow, ['每人付款', '每人'])) || window.STATIC?.car?.perPerson || 0,
       driver1:   pick(carRow, ['主駕'],                 window.STATIC?.car?.driver1 ?? ''),
       driver2:   pick(carRow, ['副駕'],                 window.STATIC?.car?.driver2 ?? ''),
-      payer:     pick(carRow, ['付款人'],               window.STATIC?.car?.payer ?? ''),
-      insurance: window.STATIC?.car?.insurance ?? [],
+      payer:        pick(carRow, ['付款人'],               window.STATIC?.car?.payer ?? ''),
+      insurance:    window.STATIC?.car?.insurance ?? [],
+      startMileage: num(pick(carRow, ['取車里程'], 0)) || window.STATIC?.car?.startMileage || 0,
     };
 
     // 駕駛資訊從 cells 底部備註列讀
@@ -119,6 +120,23 @@
       if (!dialogLines[char]) dialogLines[char] = {};
       dialogLines[char][state] = [line1, line2].filter(Boolean);
     });
+
+    // ── 還款記錄（從 寫入_分帳 的還款區讀取）
+    const repayRows = cellsToRows(split);
+    const repayHistory = repayRows
+      .filter(row => {
+        const from = String(row['還款人'] ?? '').trim();
+        const to   = String(row['還給'] ?? '').trim();
+        return from && to;
+      })
+      .map(row => ({
+        from:   String(row['還款人'] ?? '').trim(),
+        to:     String(row['還給'] ?? '').trim(),
+        amount: num(pick(row, ['還款金額', '金額'])),
+        date:   String(row['還款日期'] ?? '').trim(),
+        note:   String(row['備註'] ?? '').trim(),
+      }))
+      .filter(r => r.amount > 0);
 
     return {
       exchangeISK,
