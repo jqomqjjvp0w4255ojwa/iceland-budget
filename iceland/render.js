@@ -459,7 +459,8 @@ function drawDonutCanvas(carPct, flightPct, accomPct, actPct){
   const cv = document.getElementById('donutCanvas');
   if(!cv) return;
   const ctx = cv.getContext('2d');
-  const G=32, S=3.75, cx=15.5, cy=15.5, rO=13.5, rI=9.0;
+  // 140px canvas，32格，每格 4.375px；rI=8 讓中心夠大放選擇器
+  const G=32, S=4.375, cx=15.5, cy=15.5, rO=13.5, rI=8.5;
   ctx.clearRect(0,0,cv.width,cv.height);
   const slices=[
     {pct:carPct,    color:'#f0c040'},
@@ -481,51 +482,63 @@ function drawDonutCanvas(carPct, flightPct, accomPct, actPct){
 }
 
 // ── 初始化圓餅中心卷軸選擇器
-function initDonutPicker(carPct, flightPct, accomPct, actPct, flightByPerson){
+function initDonutPicker(){
   const PICKER_OPTIONS=[
-    {key:'none',  icon:'✈️', gray:true,  label:'不含'},
-    {key:'equal', icon:'✈️', gray:false, label:'均分'},
-    {key:'花',    label:'花'},
-    {key:'猴',    label:'猴'},
-    {key:'寧',    label:'寧'},
+    {key:'none',  gray:true },
+    {key:'equal', gray:false},
+    {key:'花'},
+    {key:'猴'},
+    {key:'寧'},
   ];
-  const ITEM_H = 46;
+  const ITEM_H = 58;
   const list = document.getElementById('donutPickerList');
   if(!list) return;
 
-  const pad = `<div style="height:${ITEM_H}px;flex-shrink:0;background:transparent"></div>`;
-  list.innerHTML = pad + PICKER_OPTIONS.map((opt,i)=>{
+  // 側視角飛機（24×14 像素，機頭朝右）
+  function planePx(gray){
+    const b = gray ? '#4a5a6a' : '#4fc3f7';  // 機身
+    const w = gray ? '#2a3a48' : '#0d9ec7';  // 深色
+    const e = gray ? '#7a8a98' : '#b0e8ff';  // 亮色/窗
+    return `<svg width="24" height="14" viewBox="0 0 24 14" style="image-rendering:pixelated">
+      <!-- 機身 -->
+      <rect x="2"  y="5"  width="14" height="4" fill="${b}"/>
+      <rect x="16" y="6"  width="4"  height="2" fill="${b}"/>
+      <rect x="20" y="6"  width="2"  height="2" fill="${w}"/>
+      <!-- 機頭（圓弧感） -->
+      <rect x="1"  y="6"  width="1"  height="2" fill="${b}"/>
+      <rect x="0"  y="7"  width="1"  height="1" fill="${b}"/>
+      <!-- 主翼（上下各一） -->
+      <rect x="6"  y="2"  width="6"  height="3" fill="${b}"/>
+      <rect x="6"  y="9"  width="6"  height="3" fill="${b}"/>
+      <rect x="7"  y="1"  width="4"  height="1" fill="${w}"/>
+      <rect x="7"  y="12" width="4"  height="1" fill="${w}"/>
+      <!-- 尾翼 -->
+      <rect x="17" y="3"  width="3"  height="2" fill="${b}"/>
+      <rect x="17" y="9"  width="3"  height="2" fill="${b}"/>
+      <rect x="18" y="2"  width="2"  height="1" fill="${w}"/>
+      <rect x="18" y="11" width="2"  height="1" fill="${w}"/>
+      <!-- 窗戶 -->
+      <rect x="4"  y="6"  width="2"  height="2" fill="${e}"/>
+      <rect x="8"  y="6"  width="2"  height="2" fill="${e}"/>
+      <rect x="12" y="6"  width="2"  height="2" fill="${e}"/>
+    </svg>`;
+  }
+
+  const pad = `<div style="height:${ITEM_H}px;flex-shrink:0;"></div>`;
+  list.innerHTML = pad + PICKER_OPTIONS.map(opt=>{
     const isSel = opt.key===window._flightMode;
     let iconHtml;
     if(opt.key==='花'||opt.key==='猴'||opt.key==='寧'){
-      iconHtml = `<div style="transform:scale(.75);transform-origin:center">${avatarSvg(opt.key)}</div>`;
+      // 角色頭像，不顯示名字
+      iconHtml = `<div style="transform:scale(.85);transform-origin:center;line-height:0">${avatarSvg(opt.key)}</div>`;
     } else {
-      // 灰色 or 彩色飛機
-      const c = opt.gray ? '#4a5a6a' : '#4fc3f7';
-      const cw = opt.gray ? '#38474f' : '#81d4fa';
-      iconHtml = `<svg width="16" height="16" viewBox="0 0 16 16" style="image-rendering:pixelated">
-        <rect x="7"  y="2"  width="2" height="1" fill="${c}"/>
-        <rect x="6"  y="3"  width="4" height="1" fill="${c}"/>
-        <rect x="5"  y="4"  width="6" height="1" fill="${c}"/>
-        <rect x="4"  y="5"  width="8" height="1" fill="${c}"/>
-        <rect x="2"  y="6"  width="12" height="1" fill="${cw}"/>
-        <rect x="2"  y="7"  width="12" height="1" fill="${cw}"/>
-        <rect x="4"  y="8"  width="8" height="1" fill="${c}"/>
-        <rect x="5"  y="9"  width="6" height="1" fill="${c}"/>
-        <rect x="5"  y="10" width="6" height="1" fill="${c}"/>
-        <rect x="4"  y="11" width="3" height="1" fill="${cw}"/>
-        <rect x="9"  y="11" width="3" height="1" fill="${cw}"/>
-        <rect x="5"  y="12" width="6" height="1" fill="${c}"/>
-      </svg>`;
+      iconHtml = planePx(opt.gray);
     }
-    return `<div class="donut-picker-item${isSel?' sel':''}" data-key="${opt.key}"
-      style="height:${ITEM_H}px;flex-shrink:0;display:flex;flex-direction:column;
-             align-items:center;justify-content:center;gap:2px;
-             background:${isSel?'rgba(7,17,31,.35)':'rgba(7,17,31,.55)'};
-             scroll-snap-align:center;">
+    return `<div class="donut-picker-item" data-key="${opt.key}"
+      style="height:${ITEM_H}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+             background:${isSel?'rgba(7,17,31,.3)':'rgba(7,17,31,.6)'};
+             scroll-snap-align:center;transition:background .15s;">
       ${iconHtml}
-      <div style="font-family:'Silkscreen',monospace;font-size:5px;
-                  color:${isSel?'var(--accent)':'rgba(126,179,212,.6)'};line-height:1">${opt.label}</div>
     </div>`;
   }).join('') + pad;
 
@@ -533,7 +546,7 @@ function initDonutPicker(carPct, flightPct, accomPct, actPct, flightByPerson){
   const idx = PICKER_OPTIONS.findIndex(o=>o.key===window._flightMode);
   list.scrollTop = (idx+1)*ITEM_H;
 
-  // scroll → 更新模式 → 只重繪數字和圓餅，不重建整個 DOM
+  // scroll 結束後更新
   let t;
   list.addEventListener('scroll',()=>{
     clearTimeout(t);
@@ -543,11 +556,9 @@ function initDonutPicker(carPct, flightPct, accomPct, actPct, flightByPerson){
       const newKey = PICKER_OPTIONS[clamped].key;
       if(newKey!==window._flightMode){
         window._flightMode = newKey;
-        // 更新選中樣式
         list.querySelectorAll('.donut-picker-item').forEach(el=>{
-          const s = el.dataset.key===window._flightMode;
-          el.style.background = s?'rgba(7,17,31,.35)':'rgba(7,17,31,.55)';
-          el.querySelector('div:last-child').style.color = s?'var(--accent)':'rgba(126,179,212,.6)';
+          el.style.background = el.dataset.key===window._flightMode
+            ? 'rgba(7,17,31,.3)' : 'rgba(7,17,31,.6)';
         });
         refreshDonut();
         window.updatePixelBudget?.();
@@ -653,23 +664,31 @@ function renderAll(){
   const accomPct   = totalAccom/pieTotal;
   const actPct     = totalActivity/pieTotal;
 
-  // ── 圓餅 HTML（canvas + 中心卷軸選擇器）
+  // ── 圓餅 HTML（canvas + 中心卷軸選擇器 + 上下三角提示）
   const donutHtml = `
-    <div style="position:relative;width:120px;height:120px;flex-shrink:0;">
-      <canvas id="donutCanvas" width="120" height="120"
+    <div style="position:relative;width:140px;height:140px;flex-shrink:0;">
+      <canvas id="donutCanvas" width="140" height="140"
         style="position:absolute;top:0;left:0;image-rendering:pixelated;display:block;"></canvas>
-      <!-- 中心卷軸：overflow:hidden + border-radius 裁成圓 -->
+      <!-- 上三角提示 -->
+      <div style="position:absolute;left:50%;top:calc(50% - 37px);transform:translateX(-50%);
+                  font-size:7px;color:rgba(79,195,247,.5);pointer-events:none;z-index:4;
+                  font-family:'Silkscreen',monospace;line-height:1;">▲</div>
+      <!-- 中心卷軸 -->
       <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-                  width:46px;height:46px;overflow:hidden;border-radius:50%;cursor:pointer;z-index:2;">
+                  width:58px;height:58px;overflow:hidden;border-radius:50%;cursor:pointer;z-index:2;">
         <div id="donutPickerList"
           style="overflow-y:scroll;scroll-snap-type:y mandatory;
                  -webkit-overflow-scrolling:touch;scrollbar-width:none;
-                 width:100%;height:46px;display:block;"></div>
+                 width:100%;height:58px;display:block;"></div>
       </div>
       <!-- 選中框 -->
       <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-                  width:44px;height:44px;border-radius:50%;
+                  width:56px;height:56px;border-radius:50%;
                   border:1.5px solid rgba(79,195,247,.55);pointer-events:none;z-index:3;"></div>
+      <!-- 下三角提示 -->
+      <div style="position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);
+                  font-size:7px;color:rgba(79,195,247,.5);pointer-events:none;z-index:4;
+                  font-family:'Silkscreen',monospace;line-height:1;">▼</div>
     </div>`;
 
   // ── 各類別進度條（用 id="catRows" 讓 refreshDonut 可以單獨更新）
@@ -835,7 +854,7 @@ function renderAll(){
   // ── DOM 建立完後初始化圓餅 canvas 和卷軸選擇器
   requestAnimationFrame(()=>{
     drawDonutCanvas(carPct, flightPct, accomPct, actPct);
-    initDonutPicker(carPct, flightPct, accomPct, actPct, {});
+    initDonutPicker();
   });
 }
 
