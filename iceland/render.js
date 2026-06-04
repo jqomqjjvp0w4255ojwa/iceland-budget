@@ -425,6 +425,162 @@ function renderCar(car){
   `;
 }
 
+// ── 機票顯示模式（全域狀態，renderAll 和 updatePixelBudget 共用）
+// 'none'  → 不含機票
+// 'equal' → 三人均分
+// '花'/'猴'/'寧' → 顯示該人自己的機票
+if(window._flightMode === undefined) window._flightMode = 'equal';
+
+// ── 依 flightMode 算「/人顯示金額」和「合計顯示金額」
+function calcFlightDisplay(sharedTotal, totalFlight, flights){
+  const flightByPerson = {};
+  (flights||[]).forEach(f=>{ flightByPerson[f.person] = f.totalTWD||0; });
+  const allFlight = totalFlight;
+  const mode = window._flightMode;
+  let perPersonAmt, grandDisplay, whoLabel;
+  if(mode==='none'){
+    perPersonAmt  = sharedTotal/3;
+    grandDisplay  = sharedTotal;
+    whoLabel      = '不含機票';
+  } else if(mode==='equal'){
+    perPersonAmt  = (sharedTotal + allFlight)/3;
+    grandDisplay  = sharedTotal + allFlight;
+    whoLabel      = '含機票均分';
+  } else {
+    perPersonAmt  = sharedTotal/3 + (flightByPerson[mode]||0);
+    grandDisplay  = sharedTotal + allFlight;
+    whoLabel      = mode+' 的機票';
+  }
+  return { perPersonAmt, grandDisplay, whoLabel, flightByPerson };
+}
+
+// ── 畫圓餅（canvas，在 renderAll 之後由 initDonutCanvas 呼叫）
+function drawDonutCanvas(carPct, flightPct, accomPct, actPct){
+  const cv = document.getElementById('donutCanvas');
+  if(!cv) return;
+  const ctx = cv.getContext('2d');
+  const G=32, S=3.75, cx=15.5, cy=15.5, rO=13.5, rI=9.0;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const slices=[
+    {pct:carPct,    color:'#f0c040'},
+    {pct:flightPct, color:'#4fc3f7'},
+    {pct:accomPct,  color:'#7c4dff'},
+    {pct:actPct,    color:'#4caf6e'},
+  ];
+  function ac(a){
+    let c=0;
+    for(const s of slices){if(s.pct<=0)continue;c+=s.pct*2*Math.PI;if(a<=c)return s.color;}
+    return '#1e3a5f';
+  }
+  for(let r=0;r<G;r++) for(let c=0;c<G;c++){
+    const dx=c-cx, dy=r-cy, d=Math.sqrt(dx*dx+dy*dy);
+    const col = d<rI?'#0d1f35': d>rO?null: ac((Math.atan2(dx,-dy)+2*Math.PI)%(2*Math.PI));
+    if(!col) continue;
+    ctx.fillStyle=col; ctx.fillRect(c*S,r*S,S,S);
+  }
+}
+
+// ── 初始化圓餅中心卷軸選擇器
+function initDonutPicker(carPct, flightPct, accomPct, actPct, flightByPerson){
+  const PICKER_OPTIONS=[
+    {key:'none',  icon:'✈️', gray:true,  label:'不含'},
+    {key:'equal', icon:'✈️', gray:false, label:'均分'},
+    {key:'花',    label:'花'},
+    {key:'猴',    label:'猴'},
+    {key:'寧',    label:'寧'},
+  ];
+  const ITEM_H = 46;
+  const list = document.getElementById('donutPickerList');
+  if(!list) return;
+
+  const pad = `<div style="height:${ITEM_H}px;flex-shrink:0;background:transparent"></div>`;
+  list.innerHTML = pad + PICKER_OPTIONS.map((opt,i)=>{
+    const isSel = opt.key===window._flightMode;
+    let iconHtml;
+    if(opt.key==='花'||opt.key==='猴'||opt.key==='寧'){
+      iconHtml = `<div style="transform:scale(.75);transform-origin:center">${avatarSvg(opt.key)}</div>`;
+    } else {
+      // 灰色 or 彩色飛機
+      const c = opt.gray ? '#4a5a6a' : '#4fc3f7';
+      const cw = opt.gray ? '#38474f' : '#81d4fa';
+      iconHtml = `<svg width="16" height="16" viewBox="0 0 16 16" style="image-rendering:pixelated">
+        <rect x="7"  y="2"  width="2" height="1" fill="${c}"/>
+        <rect x="6"  y="3"  width="4" height="1" fill="${c}"/>
+        <rect x="5"  y="4"  width="6" height="1" fill="${c}"/>
+        <rect x="4"  y="5"  width="8" height="1" fill="${c}"/>
+        <rect x="2"  y="6"  width="12" height="1" fill="${cw}"/>
+        <rect x="2"  y="7"  width="12" height="1" fill="${cw}"/>
+        <rect x="4"  y="8"  width="8" height="1" fill="${c}"/>
+        <rect x="5"  y="9"  width="6" height="1" fill="${c}"/>
+        <rect x="5"  y="10" width="6" height="1" fill="${c}"/>
+        <rect x="4"  y="11" width="3" height="1" fill="${cw}"/>
+        <rect x="9"  y="11" width="3" height="1" fill="${cw}"/>
+        <rect x="5"  y="12" width="6" height="1" fill="${c}"/>
+      </svg>`;
+    }
+    return `<div class="donut-picker-item${isSel?' sel':''}" data-key="${opt.key}"
+      style="height:${ITEM_H}px;flex-shrink:0;display:flex;flex-direction:column;
+             align-items:center;justify-content:center;gap:2px;
+             background:${isSel?'rgba(7,17,31,.35)':'rgba(7,17,31,.55)'};
+             scroll-snap-align:center;">
+      ${iconHtml}
+      <div style="font-family:'Silkscreen',monospace;font-size:5px;
+                  color:${isSel?'var(--accent)':'rgba(126,179,212,.6)'};line-height:1">${opt.label}</div>
+    </div>`;
+  }).join('') + pad;
+
+  // 捲到選中位置
+  const idx = PICKER_OPTIONS.findIndex(o=>o.key===window._flightMode);
+  list.scrollTop = (idx+1)*ITEM_H;
+
+  // scroll → 更新模式 → 只重繪數字和圓餅，不重建整個 DOM
+  let t;
+  list.addEventListener('scroll',()=>{
+    clearTimeout(t);
+    t=setTimeout(()=>{
+      const i = Math.round(list.scrollTop/ITEM_H)-1;
+      const clamped = Math.max(0,Math.min(i,PICKER_OPTIONS.length-1));
+      const newKey = PICKER_OPTIONS[clamped].key;
+      if(newKey!==window._flightMode){
+        window._flightMode = newKey;
+        // 更新選中樣式
+        list.querySelectorAll('.donut-picker-item').forEach(el=>{
+          const s = el.dataset.key===window._flightMode;
+          el.style.background = s?'rgba(7,17,31,.35)':'rgba(7,17,31,.55)';
+          el.querySelector('div:last-child').style.color = s?'var(--accent)':'rgba(126,179,212,.6)';
+        });
+        refreshDonut();
+        window.updatePixelBudget?.();
+      }
+    },80);
+  },{passive:true});
+}
+
+// ── 只更新圓餅+數字（不重建整個頁面）
+function refreshDonut(){
+  const d = window.APP_DATA||window.STATIC;
+  const totalAccom   = d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
+  const totalActivity= (d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
+  const totalFlight  = d.totalFlightTWD||0;
+  const carTotal     = d.car.totalTWD||0;
+  const sharedTotal  = carTotal+totalAccom+totalActivity;
+  const {perPersonAmt, grandDisplay, whoLabel, flightByPerson} =
+    calcFlightDisplay(sharedTotal, totalFlight, d.flights);
+
+  // 更新數字
+  const elAmt = document.getElementById('donutPerPerson');
+  const elWho = document.getElementById('donutWhoLabel');
+  const elAll = document.getElementById('donutGrandTotal');
+  if(elAmt){ elAmt.textContent='NT$ '+Math.round(perPersonAmt).toLocaleString('zh-TW'); }
+  if(elWho){ elWho.textContent=whoLabel; }
+  if(elAll){ elAll.textContent='合計 '+fmt(grandDisplay); }
+
+  // 更新圓餅
+  const pt = grandDisplay||1;
+  const flightDisp = window._flightMode==='none'?0:totalFlight;
+  drawDonutCanvas(carTotal/pt, flightDisp/pt, totalAccom/pt, totalActivity/pt);
+}
+
 // ── 主渲染
 function renderAll(){
   const d=window.APP_DATA || window.STATIC;
@@ -480,57 +636,35 @@ function renderAll(){
   // ── 角色站位依付款金額排序
   const memberOrder = [...MEMBERS].sort((a,b)=>paid[b]-paid[a]);
 
-  // ── 像素圓餅圖（pieTotal 用 grandTotal，含機票才比例正確）
-  const pieTotal = grandTotal;
-  const carPct    = pieTotal ? carTotal/pieTotal       : 0;
-  const flightPct = pieTotal ? totalFlight/pieTotal    : 0;
-  const accomPct  = pieTotal ? totalAccom/pieTotal     : 0;
-  const actPct    = pieTotal ? totalActivity/pieTotal  : 0;
+  // ── 圓餅比例（依 flightMode，供 initDonutPicker 初始繪製用）
+  const { perPersonAmt, grandDisplay, whoLabel } =
+    calcFlightDisplay(sharedTotal, totalFlight, d.flights||[]);
+  const flightDisp = window._flightMode==='none' ? 0 : totalFlight;
+  const pieTotal   = grandDisplay || 1;
+  const carPct     = carTotal/pieTotal;
+  const flightPct  = flightDisp/pieTotal;
+  const accomPct   = totalAccom/pieTotal;
+  const actPct     = totalActivity/pieTotal;
 
-  (function(){
-    // 在 32×32 網格上畫甜甜圈，每格 = 3px → 96×96 SVG
-    const G = 32, S = 3;
-    const cx = 15.5, cy = 15.5, rOuter = 13.5, rInner = 7.5;
-    // 🚗 租車→金、✈️ 機票→水藍、🏕 住宿→紫、🎯 活動→綠、空→深藍
-    const slices = [
-      {pct: carPct,    color:'#f0c040'},
-      {pct: flightPct, color:'#4fc3f7'},
-      {pct: accomPct,  color:'#7c4dff'},
-      {pct: actPct,    color:'#4caf6e'},
-    ];
-    function angleColor(angle){
-      let cumulative = 0;
-      for(const sl of slices){
-        if(sl.pct <= 0) continue;
-        cumulative += sl.pct * 2 * Math.PI;
-        if(angle <= cumulative) return sl.color;
-      }
-      return '#1e3a5f';
-    }
-    let rects = '';
-    for(let row=0; row<G; row++){
-      for(let col=0; col<G; col++){
-        const dx = col - cx, dy = row - cy;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if(dist < rInner || dist > rOuter) continue;
-        const angle = (Math.atan2(dx, -dy) + 2*Math.PI) % (2*Math.PI);
-        const color = angleColor(angle);
-        rects += `<rect x="${col*S}" y="${row*S}" width="${S}" height="${S}" fill="${color}"/>`;
-      }
-    }
-    // 中心暗底
-    for(let row=0; row<G; row++){
-      for(let col=0; col<G; col++){
-        const dx=col-cx, dy=row-cy, dist=Math.sqrt(dx*dx+dy*dy);
-        if(dist >= rInner) continue;
-        rects += `<rect x="${col*S}" y="${row*S}" width="${S}" height="${S}" fill="#0d1f35"/>`;
-      }
-    }
-    window._pixelDonutSvg = `<svg width="96" height="96" viewBox="0 0 96 96" style="display:block;image-rendering:pixelated">${rects}</svg>`;
-  })();
-  const donutSvg = window._pixelDonutSvg || '';
+  // ── 圓餅 HTML（canvas + 中心卷軸選擇器）
+  const donutHtml = `
+    <div style="position:relative;width:120px;height:120px;flex-shrink:0;">
+      <canvas id="donutCanvas" width="120" height="120"
+        style="position:absolute;top:0;left:0;image-rendering:pixelated;display:block;"></canvas>
+      <!-- 中心卷軸 -->
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+                  width:46px;height:46px;overflow:hidden;border-radius:50%;cursor:pointer;">
+        <div id="donutPickerList"
+          style="overflow-y:scroll;scroll-snap-type:y mandatory;
+                 -webkit-overflow-scrolling:touch;scrollbar-width:none;height:100%;"></div>
+      </div>
+      <!-- 選中框 -->
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+                  width:40px;height:40px;border-radius:50%;
+                  border:1.5px solid rgba(79,195,247,.5);pointer-events:none;"></div>
+    </div>`;
 
-  // ── 各類別進度條（相對於 grandTotal，機票獨立一列）
+  // ── 各類別進度條（相對於 grandTotal）
   const cats = [
     {label:'🚗 租車', total:carTotal,      color:'#f0c040', pct: grandTotal?carTotal/grandTotal:0},
     {label:'✈️ 機票', total:totalFlight,   color:'#4fc3f7', pct: grandTotal?totalFlight/grandTotal:0},
@@ -615,11 +749,14 @@ function renderAll(){
         <!-- 圓餅+累計花費：置中群組 -->
         <div style="display:flex;justify-content:center;margin-bottom:16px">
           <div style="display:flex;gap:16px;align-items:center">
-            <div style="flex-shrink:0">${donutSvg}</div>
+            ${donutHtml}
             <div>
               <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費</div>
-              <div style="font-family:'Cinzel',serif;font-size:1.55rem;color:var(--gold);font-weight:600;line-height:1.1">NT$ ${Math.round(grandTotal/3).toLocaleString('zh-TW')}<span style="font-size:.5em;color:var(--muted)">/人</span></div>
-              <div style="font-size:.7rem;color:var(--muted);margin-top:2px">合計 ${fmt(grandTotal)}</div>
+              <div style="font-family:'Cinzel',serif;font-size:1.55rem;color:var(--gold);font-weight:600;line-height:1.1">
+                NT$ <span id="donutPerPerson">${Math.round(perPersonAmt).toLocaleString('zh-TW')}</span><span style="font-size:.5em;color:var(--muted)">/人</span>
+              </div>
+              <div style="font-size:.65rem;color:var(--accent);margin-top:1px;min-height:14px" id="donutWhoLabel">${whoLabel}</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="donutGrandTotal">合計 ${fmt(grandDisplay)}</div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
                 <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#f0c040;display:inline-block;border-radius:1px"></span>租車 ${carPct>0?(carPct*100).toFixed(0)+'%':'—'}</span>
                 <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#4fc3f7;display:inline-block;border-radius:1px"></span>機票 ${flightPct>0?(flightPct*100).toFixed(0)+'%':'—'}</span>
@@ -668,6 +805,12 @@ function renderAll(){
       <div id="mainSection-bag"  style="display:none"><div class="empty">📖 手冊頁面施工中</div></div>
     </div>
   `;
+
+  // ── DOM 建立完後初始化圓餅 canvas 和卷軸選擇器
+  requestAnimationFrame(()=>{
+    drawDonutCanvas(carPct, flightPct, accomPct, actPct);
+    initDonutPicker(carPct, flightPct, accomPct, actPct, {});
+  });
 }
 
 function showTab(id,btn){
