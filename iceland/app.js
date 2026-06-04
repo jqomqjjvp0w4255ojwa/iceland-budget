@@ -1,6 +1,6 @@
 (function () {
   const API_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
-  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動" };
+  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function num(value) {
@@ -30,7 +30,7 @@
     return fallback;
   }
 
-  function transformData({ overview, accommodation, car, activity }) {
+  function transformData({ overview, accommodation, car, activity, split }) {
 
     // ── 匯率（總覽）
     const oCells = overview?.cells ?? [];
@@ -93,12 +93,27 @@
     if (d1Row) carData.driver1 = String(d1Row[0]).replace(/主要駕駛[:：]?/, '').trim();
     if (d2Row) carData.driver2 = String(d2Row[0]).replace(/額外駕駛[:：]?/, '').trim();
 
+    // ── 分帳明細（直接從 寫入_分帳 讀現成結果）
+    const splitRows = cellsToRows(split);
+    const splitData = {};
+    splitRows
+      .filter(row => ['猴','花','寧'].some(m => String(row['成員'] ?? '').includes(m)))
+      .forEach(row => {
+        const name = ['猴','花','寧'].find(m => String(row['成員'] ?? '').includes(m));
+        if (!name) return;
+        splitData[name] = {
+          paid:    num(pick(row, ['總付出 (代墊)', '總付出'])),
+          balance: num(pick(row, ['還款後結算'])),
+        };
+      });
+
     return {
       exchangeISK,
       exchangeEUR,
       car: carData,
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
       activity: cellsToRows(activity),
+      split: splitData,
     };
   }
 
@@ -128,11 +143,11 @@
   window.setSyncState?.('syncing', '同步中…');
 
   try {
-    const [overview, accommodation, car, activity] = await Promise.all([
-      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity')
+    const [overview, accommodation, car, activity, split] = await Promise.all([
+      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity'), fetchSheet('split')
     ]);
     
-    window.APP_DATA = transformData({ overview, accommodation, car, activity });
+    window.APP_DATA = transformData({ overview, accommodation, car, activity, split });
     
     // ─── 【防禦 2：成功拿到雲端資料時】偷偷打包存進手機口袋 ───
     localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));

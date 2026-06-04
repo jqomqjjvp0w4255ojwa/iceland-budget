@@ -325,15 +325,18 @@ function renderAll(){
       <div style="font-size:.63rem;color:var(--muted);margin-top:2px">合計 ${c.total?fmt(c.total):'—'}</div>
     </div>`).join('');
 
-  // ── 分帳明細列（帶頭像 + 進度條）
-  const maxPaid = Math.max(...MEMBERS.map(m=>paid[m]), 1);
-  const debtRows = MEMBERS.map(m=>{
-    const paidAmt = paid[m];
-    const d_val   = debt[m];
-    const barPct  = (paidAmt/maxPaid*100).toFixed(1);
-    const barColor= d_val >= 0 ? 'var(--green)' : '#e8c020';
-    let debtLabel = d_val > 0 ? `→ 要收回 ${fmt(d_val)}` : d_val < 0 ? `→ 要給出 ${fmt(-d_val)}` : `→ 剛好平`;
-    const debtColor = d_val > 0 ? 'var(--green)' : d_val < 0 ? 'var(--red)' : 'var(--muted)';
+  // ── 分帳明細（從 寫入_分帳 Sheet 讀取，若無則 fallback 自算）
+  const splitData = d.split || {};
+  const maxPaid = Math.max(...MEMBERS.map(m => splitData[m]?.paid || paid[m] || 0), 1);
+  const debtRows = MEMBERS.map(m => {
+    const paidAmt  = splitData[m]?.paid    ?? paid[m] ?? 0;
+    const balance  = splitData[m]?.balance ?? debt[m] ?? 0;
+    const barPct   = (paidAmt / maxPaid * 100).toFixed(1);
+    const barColor = balance >= 0 ? 'var(--green)' : '#e8c020';
+    const debtLabel = balance > 0 ? `→ 要收回 ${fmt(balance)}`
+                    : balance < 0 ? `→ 要給出 ${fmt(-balance)}`
+                    : `→ 剛好平`;
+    const debtColor = balance > 0 ? 'var(--green)' : balance < 0 ? 'var(--red)' : 'var(--muted)';
     return `
     <div style="margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
@@ -343,7 +346,7 @@ function renderAll(){
             <div style="height:100%;width:${barPct}%;background:${barColor};border-radius:2px;transition:width .6s"></div>
           </div>
         </div>
-        <span style="font-family:'Cinzel',serif;font-size:.78rem;color:var(--gold);white-space:nowrap">${paidAmt?fmt(paidAmt):'—'}</span>
+        <span style="font-family:'Cinzel',serif;font-size:.78rem;color:var(--gold);white-space:nowrap">${paidAmt ? fmt(paidAmt) : '—'}</span>
       </div>
       <div style="font-size:.65rem;padding-left:22px;color:${debtColor}">${debtLabel}</div>
     </div>`;
@@ -357,25 +360,25 @@ function renderAll(){
                background:var(--card);border:1px solid var(--border);border-bottom:none;
                border-radius:8px 8px 0 0;color:var(--accent);cursor:pointer;font-family:'Lato',sans-serif;font-weight:700;
                box-shadow:inset 0 2px 0 var(--accent);margin-bottom:-1px;z-index:2;position:relative;">
-        <span style="font-size:.95rem">🍔</span><span>帳簿</span>
+        <span style="font-size:.95rem">🧾</span><span>帳簿</span>
       </button>
       <button id="mainTab-info" onclick="switchMainTab('info',this)"
         style="flex:1;padding:6px 4px 9px;font-size:.72rem;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
                background:var(--bg3);border:1px solid var(--border);border-bottom:none;
                border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;position:relative;z-index:1;">
-        <span style="font-size:.95rem">ℹ️</span><span>情報</span>
+        <span style="font-size:.95rem">📅</span><span>行程</span>
       </button>
       <button id="mainTab-map" onclick="switchMainTab('map',this)"
         style="flex:1;padding:6px 4px 9px;font-size:.72rem;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
                background:var(--bg3);border:1px solid var(--border);border-bottom:none;
                border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;position:relative;z-index:1;">
-        <span style="font-size:.95rem">🗺️</span><span>地圖</span>
+        <span style="font-size:.95rem">📍</span><span>足跡</span>
       </button>
       <button id="mainTab-bag" onclick="switchMainTab('bag',this)"
         style="flex:1;padding:6px 4px 9px;font-size:.72rem;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
                background:var(--bg3);border:1px solid var(--border);border-bottom:none;
                border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;position:relative;z-index:1;">
-        <span style="font-size:.95rem">🎒</span><span>背包</span>
+        <span style="font-size:.95rem">📖</span><span>手冊</span>
       </button>
     </div>
 
@@ -432,9 +435,9 @@ function renderAll(){
       </div>
 
       <!-- 其他分頁（待開發） -->
-      <div id="mainSection-info" style="display:none"><div class="empty">ℹ️ 情報頁面施工中</div></div>
-      <div id="mainSection-map"  style="display:none"><div class="empty">🗺️ 地圖頁面施工中</div></div>
-      <div id="mainSection-bag"  style="display:none"><div class="empty">🎒 背包頁面施工中</div></div>
+      <div id="mainSection-info" style="display:none"><div class="empty">📅 行程頁面施工中</div></div>
+      <div id="mainSection-map"  style="display:none"><div class="empty">📍 足跡頁面施工中</div></div>
+      <div id="mainSection-bag"  style="display:none"><div class="empty">📖 手冊頁面施工中</div></div>
     </div>
   `;
 }
