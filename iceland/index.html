@@ -206,8 +206,8 @@
     .px-scroll-picker-list{overflow-y:scroll;scroll-snap-type:y mandatory;border:2px solid #2a4a1a;background:#f8fce8;scrollbar-width:none;}
     .px-scroll-picker-list::-webkit-scrollbar{display:none;}
     .px-scroll-picker-item{scroll-snap-align:center;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;border-bottom:1px solid #b8c8a0;transition:background .15s;}
-    .px-scroll-picker-item.sel{background:#2a4a1a;}
-    .px-scroll-picker-item.sel span{color:#c8d8a8;}
+    .px-scroll-picker-item.sel{background:#f5e97a;border-left:3px solid #2a4a1a;}
+    .px-scroll-picker-item.sel span{color:#2a4a1a;font-weight:bold;}
     .px-scroll-picker-item span{font-size:7px;color:#2a4a1a;font-family:'Silkscreen',monospace;}
     /* ── 算盤 */
     .px-calc-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:180;align-items:flex-end;justify-content:center;padding-bottom:32px;}
@@ -428,7 +428,7 @@
       <div class="px-field">
         <label class="px-label">▸ 金額 *</label>
         <div style="display:flex;gap:6px;">
-          <input class="px-input" id="pxExpAmt" placeholder="點此輸入" style="flex:2;cursor:pointer;" readonly onclick="pxOpenCalc('pxExpAmt','pxUpdateSplit')">
+          <input class="px-input" id="pxExpAmt" placeholder="點此輸入" style="flex:2;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpAmt','pxUpdateSplit')">
           <select class="px-select" id="pxExpCur" style="flex:1">
             <option value="NT">NT$</option>
             <option value="ISK">ISK</option>
@@ -493,7 +493,7 @@
       </div>
       <div class="px-field">
         <label class="px-label">▸ 金額（NT$）*</label>
-        <input class="px-input" id="pxRepayAmt" placeholder="點此輸入" style="cursor:pointer;" readonly onclick="pxOpenCalc('pxRepayAmt','pxValidateRepay')">
+        <input class="px-input" id="pxRepayAmt" placeholder="點此輸入" style="cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxRepayAmt','pxValidateRepay')">
       </div>
       <hr class="px-divider">
       <div class="px-field">
