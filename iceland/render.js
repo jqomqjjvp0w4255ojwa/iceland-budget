@@ -431,7 +431,13 @@ function renderAll(){
   const totalAccom=d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
   const totalActivity=(d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
   const totalFlight=d.totalFlightTWD||0;
-  const grandTotal=(d.car.totalTWD||0)+totalAccom+totalActivity+totalFlight;
+  const carTotal=d.car.totalTWD||0;
+
+  // sharedTotal = 可三人平攤的部分（租車＋住宿＋活動）
+  // grandTotal  = 全部花費含機票（用於「合計」顯示與圓餅）
+  // 機票各付各的，不列入 shouldPay 平攤基準
+  const sharedTotal = carTotal + totalAccom + totalActivity;
+  const grandTotal  = sharedTotal + totalFlight;
 
   // ── 負債試算（誰付了多少 vs 應付）
   const MEMBERS = ['花','猴','寧'];
@@ -445,7 +451,8 @@ function renderAll(){
   if(d.car.totalTWD && d.car.payer){
     for(const m of MEMBERS){ if(d.car.payer.includes(m)){ paid[m]+=d.car.totalTWD; break; } }
   }
-  const shouldPay = grandTotal/3;
+  // shouldPay 只平攤 sharedTotal，機票各付各的不列入
+  const shouldPay = sharedTotal/3;
   const debt = {};
   MEMBERS.forEach(m=>{ debt[m]=Math.round(paid[m]-shouldPay); });
 
@@ -473,25 +480,25 @@ function renderAll(){
   // ── 角色站位依付款金額排序
   const memberOrder = [...MEMBERS].sort((a,b)=>paid[b]-paid[a]);
 
-  // ── 像素圓餅圖（用 rect 網格模擬，16×16 像素格）
-  const carTotal = d.car.totalTWD || 0;
-  const pieTotal = carTotal + totalAccom + totalActivity;
-  const carPct   = pieTotal ? carTotal/pieTotal : 0;
-  const accomPct = pieTotal ? totalAccom/pieTotal : 0;
-  const actPct   = pieTotal ? totalActivity/pieTotal : 0;
+  // ── 像素圓餅圖（pieTotal 用 grandTotal，含機票才比例正確）
+  const pieTotal = grandTotal;
+  const carPct    = pieTotal ? carTotal/pieTotal       : 0;
+  const flightPct = pieTotal ? totalFlight/pieTotal    : 0;
+  const accomPct  = pieTotal ? totalAccom/pieTotal     : 0;
+  const actPct    = pieTotal ? totalActivity/pieTotal  : 0;
 
   (function(){
     // 在 32×32 網格上畫甜甜圈，每格 = 3px → 96×96 SVG
     const G = 32, S = 3;
     const cx = 15.5, cy = 15.5, rOuter = 13.5, rInner = 7.5;
-    // 依比例分配顏色（交通→金、住宿→紫、活動→綠、空→深藍）
+    // 🚗 租車→金、✈️ 機票→水藍、🏕 住宿→紫、🎯 活動→綠、空→深藍
     const slices = [
-      {pct: carPct,   color:'#f0c040'},
-      {pct: accomPct, color:'#7c4dff'},
-      {pct: actPct,   color:'#4caf6e'},
+      {pct: carPct,    color:'#f0c040'},
+      {pct: flightPct, color:'#4fc3f7'},
+      {pct: accomPct,  color:'#7c4dff'},
+      {pct: actPct,    color:'#4caf6e'},
     ];
     function angleColor(angle){
-      // angle: 0=12點鐘，順時針，rad
       let cumulative = 0;
       for(const sl of slices){
         if(sl.pct <= 0) continue;
@@ -506,7 +513,6 @@ function renderAll(){
         const dx = col - cx, dy = row - cy;
         const dist = Math.sqrt(dx*dx + dy*dy);
         if(dist < rInner || dist > rOuter) continue;
-        // angle from 12 o'clock, clockwise
         const angle = (Math.atan2(dx, -dy) + 2*Math.PI) % (2*Math.PI);
         const color = angleColor(angle);
         rects += `<rect x="${col*S}" y="${row*S}" width="${S}" height="${S}" fill="${color}"/>`;
@@ -524,9 +530,10 @@ function renderAll(){
   })();
   const donutSvg = window._pixelDonutSvg || '';
 
-  // ── 各類別進度條（相對於 grandTotal）
+  // ── 各類別進度條（相對於 grandTotal，機票獨立一列）
   const cats = [
-    {label:'🚗 交通', total:carTotal,      color:'#f0c040', pct: grandTotal?carTotal/grandTotal:0},
+    {label:'🚗 租車', total:carTotal,      color:'#f0c040', pct: grandTotal?carTotal/grandTotal:0},
+    {label:'✈️ 機票', total:totalFlight,   color:'#4fc3f7', pct: grandTotal?totalFlight/grandTotal:0},
     {label:'🏕 住宿', total:totalAccom,    color:'#7c4dff', pct: grandTotal?totalAccom/grandTotal:0},
     {label:'🎯 活動', total:totalActivity, color:'#4caf6e', pct: grandTotal?totalActivity/grandTotal:0},
     {label:'🛒 日常', total:0,             color:'#4fc3f7', pct: 0},
@@ -614,7 +621,8 @@ function renderAll(){
               <div style="font-family:'Cinzel',serif;font-size:1.55rem;color:var(--gold);font-weight:600;line-height:1.1">NT$ ${Math.round(grandTotal/3).toLocaleString('zh-TW')}<span style="font-size:.5em;color:var(--muted)">/人</span></div>
               <div style="font-size:.7rem;color:var(--muted);margin-top:2px">合計 ${fmt(grandTotal)}</div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-                <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#f0c040;display:inline-block;border-radius:1px"></span>交通 ${carPct>0?(carPct*100).toFixed(0)+'%':'—'}</span>
+                <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#f0c040;display:inline-block;border-radius:1px"></span>租車 ${carPct>0?(carPct*100).toFixed(0)+'%':'—'}</span>
+                <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#4fc3f7;display:inline-block;border-radius:1px"></span>機票 ${flightPct>0?(flightPct*100).toFixed(0)+'%':'—'}</span>
                 <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#7c4dff;display:inline-block;border-radius:1px"></span>住宿 ${accomPct>0?(accomPct*100).toFixed(0)+'%':'—'}</span>
                 <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#4caf6e;display:inline-block;border-radius:1px"></span>活動 ${actPct>0?(actPct*100).toFixed(0)+'%':'—'}</span>
               </div>
