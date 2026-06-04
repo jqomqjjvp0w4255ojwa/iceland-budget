@@ -254,29 +254,93 @@ function renderAll(){
 
   // ── 角色站位依付款金額排序
   const memberOrder = [...MEMBERS].sort((a,b)=>paid[b]-paid[a]);
+
+  // ── 圓餅圖資料
+  const carTotal = d.car.totalTWD || 0;
+  const pieTotal = carTotal + totalAccom + totalActivity;
+  const carPct   = pieTotal ? carTotal/pieTotal : 0;
+  const accomPct = pieTotal ? totalAccom/pieTotal : 0;
+  const actPct   = pieTotal ? totalActivity/pieTotal : 0;
+  // SVG 圓餅（cx=cy=50 r=40，用 stroke-dasharray 疊加）
+  const C = 2*Math.PI*40; // 251.33
+  function pieSlice(offset,pct,color){
+    if(pct<=0) return '';
+    return `<circle cx="50" cy="50" r="40" fill="none" stroke="${color}" stroke-width="20"
+      stroke-dasharray="${(pct*C).toFixed(2)} ${C.toFixed(2)}"
+      stroke-dashoffset="${(-offset*C).toFixed(2)}"
+      transform="rotate(-90 50 50)" style="image-rendering:pixelated"/>`;
+  }
+  const donutSvg=`<svg width="110" height="110" viewBox="0 0 100 100" style="display:block">
+    <circle cx="50" cy="50" r="40" fill="none" stroke="#1e3a5f" stroke-width="20"/>
+    ${pieSlice(0,         carPct,  '#f0c040')}
+    ${pieSlice(carPct,    accomPct,'#7c4dff')}
+    ${pieSlice(carPct+accomPct, actPct, '#4caf6e')}
+    <circle cx="50" cy="50" r="28" fill="#0d1f35"/>
+  </svg>`;
+
+  // ── 分帳明細
+  const memberEmoji = {'花':'🌸','猴':'🐒','寧':'🌙'};
+  const memberDebtHtml = MEMBERS.map(m=>{
+    const d_val = debt[m]; // 正 = 別人欠他，負 = 他欠別人
+    const barPct = grandTotal ? Math.min(Math.abs(paid[m])/(grandTotal)*100,100) : 0;
+    const debtText = d_val > 0
+      ? `<span style="color:var(--green);font-size:.65rem">→ 要收回 ${fmt(d_val)}</span>`
+      : d_val < 0
+        ? `<span style="color:var(--red);font-size:.65rem">→ 要給出 ${fmt(-d_val)}</span>`
+        : `<span style="color:var(--muted);font-size:.65rem">→ 剛好平</span>`;
+    const barColor = d_val >= 0 ? 'var(--green)' : '#e8c020';
+    return `
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-size:.8rem;display:flex;align-items:center;gap:4px">${memberEmoji[m]} ${m}</span>
+          <span style="font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold)">${fmt(paid[m])}</span>
+        </div>
+        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-bottom:3px">
+          <div style="height:100%;width:${barPct.toFixed(1)}%;background:${barColor};border-radius:3px;transition:width .6s"></div>
+        </div>
+        ${debtText}
+      </div>`;
+  }).join('');
+
   document.getElementById('mainContent').innerHTML=`
-    <div class="summary-grid">
-      <div class="summary-card full">
-        <div class="summary-label">✈️ 累計花費</div>
-        <div class="summary-value">${fmt(grandTotal/3)}</div>
-        <div class="summary-sub">合計 ${fmt(grandTotal)}</div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;">
+      <div style="font-size:.7rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:12px">總覽</div>
+      <div style="display:flex;gap:14px;align-items:center;margin-bottom:16px">
+        <div style="flex-shrink:0">${donutSvg}</div>
+        <div style="flex:1">
+          <div style="font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費</div>
+          <div style="font-family:'Cinzel',serif;font-size:1.6rem;color:var(--gold);font-weight:600;line-height:1.1">NT$ ${Math.round(grandTotal/3).toLocaleString('zh-TW')}<span style="font-size:.55em;color:var(--muted)">/人</span></div>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:2px">合計 ${fmt(grandTotal)}</div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <span style="font-size:.65rem;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#f0c040;display:inline-block;border-radius:1px"></span>交通 ${carPct>0?(carPct*100).toFixed(0)+'%':'—'}</span>
+            <span style="font-size:.65rem;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#7c4dff;display:inline-block;border-radius:1px"></span>住宿 ${accomPct>0?(accomPct*100).toFixed(0)+'%':'—'}</span>
+            <span style="font-size:.65rem;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#4caf6e;display:inline-block;border-radius:1px"></span>活動 ${actPct>0?(actPct*100).toFixed(0)+'%':'—'}</span>
+          </div>
+        </div>
       </div>
-      <div class="summary-card">
-        <div class="summary-label">🚗 租車</div>
-        <div class="summary-label-sub">&nbsp;</div>
-        <div class="summary-value" style="font-size:1rem">${'NT$ '+d.car.perPerson.toLocaleString('zh-TW')+'<span style="font-size:.6em;color:var(--muted)">/人</span>'}</div>
-        <div class="summary-sub">合計 ${fmt(d.car.totalTWD)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 12px">
+          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">🚗 交通</div>
+          <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold)">${fmt(carTotal/3)}<span style="font-size:.6em;color:var(--muted)">/人</span></div>
+          <div style="font-size:.68rem;color:var(--muted);margin-top:2px">合計 ${fmt(carTotal)}</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 12px">
+          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">🏕 住宿</div>
+          <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold)">${fmtPer(totalAccom)}</div>
+          <div style="font-size:.68rem;color:var(--muted);margin-top:2px">合計 ${fmt(totalAccom)}</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 12px">
+          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">🎯 活動</div>
+          ${totalActivity ? `<div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold)">${fmtPer(totalActivity)}</div><div style="font-size:.68rem;color:var(--muted);margin-top:2px">合計 ${fmt(totalActivity)}</div>` : '<div style="font-size:.8rem;color:var(--muted)">待新增</div>'}
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 12px">
+          <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">🛒 日常</div>
+          <div style="font-size:.8rem;color:var(--muted)">旅途中新增</div>
+        </div>
       </div>
-      <div class="summary-card">
-        <div class="summary-label">🏕 住宿</div>
-        <div class="summary-label-sub">&nbsp;</div>
-        <div class="summary-value" style="font-size:1rem">${fmtPer(totalAccom)}</div>
-        <div class="summary-sub">合計 ${fmt(totalAccom)}</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">🎯 活動</div>
-        <div class="summary-label-sub">&nbsp;</div>
-        ${totalActivity ? `<div class="summary-value" style="font-size:1rem">${fmtPer(totalActivity)}</div><div class="summary-sub">合計 ${fmt(totalActivity)}</div>` : '<div class="summary-value" style="font-size:.85rem;color:var(--muted)">待新增</div><div class="summary-sub">—</div>'}
+      <div style="border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px">分帳明細</div>
+        ${memberDebtHtml}
       </div>
     </div>
     <div class="rate-bar">
