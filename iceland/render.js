@@ -180,87 +180,180 @@ function renderRepay(items) {
   }).join('');
 }
 
+function renderInfo(d) {
+  return `
+    <div class="tabs" style="margin-top:4px;">
+      <button class="tab active" onclick="showInfoTab('prep',this)">📋 行前準備</button>
+      <button class="tab" onclick="showInfoTab('flight',this)">✈️ 航班</button>
+      <button class="tab" onclick="showInfoTab('car',this)">🚗 取車</button>
+      <button class="tab" onclick="showInfoTab('schedule',this)">📅 日程</button>
+    </div>
+    <div id="infoTab-prep" class="section active">
+      <div class="empty">🧳 行前準備清單（建置中）</div>
+    </div>
+    <div id="infoTab-flight" class="section">
+      ${(d.flights||[]).length ? (d.flights||[]).map(f => {
+        const goSegs  = f.segments.filter(s => s.isGo);
+        const retSegs = f.segments.filter(s => !s.isGo);
+        const renderSegs = segs => segs.map(s => \`
+          <div style="padding:6px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:6px;font-size:.78rem;">
+              <span style="color:var(--accent2);font-weight:700;">\${s.from}\${s.fromTerm?' ('+s.fromTerm+')':''}</span>
+              <span style="color:var(--muted);">→</span>
+              <span style="color:var(--accent2);font-weight:700;">\${s.to}\${s.toTerm?' ('+s.toTerm+')':''}</span>
+              \${s.flightNo ? \`<span class="tag tag-person" style="margin-left:auto;">\${s.flightNo}</span>\` : ''}
+            </div>
+            <div style="font-size:.68rem;color:var(--muted);margin-top:3px;">\${s.depTime||'—'} → \${s.arrTime||'—'}</div>
+            \${s.airline ? \`<div style="font-size:.68rem;color:var(--muted);">\${s.airline}</div>\` : ''}
+            \${s.isTransit ? \`<div style="font-size:.68rem;color:#ffa726;">🔄 轉機\${s.wait?' · 等待 '+s.wait:''}</div>\` : ''}
+          </div>\`).join('');
+        return \`
+          <div class="card" style="margin-bottom:11px;">
+            <div class="card-header">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:1.2rem">✈️</span>
+                <div>
+                  <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--accent2);">\${f.person}</div>
+                  \${f.luggage ? \`<div style="font-size:.68rem;color:var(--muted);">🧳 行李 \${f.luggage}</div>\` : ''}
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">\${f.totalTWD ? fmt(f.totalTWD) : '—'}</div>
+                <div style="font-size:.62rem;color:var(--muted);">各付各的</div>
+              </div>
+            </div>
+            <div style="padding:0 16px 12px;">
+              \${goSegs.length ? \`<div class="section-title" style="margin:4px 0 6px;font-size:.65rem;">去程</div>\${renderSegs(goSegs)}\` : ''}
+              \${retSegs.length ? \`<div class="section-title" style="margin:10px 0 6px;font-size:.65rem;">回程</div>\${renderSegs(retSegs)}\` : ''}
+            </div>
+          </div>\`;
+      }).join('') : '<div class="empty">✈️ 航班資訊填入後顯示</div>'}
+    </div>
+    <div id="infoTab-car" class="section">
+      \${renderCarDetail(d.car)}
+    </div>
+    <div id="infoTab-schedule" class="section">
+      <div class="empty">📅 日程 sheet 填入後顯示</div>
+    </div>
+  \`;
+}
+
+function renderCarDetail(car) {
+  return \`
+    <div class="car-card">
+      <div class="car-header">
+        <div class="car-title">\${car.company}</div>
+        <div class="car-model">\${car.model}</div>
+      </div>
+      <div class="car-grid">
+        <div class="car-item">
+          <div class="car-item-label">確認碼</div>
+          <div class="car-item-value" style="color:var(--gold);font-family:'Cinzel',serif;letter-spacing:.1em">\${car.code||'—'}</div>
+        </div>
+        <div class="car-item">
+          <div class="car-item-label">租用天數</div>
+          <div class="car-item-value">\${car.days} 天</div>
+        </div>
+        <div class="car-item">
+          <div class="car-item-label">取車時間</div>
+          <div class="car-item-value" style="font-size:.8rem">\${car.pickup}</div>
+        </div>
+        <div class="car-item">
+          <div class="car-item-label">還車時間</div>
+          <div class="car-item-value" style="font-size:.8rem">\${car.dropoff}</div>
+        </div>
+        <div class="car-item" style="grid-column:1/-1;border-right:none">
+          <div class="car-item-label">取還車地點</div>
+          <div class="car-item-value" style="font-size:.78rem;font-weight:400;color:var(--muted)">\${car.location}</div>
+        </div>
+        <div class="car-item" style="grid-column:1/-1;border-right:none;border-top:1px solid var(--border)">
+          <div class="car-item-label">取車里程</div>
+          <div class="car-item-value">\${car.startMileage ? car.startMileage.toLocaleString()+' km' : '<span style="color:var(--muted);font-size:.75rem">待填入</span>'}</div>
+        </div>
+      </div>
+      <div class="car-price-row">
+        <div>
+          <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px">每人分攤</div>
+          <div style="font-family:'Cinzel',serif;font-size:1.25rem;color:var(--gold)">\${fmt(car.perPerson)}/人</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px">三人合計</div>
+          <div style="font-family:'Cinzel',serif;font-size:1.25rem;color:var(--accent)">\${fmt(car.totalTWD)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="section-title">保險項目</div>
+    <div class="car-card"><ul class="insurance-list">\${(car.insurance||[]).map(i=>\`<li>\${i}</li>\`).join('')}</ul></div>
+    <div class="section-title">駕駛資訊</div>
+    <div class="car-card">
+      <div class="card-body" style="padding:13px 16px">
+        <span class="tag tag-person" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">主要駕駛 \${avatarSvg(car.driver1)}</span>
+        <span class="tag tag-person" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">副駕駛 \${avatarSvg(car.driver2)}</span>
+        <span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">付款 \${avatarSvg(car.payer)}</span>
+      </div>
+    </div>\`;
+}
+
+window.showInfoTab = function(id, btn) {
+  document.querySelectorAll('[id^="infoTab-"]').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('#mainSection-info .tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('infoTab-'+id)?.classList.add('active');
+  btn.classList.add('active');
+};
+
 function renderTransport(d) {
   const car = d.car;
   const flights = d.flights || [];
   const currentFilter = window._transportFilter || 'all';
-
   const filterBtns = ['all','car','flight','fuel','parking'].map(f => {
     const labels = {all:'全部', car:'🚗 租車', flight:'✈️ 機票', fuel:'⛽ 油費', parking:'🅿 停車'};
-    return `<button class="filter-btn${currentFilter===f?' active':''}" onclick="setTransportFilter('${f}')">${labels[f]}</button>`;
+    return \`<button class="filter-btn\${currentFilter===f?' active':''}" onclick="setTransportFilter('\${f}')">\${labels[f]}</button>\`;
   }).join('');
-
-  // 租車卡片（簡潔版）
-  const carCard = (currentFilter === 'all' || currentFilter === 'car') ? `
+  const carCard = (currentFilter === 'all' || currentFilter === 'car') ? \`
     <div class="card paid-card" style="margin-bottom:11px;">
       <div class="card-header">
         <div>
-          <div class="card-date">${car.pickup ? car.pickup.replace('上午','AM').replace('下午','PM') : '—'} → ${car.dropoff ? car.dropoff.replace('上午','AM').replace('下午','PM') : '—'}</div>
+          <div class="card-date" style="font-size:.85rem">\${car.pickup||'—'} → \${car.dropoff||'—'}</div>
           <div class="card-name-row" style="margin-top:4px;">
             <span style="font-size:.85rem">🚗</span>
-            <span class="card-name">${car.company}　${car.model}</span>
+            <span class="card-name">\${car.company}　\${car.model}</span>
           </div>
-          ${car.location ? `<div style="font-size:.72rem;color:var(--muted);margin-top:4px;">📍 ${car.location.replace('Zero Car, ','').replace(', Iceland','')}</div>` : ''}
+          \${car.location ? \`<div style="font-size:.72rem;color:var(--muted);margin-top:4px;">📍 \${car.location.replace('Zero Car, ','').replace(', Iceland','')}</div>\` : ''}
         </div>
         <div class="card-price">
           <div class="price-per-label">&nbsp;</div>
-          <div class="price-per">${fmtPer(car.totalTWD)}</div>
-          <div class="price-total">${fmt(car.totalTWD)} 合計</div>
+          <div class="price-per">\${fmtPer(car.totalTWD)}</div>
+          <div class="price-total">\${fmt(car.totalTWD)} 合計</div>
         </div>
       </div>
       <div class="card-body">
-        <span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;">付款 ${avatarSvg(car.payer)}</span>
-        <span class="tag tag-person">${car.days} 天</span>
-        ${car.startMileage ? `<span class="tag" style="background:rgba(79,195,247,.1);color:var(--accent);border:1px solid rgba(79,195,247,.25);">取車 ${car.startMileage.toLocaleString()} km</span>` : ''}
+        <span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;">付款 \${avatarSvg(car.payer)}</span>
+        <span class="tag tag-person">\${car.days} 天</span>
+        \${car.startMileage ? \`<span class="tag" style="background:rgba(79,195,247,.1);color:var(--accent);border:1px solid rgba(79,195,247,.25);">取車 \${car.startMileage.toLocaleString()} km</span>\` : ''}
       </div>
-    </div>` : '';
-
-  // 航班卡片（一人一張）
+    </div>\` : '';
   const flightCards = (currentFilter === 'all' || currentFilter === 'flight') ?
-    flights.map(f => {
-      const goSegs  = f.segments.filter(s => s.isGo);
-      const retSegs = f.segments.filter(s => !s.isGo);
-      const renderSegs = segs => segs.map(s => `
-        <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border);font-size:.72rem;">
-          <span style="color:var(--accent2);font-weight:700;min-width:70px;">${s.from}${s.fromTerm?'('+s.fromTerm+')':''} → ${s.to}${s.toTerm?'('+s.toTerm+')':''}</span>
-          <span style="color:var(--muted);flex:1;">${s.flightNo||'—'}</span>
-          ${s.isTransit ? `<span class="tag" style="background:rgba(255,152,0,.1);color:#ffa726;border:1px solid rgba(255,152,0,.3);padding:1px 6px;">轉機${s.wait?' '+s.wait:''}</span>` : ''}
+    flights.map(f => \`
+      <div class="card" style="margin-bottom:11px;">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:1.1rem;">✈️</span>
+            <div>
+              <div style="font-size:.85rem;font-weight:700;color:var(--accent2);">\${f.person}</div>
+              \${f.luggage ? \`<div style="font-size:.68rem;color:var(--muted);">🧳 \${f.luggage}</div>\` : ''}
+            </div>
+          </div>
+          <div class="card-price">
+            <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">\${f.totalTWD ? fmt(f.totalTWD) : '—'}</div>
+            <div style="font-size:.65rem;color:var(--muted);">各付各的</div>
+          </div>
         </div>
-        <div style="font-size:.68rem;color:var(--muted);padding:2px 0 4px;">${s.depTime||'—'} → ${s.arrTime||'—'}</div>
-      `).join('');
-      return `
-        <div class="card" style="margin-bottom:11px;">
-          <div class="card-header">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-size:1.1rem;">✈️</span>
-              <div>
-                <div style="font-size:.85rem;font-weight:700;color:var(--accent2);">${f.person}</div>
-                ${f.luggage ? `<div style="font-size:.68rem;color:var(--muted);">🧳 ${f.luggage}</div>` : ''}
-              </div>
-            </div>
-            <div class="card-price">
-              <div class="price-per-label">&nbsp;</div>
-              <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${f.totalTWD ? fmt(f.totalTWD) : '—'}</div>
-              <div style="font-size:.65rem;color:var(--muted);">各付各的</div>
-            </div>
-          </div>
-          <div style="padding:0 16px 12px;">
-            ${goSegs.length ? `<div style="font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">去程</div>${renderSegs(goSegs)}` : ''}
-            ${retSegs.length ? `<div style="font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin:8px 0 4px;">回程</div>${renderSegs(retSegs)}` : ''}
-          </div>
-        </div>`;
-    }).join('') : '';
-
-  // 油費 / 停車佔位
+      </div>\`).join('') : '';
   const fuelCard = (currentFilter === 'all' || currentFilter === 'fuel') ?
-    `<div class="empty" style="padding:16px;margin-bottom:8px;">⛽ 旅途中加油記錄會顯示在這裡</div>` : '';
+    \`<div class="empty" style="padding:16px;margin-bottom:8px;">⛽ 旅途中加油記錄會顯示在這裡</div>\` : '';
   const parkCard = (currentFilter === 'all' || currentFilter === 'parking') ?
-    `<div class="empty" style="padding:16px;margin-bottom:8px;">🅿 旅途中停車費記錄會顯示在這裡</div>` : '';
-
-  return `
-    <div class="filter-row">${filterBtns}</div>
-    ${carCard}${flightCards}${fuelCard}${parkCard}
-  `;
+    \`<div class="empty" style="padding:16px;margin-bottom:8px;">🅿 旅途中停車費記錄會顯示在這裡</div>\` : '';
+  return \`<div class="filter-row">\${filterBtns}</div>\${carCard}\${flightCards}\${fuelCard}\${parkCard}\`;
 }
 
 window.setTransportFilter = function(f) {
@@ -511,7 +604,7 @@ function renderAll(){
           <div style="display:flex;gap:16px;align-items:center">
             <div style="flex-shrink:0">${donutSvg}</div>
             <div>
-              <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費（含機票）</div>
+              <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費</div>
               <div style="font-family:'Cinzel',serif;font-size:1.55rem;color:var(--gold);font-weight:600;line-height:1.1">NT$ ${Math.round(grandTotal/3).toLocaleString('zh-TW')}<span style="font-size:.5em;color:var(--muted)">/人</span></div>
               <div style="font-size:.7rem;color:var(--muted);margin-top:2px">合計 ${fmt(grandTotal)}</div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
@@ -556,7 +649,7 @@ function renderAll(){
       </div>
 
       <!-- 其他分頁（待開發） -->
-      <div id="mainSection-info" style="display:none"><div class="empty">📅 行程頁面施工中</div></div>
+      <div id="mainSection-info" style="display:none"><div id="infoContent"></div></div>
       <div id="mainSection-map"  style="display:none"><div class="empty">📍 足跡頁面施工中</div></div>
       <div id="mainSection-bag"  style="display:none"><div class="empty">📖 手冊頁面施工中</div></div>
     </div>
@@ -571,6 +664,12 @@ function showTab(id,btn){
 }
 
 function switchMainTab(key, btn){
+  if (key === 'info') {
+    setTimeout(() => {
+      const el = document.getElementById('infoContent');
+      if (el && !el.innerHTML) el.innerHTML = renderInfo(window.APP_DATA || window.STATIC);
+    }, 0);
+  }
   const KEYS = ['ledger','info','map','bag'];
   KEYS.forEach(k=>{
     const s = document.getElementById('mainSection-'+k);
