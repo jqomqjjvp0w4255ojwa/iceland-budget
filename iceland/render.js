@@ -494,51 +494,31 @@ function initDonutPicker(){
   const list = document.getElementById('donutPickerList');
   if(!list) return;
 
-  // 側視角飛機（24×14 像素，機頭朝右）
-  function planePx(gray){
-    const b = gray ? '#4a5a6a' : '#4fc3f7';  // 機身
-    const w = gray ? '#2a3a48' : '#0d9ec7';  // 深色
-    const e = gray ? '#7a8a98' : '#b0e8ff';  // 亮色/窗
-    return `<svg width="24" height="14" viewBox="0 0 24 14" style="image-rendering:pixelated">
-      <!-- 機身 -->
-      <rect x="2"  y="5"  width="14" height="4" fill="${b}"/>
-      <rect x="16" y="6"  width="4"  height="2" fill="${b}"/>
-      <rect x="20" y="6"  width="2"  height="2" fill="${w}"/>
-      <!-- 機頭（圓弧感） -->
-      <rect x="1"  y="6"  width="1"  height="2" fill="${b}"/>
-      <rect x="0"  y="7"  width="1"  height="1" fill="${b}"/>
-      <!-- 主翼（上下各一） -->
-      <rect x="6"  y="2"  width="6"  height="3" fill="${b}"/>
-      <rect x="6"  y="9"  width="6"  height="3" fill="${b}"/>
-      <rect x="7"  y="1"  width="4"  height="1" fill="${w}"/>
-      <rect x="7"  y="12" width="4"  height="1" fill="${w}"/>
-      <!-- 尾翼 -->
-      <rect x="17" y="3"  width="3"  height="2" fill="${b}"/>
-      <rect x="17" y="9"  width="3"  height="2" fill="${b}"/>
-      <rect x="18" y="2"  width="2"  height="1" fill="${w}"/>
-      <rect x="18" y="11" width="2"  height="1" fill="${w}"/>
-      <!-- 窗戶 -->
-      <rect x="4"  y="6"  width="2"  height="2" fill="${e}"/>
-      <rect x="8"  y="6"  width="2"  height="2" fill="${e}"/>
-      <rect x="12" y="6"  width="2"  height="2" fill="${e}"/>
-    </svg>`;
+  function itemIcon(opt){
+    if(opt.key==='花'||opt.key==='猴'||opt.key==='寧'){
+      // 角色頭像，scale 放大讓圖更清晰
+      return `<div style="transform:scale(1.05);transform-origin:center;line-height:0">${avatarSvg(opt.key)}</div>`;
+    }
+    if(opt.gray){
+      // 不含：✈️ + 小叉叉疊加
+      return `<div style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
+        <span style="font-size:22px;filter:grayscale(1);opacity:.45;">✈️</span>
+        <span style="position:absolute;font-size:13px;color:#e05555;font-weight:900;
+                     text-shadow:0 0 4px rgba(0,0,0,.8);line-height:1;">✕</span>
+      </div>`;
+    }
+    // 均分：彩色 ✈️
+    return `<span style="font-size:22px;">✈️</span>`;
   }
 
   const pad = `<div style="height:${ITEM_H}px;flex-shrink:0;"></div>`;
   list.innerHTML = pad + PICKER_OPTIONS.map(opt=>{
     const isSel = opt.key===window._flightMode;
-    let iconHtml;
-    if(opt.key==='花'||opt.key==='猴'||opt.key==='寧'){
-      // 角色頭像，不顯示名字
-      iconHtml = `<div style="transform:scale(.85);transform-origin:center;line-height:0">${avatarSvg(opt.key)}</div>`;
-    } else {
-      iconHtml = planePx(opt.gray);
-    }
     return `<div class="donut-picker-item" data-key="${opt.key}"
       style="height:${ITEM_H}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-             background:${isSel?'rgba(7,17,31,.3)':'rgba(7,17,31,.6)'};
-             scroll-snap-align:center;transition:background .15s;">
-      ${iconHtml}
+             background:${isSel?'rgba(79,195,247,.12)':'rgba(7,17,31,.55)'};
+             scroll-snap-align:center;transition:background .15s;cursor:pointer;">
+      ${itemIcon(opt)}
     </div>`;
   }).join('') + pad;
 
@@ -546,7 +526,21 @@ function initDonutPicker(){
   const idx = PICKER_OPTIONS.findIndex(o=>o.key===window._flightMode);
   list.scrollTop = (idx+1)*ITEM_H;
 
-  // scroll 結束後更新
+  // ── 點選支援
+  list.addEventListener('click', e=>{
+    const item = e.target.closest('.donut-picker-item');
+    if(!item) return;
+    const newKey = item.dataset.key;
+    if(!newKey || newKey===window._flightMode) return;
+    window._flightMode = newKey;
+    const newIdx = PICKER_OPTIONS.findIndex(o=>o.key===newKey);
+    list.scrollTo({top:(newIdx+1)*ITEM_H, behavior:'smooth'});
+    updatePickerStyle();
+    refreshDonut();
+    window.updatePixelBudget?.();
+  });
+
+  // ── 滾動結束後也更新
   let t;
   list.addEventListener('scroll',()=>{
     clearTimeout(t);
@@ -556,15 +550,19 @@ function initDonutPicker(){
       const newKey = PICKER_OPTIONS[clamped].key;
       if(newKey!==window._flightMode){
         window._flightMode = newKey;
-        list.querySelectorAll('.donut-picker-item').forEach(el=>{
-          el.style.background = el.dataset.key===window._flightMode
-            ? 'rgba(7,17,31,.3)' : 'rgba(7,17,31,.6)';
-        });
+        updatePickerStyle();
         refreshDonut();
         window.updatePixelBudget?.();
       }
     },80);
   },{passive:true});
+
+  function updatePickerStyle(){
+    list.querySelectorAll('.donut-picker-item').forEach(el=>{
+      el.style.background = el.dataset.key===window._flightMode
+        ? 'rgba(79,195,247,.12)' : 'rgba(7,17,31,.55)';
+    });
+  }
 }
 
 // ── 只更新圓餅+數字+小計（不重建整個頁面）
@@ -575,9 +573,20 @@ function refreshDonut(){
   const totalFlight  = d.totalFlightTWD||0;
   const carTotal     = d.car.totalTWD||0;
   const sharedTotal  = carTotal+totalAccom+totalActivity;
-  const grandTotal   = sharedTotal+totalFlight;
   const {perPersonAmt, grandDisplay, whoLabel} =
     calcFlightDisplay(sharedTotal, totalFlight, d.flights);
+
+  // 依 mode 決定圓餅機票色塊大小
+  const mode = window._flightMode||'equal';
+  const flightByPerson = {};
+  (d.flights||[]).forEach(f=>{ flightByPerson[f.person]=f.totalTWD||0; });
+  let flightForPie;
+  if(mode==='none')       flightForPie = 0;
+  else if(mode==='equal') flightForPie = totalFlight;
+  else                    flightForPie = flightByPerson[mode]||0;
+
+  // grandTotal 用於小計進度條基準，也依 mode
+  const grandForCat = sharedTotal + flightForPie;
 
   // 數字
   const elAmt    = document.getElementById('donutPerPerson');
@@ -587,16 +596,15 @@ function refreshDonut(){
   if(elAmt)    elAmt.textContent    = Math.round(perPersonAmt).toLocaleString('zh-TW');
   if(elWho)    elWho.textContent    = whoLabel;
   if(elAll)    elAll.textContent    = '合計 '+fmt(grandDisplay);
-  if(elApprox) elApprox.textContent = window._flightMode==='equal'?'約':'';
+  if(elApprox) elApprox.textContent = mode==='equal'?'約':'';
 
   // 圓餅
   const pt = grandDisplay||1;
-  const flightDisp = window._flightMode==='none'?0:totalFlight;
-  drawDonutCanvas(carTotal/pt, flightDisp/pt, totalAccom/pt, totalActivity/pt);
+  drawDonutCanvas(carTotal/pt, flightForPie/pt, totalAccom/pt, totalActivity/pt);
 
   // 小計進度條
   const elCat = document.getElementById('catRowsContent');
-  if(elCat) elCat.innerHTML = buildCatRows(carTotal, totalFlight, totalAccom, totalActivity, grandTotal);
+  if(elCat) elCat.innerHTML = buildCatRows(carTotal, totalFlight, totalAccom, totalActivity, grandForCat);
 }
 
 // ── 主渲染
@@ -664,15 +672,11 @@ function renderAll(){
   const accomPct   = totalAccom/pieTotal;
   const actPct     = totalActivity/pieTotal;
 
-  // ── 圓餅 HTML（canvas + 中心卷軸選擇器 + 上下三角提示）
+  // ── 圓餅 HTML（canvas + 中心卷軸選擇器，無圓框，圓餅本身即邊界）
   const donutHtml = `
     <div style="position:relative;width:140px;height:140px;flex-shrink:0;">
       <canvas id="donutCanvas" width="140" height="140"
         style="position:absolute;top:0;left:0;image-rendering:pixelated;display:block;"></canvas>
-      <!-- 上三角提示 -->
-      <div style="position:absolute;left:50%;top:calc(50% - 37px);transform:translateX(-50%);
-                  font-size:7px;color:rgba(79,195,247,.5);pointer-events:none;z-index:4;
-                  font-family:'Silkscreen',monospace;line-height:1;">▲</div>
       <!-- 中心卷軸 -->
       <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
                   width:58px;height:58px;overflow:hidden;border-radius:50%;cursor:pointer;z-index:2;">
@@ -681,14 +685,6 @@ function renderAll(){
                  -webkit-overflow-scrolling:touch;scrollbar-width:none;
                  width:100%;height:58px;display:block;"></div>
       </div>
-      <!-- 選中框 -->
-      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-                  width:56px;height:56px;border-radius:50%;
-                  border:1.5px solid rgba(79,195,247,.55);pointer-events:none;z-index:3;"></div>
-      <!-- 下三角提示 -->
-      <div style="position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);
-                  font-size:7px;color:rgba(79,195,247,.5);pointer-events:none;z-index:4;
-                  font-family:'Silkscreen',monospace;line-height:1;">▼</div>
     </div>`;
 
   // ── 各類別進度條（用 id="catRows" 讓 refreshDonut 可以單獨更新）
