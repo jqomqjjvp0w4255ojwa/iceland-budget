@@ -202,17 +202,41 @@
     .px-add-choice{flex:1;background:#c8d8a8;border:none;border-right:2px solid #2a4a1a;padding:16px 8px;font-family:'Silkscreen',monospace;font-size:9px;color:#2a4a1a;cursor:pointer;text-align:center;line-height:1.8;transition:background .15s;}
     .px-add-choice:last-child{border-right:none;}
     .px-add-choice:hover{background:#a8c888;}
-    .px-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:160;align-items:flex-end;justify-content:center;}
+    .px-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:160;align-items:flex-end;justify-content:center;padding-bottom:32px;}
     .px-modal-overlay.show{display:flex;}
-    .px-modal-box{background:#e8f0d0;border-top:3px solid #000;width:100%;max-width:680px;max-height:88vh;overflow-y:auto;font-family:'Silkscreen',monospace;}
+    .px-modal-box{background:#e8f0d0;border:3px solid #000;width:100%;max-width:680px;max-height:82vh;overflow-y:auto;font-family:'Silkscreen',monospace;border-radius:4px 4px 0 0;}
+    /* 還錢滾動選擇器 */
+    .px-scroll-picker-wrap{display:flex;gap:8px;}
+    .px-scroll-picker{flex:1;text-align:center;}
+    .px-scroll-picker-label{font-size:7px;color:#2a4a1a;letter-spacing:1px;margin-bottom:6px;border-bottom:2px solid #2a4a1a;padding-bottom:4px;}
+    .px-scroll-picker-list{height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;border:2px solid #2a4a1a;background:#f8fce8;scrollbar-width:none;}
+    .px-scroll-picker-list::-webkit-scrollbar{display:none;}
+    .px-scroll-picker-item{scroll-snap-align:center;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;border-bottom:1px solid #b8c8a0;transition:background .15s;}
+    .px-scroll-picker-item.sel{background:#2a4a1a;}
+    .px-scroll-picker-item.sel span{color:#c8d8a8;}
+    .px-scroll-picker-item span{font-size:7px;color:#2a4a1a;font-family:'Silkscreen',monospace;}
+    /* 算盤 */
+    .px-calc-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:180;align-items:flex-end;justify-content:center;padding-bottom:32px;}
+    .px-calc-overlay.show{display:flex;}
+    .px-calc-box{background:#e8f0d0;border:3px solid #000;width:100%;max-width:400px;border-radius:4px 4px 0 0;font-family:'Silkscreen',monospace;}
+    .px-calc-header{background:#2a4a1a;color:#c8d8a8;font-size:8px;padding:5px 10px;display:flex;justify-content:space-between;align-items:center;}
+    .px-calc-display{background:#c8d8a8;border:2px solid #2a4a1a;margin:8px;padding:8px 10px;font-size:18px;color:#1a3a0a;text-align:right;min-height:40px;word-break:break-all;letter-spacing:1px;}
+    .px-calc-expr{font-size:8px;color:#3a5a2a;min-height:12px;text-align:right;}
+    .px-calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:0 8px 8px;}
+    .px-calc-btn{background:#c8d8a8;border:2px solid #2a4a1a;padding:14px 4px;font-family:'Silkscreen',monospace;font-size:11px;color:#1a3a0a;cursor:pointer;text-align:center;transition:background .1s;border-radius:2px;}
+    .px-calc-btn:active{background:#a8c888;}
+    .px-calc-btn.op{background:#a8c088;color:#1a3a0a;}
+    .px-calc-btn.eq{background:#2a4a1a;color:#c8d8a8;grid-column:span 2;}
+    .px-calc-btn.cancel{background:#c8a8a8;border-color:#8a2a2a;color:#5a1a1a;}
+    .px-calc-btn.ok{background:#4a7a3a;color:#e8f0d0;}
     .px-modal-header{background:#2a4a1a;color:#c8d8a8;font-size:8px;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px;position:sticky;top:0;}
     .px-modal-header button{background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:8px;padding:2px 8px;cursor:pointer;}
     .px-form{padding:12px;}
     .px-field{margin-bottom:12px;}
     .px-label{font-size:7px;color:#2a4a1a;letter-spacing:1px;display:block;margin-bottom:5px;}
-    .px-input{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;}
+    .px-input{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:9px;color:#2a4a1a;}
     .px-input:focus{outline:none;background:#fff;}
-    .px-select{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;}
+    .px-select{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:9px;color:#2a4a1a;}
     .px-member-row{display:flex;gap:6px;}
     .px-member-btn{flex:1;background:#c8d8a8;border:2px solid #2a4a1a;padding:8px 4px;font-family:'Silkscreen',monospace;font-size:8px;color:#2a4a1a;cursor:pointer;text-align:center;transition:background .15s;}
     .px-member-btn.sel{background:#2a4a1a;color:#c8d8a8;}
@@ -373,7 +397,6 @@
 </div>
 
 <!-- ══ 新增開銷 Modal ══ -->
-<!-- ══ 新增開銷 Modal ══ -->
 <div class="px-modal-overlay" id="pxModalExpense" onclick="closePxModalOutside(event,'pxModalExpense')">
   <div class="px-modal-box">
     <div class="px-modal-header">
@@ -385,17 +408,17 @@
         <label class="px-label">▸ 類別 *</label>
         <select class="px-select" id="pxExpCat" onchange="pxCheckSubmit()">
           <option value="">-- 選擇類別 --</option>
-          <option value="fuel">油費</option>
-          <option value="parking">停車費</option>
-          <option value="accommodation">訂房</option>
-          <option value="activity">門票 / 體驗</option>
-          <option value="daily">日常</option>
+          <option value="fuel">⛽ 油費（交通）</option>
+          <option value="parking">P 停車費（交通）</option>
+          <option value="accommodation">＋訂房（住宿）</option>
+          <option value="activity">★ 門票 / 體驗（活動）</option>
+          <option value="daily">日 日常（超市 / 餐飲 / 其他）</option>
         </select>
       </div>
       <div class="px-field">
         <label class="px-label">▸ 金額 *</label>
         <div style="display:flex;gap:6px;">
-          <input class="px-input" type="number" inputmode="decimal" id="pxExpAmt" placeholder="0" style="flex:2" oninput="pxUpdateSplit()">
+          <input class="px-input" id="pxExpAmt" placeholder="0" style="flex:2;cursor:pointer;" readonly onclick="pxOpenCalc('pxExpAmt','pxUpdateSplit')">
           <select class="px-select" id="pxExpCur" style="flex:1">
             <option value="NT">NT$</option>
             <option value="ISK">ISK</option>
@@ -405,15 +428,26 @@
       </div>
       <div class="px-field">
         <label class="px-label">▸ 付款人 *（單選）</label>
-        <div class="px-member-row" id="pxPayerBtns"></div>
+        <div class="px-member-row" id="pxPayerBtns">
+          <button class="px-member-btn" onclick="pxSelectPayer(this,'花')">花</button>
+          <button class="px-member-btn" onclick="pxSelectPayer(this,'猴')">猴</button>
+          <button class="px-member-btn" onclick="pxSelectPayer(this,'寧')">寧</button>
+        </div>
       </div>
       <div class="px-field">
-        <label class="px-label">▸ 如何分攤（點角色取消分攤）</label>
-        <div class="px-member-row" id="pxSplitBtns" style="margin-bottom:8px;"></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <div id="pxSplitSummary" style="font-size:7px;color:#2a4a1a;flex:1;">均分（三人）</div>
-          <button class="px-member-btn" onclick="pxOpenCustomSplit()"
-            style="flex:0 0 auto;padding:5px 10px;font-size:7px;white-space:nowrap;">自訂金額</button>
+        <label class="px-label">▸ 如何分攤 *</label>
+        <div class="px-member-row" id="pxSplitModeBtns" style="margin-bottom:8px;">
+          <button class="px-member-btn sel" onclick="pxSetSplitMode('equal',this)">均分</button>
+          <button class="px-member-btn" onclick="pxSetSplitMode('custom',this)">自訂</button>
+        </div>
+        <div id="pxSplitDetail" style="display:none;">
+          <div class="px-split-row"><span class="px-split-name">花</span><input class="px-split-input" id="pxSplit花" type="number" placeholder="0" oninput="pxCheckSplit()"></div>
+          <div class="px-split-row"><span class="px-split-name">猴</span><input class="px-split-input" id="pxSplit猴" type="number" placeholder="0" oninput="pxCheckSplit()"></div>
+          <div class="px-split-row"><span class="px-split-name">寧</span><input class="px-split-input" id="pxSplit寧" type="number" placeholder="0" oninput="pxCheckSplit()"></div>
+          <div class="px-split-total">
+            <span>分攤合計</span>
+            <span id="pxSplitTotal" class="px-total-ok">0</span>
+          </div>
         </div>
       </div>
       <hr class="px-divider">
@@ -429,18 +463,10 @@
         <label class="px-label">▸ 備註（選填）</label>
         <input class="px-input" type="text" id="pxExpNote" placeholder="">
       </div>
-      <div class="px-form-actions">
-        <button class="px-btn-cancel" onclick="cancelPxModal('pxModalExpense')">[ 取消 ]</button>
-        <button class="px-btn-submit" id="pxBtnExpense" onclick="pxSubmitExpense()" disabled>[ 確認送出 ]</button>
+      <div class="px-form-actions" style="margin-bottom:12px;">
+        <button class="px-btn-submit" id="pxBtnExpense" onclick="pxSubmitExpense()" disabled style="flex:1;">[ 確認送出 ]</button>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- ══ 自訂金額 Sub-Modal ══ -->
-<div class="px-modal-overlay" id="pxCustomSplitOverlay" style="z-index:170;">
-  <div class="px-modal-box" id="pxCustomSplitBox" style="max-height:70vh;">
-    <!-- 由 forms.js 動態填入 -->
   </div>
 </div>
 
@@ -453,16 +479,21 @@
     </div>
     <div class="px-form">
       <div class="px-field">
-        <label class="px-label">▸ 誰還錢 *</label>
-        <div class="px-member-row" id="pxRepayFromBtns"></div>
-      </div>
-      <div class="px-field">
-        <label class="px-label">▸ 還給誰 *</label>
-        <div class="px-member-row" id="pxRepayToBtns"></div>
+        <label class="px-label">▸ 選擇雙方 *</label>
+        <div class="px-scroll-picker-wrap">
+          <div class="px-scroll-picker">
+            <div class="px-scroll-picker-label">欠債的</div>
+            <div class="px-scroll-picker-list" id="pxRepayFromList"></div>
+          </div>
+          <div class="px-scroll-picker">
+            <div class="px-scroll-picker-label">債主</div>
+            <div class="px-scroll-picker-list" id="pxRepayToList"></div>
+          </div>
+        </div>
       </div>
       <div class="px-field">
         <label class="px-label">▸ 金額（NT$）*</label>
-        <input class="px-input" type="number" inputmode="decimal" id="pxRepayAmt" placeholder="0" oninput="pxValidateRepay()">
+        <input class="px-input" id="pxRepayAmt" placeholder="0" style="cursor:pointer;" readonly onclick="pxOpenCalc('pxRepayAmt','pxValidateRepay')">
       </div>
       <hr class="px-divider">
       <div class="px-field">
@@ -473,10 +504,44 @@
         <label class="px-label">▸ 備註（選填）</label>
         <input class="px-input" type="text" id="pxRepayNote" placeholder="">
       </div>
-      <div class="px-form-actions">
-        <button class="px-btn-cancel" onclick="cancelPxModal('pxModalRepay')">[ 取消 ]</button>
-        <button class="px-btn-submit" id="pxBtnRepay" onclick="pxSubmitRepay()" disabled>[ 確認送出 ]</button>
+      <div class="px-form-actions" style="margin-bottom:12px;">
+        <button class="px-btn-submit" id="pxBtnRepay" onclick="pxSubmitRepay()" disabled style="flex:1;">[ 確認送出 ]</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 像素風算盤 ══ -->
+<div class="px-calc-overlay" id="pxCalcOverlay">
+  <div class="px-calc-box">
+    <div class="px-calc-header">
+      <span>▶ 輸入金額</span>
+      <button onclick="pxCancelCalc()" style="background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:8px;padding:2px 8px;cursor:pointer;">取消</button>
+    </div>
+    <div class="px-calc-display">
+      <div class="px-calc-expr" id="pxCalcExpr"></div>
+      <div id="pxCalcDisplay">0</div>
+    </div>
+    <div class="px-calc-grid">
+      <button class="px-calc-btn cancel" onclick="pxCalcInput('C')">C</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('(')">(</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput(')')">)</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('/')">÷</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('7')">7</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('8')">8</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('9')">9</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('*')">×</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('4')">4</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('5')">5</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('6')">6</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('-')">−</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('1')">1</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('2')">2</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('3')">3</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('+')">+</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('0')">0</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('.')">.</button>
+      <button class="px-calc-btn eq" onclick="pxCalcConfirm()">[ 確認 ]</button>
     </div>
   </div>
 </div>
