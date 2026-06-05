@@ -46,14 +46,12 @@
     const accom = accomRows
       .filter(row => {
         const name = String(row['住宿地點'] ?? '').trim();
-        // 過濾空列與小計/每人列
         return name !== '' && !String(Object.values(row).join('')).match(/小計|每人/);
       })
       .map(row => ({
         name:       pick(row, ['住宿地點', '住宿名稱', '名稱']),
         date:       pick(row, ['日期', '入住日期']),
         nights:     num(pick(row, ['天數', '晚數'], 1)) || 1,
-        // 幣別：去掉結尾的點，EU → EUR，ISK → ISK，NT → NT
         cur:        String(pick(row, ['幣別'], 'NT')).replace(/\.$/, '').replace(/^EU$/, 'EUR').replace(/^ISK$/, 'ISK').replace(/^NT$/, 'NT'),
         orig:       num(pick(row, ['價格', '原價', '金額'])),
         twd:        num(pick(row, ['換算台幣', '台幣'])),
@@ -87,14 +85,13 @@
       startMileage: num(pick(carRow, ['取車里程'], 0)) || window.STATIC?.car?.startMileage || 0,
     };
 
-    // 駕駛資訊從 cells 底部備註列讀
     const carCells = car?.cells ?? [];
     const d1Row = carCells.find(r => String(r[0] ?? '').includes('主要駕駛'));
     const d2Row = carCells.find(r => String(r[0] ?? '').includes('額外駕駛'));
     if (d1Row) carData.driver1 = String(d1Row[0]).replace(/主要駕駛[:：]?/, '').trim();
     if (d2Row) carData.driver2 = String(d2Row[0]).replace(/額外駕駛[:：]?/, '').trim();
 
-    // ── 分帳明細（直接從 寫入_分帳 讀現成結果）
+    // ── 分帳明細
     const splitRows = cellsToRows(split);
     const splitData = {};
     splitRows
@@ -104,6 +101,7 @@
         if (!name) return;
         splitData[name] = {
           paid:    num(pick(row, ['總付出 (代墊)', '總付出'])),
+          burden:  num(pick(row, ['總負擔 (攤帳)', '總負擔'])),
           balance: num(pick(row, ['還款後結算'])),
         };
       });
@@ -121,7 +119,7 @@
       dialogLines[char][state] = [line1, line2].filter(Boolean);
     });
 
-    // ── 還款記錄（從 寫入_分帳 的還款區讀取）
+    // ── 還款記錄
     const repayRows = cellsToRows(split);
     const repayHistory = repayRows
       .filter(row => {
@@ -140,7 +138,6 @@
 
     // ── 航班
     const flightRows = cellsToRows(flight);
-    // 先找出所有有乘客名的行（第一段），建立乘客索引
     const flightByPerson = {};
     let currentPerson = null;
     flightRows.forEach(row => {
@@ -195,7 +192,6 @@
   }
 
   window.__syncIcelandBudgetFromSheets = async function () {
-  // ─── 【防禦 1：沒網路時】直接讀取手機記憶體 ───
   if (!navigator.onLine) {
     const cachedData = localStorage.getItem('cached_iceland_budget');
     if (cachedData) {
@@ -218,17 +214,12 @@
     ]);
     
     window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight });
-    
-    // ─── 【防禦 2：成功拿到雲端資料時】偷偷打包存進手機口袋 ───
     localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
-
     window.renderAll?.();
     window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
   
   } catch (error) {
     console.error(error);
-    
-    // ─── 【防禦 3：網路卡住或讀取失敗時】撈看看有沒有歷史存檔，沒有才用 STATIC ───
     const cachedData = localStorage.getItem('cached_iceland_budget');
     if (cachedData) {
       window.APP_DATA = JSON.parse(cachedData);
