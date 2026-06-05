@@ -129,8 +129,9 @@
     const totalAccom=(d.accommodation||[]).reduce((s,a)=>s+(a.twd||0),0);
     const totalAct=(d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
     const totalFlight=d.totalFlightTWD||0;
-    const carTotal=d.car.totalTWD||0;
-    const sharedTotal=carTotal+totalAccom+totalAct;
+    const carTotal=(d.car&&d.car.totalTWD)||0;
+    const totalExpenseShared=(d.expenses||[]).filter(e=>e.isShared).reduce((s,e)=>s+(e.total||0),0);
+    const sharedTotal=carTotal+totalAccom+totalAct+totalExpenseShared;
 
     // 進度條數字：跟選擇器同步（顯示用）
     const mode = window._flightMode || 'equal';
@@ -192,7 +193,7 @@
 
     const msg=document.getElementById('pxMsg');
     const openMenu=()=>window.openRadialMenu&&window.openRadialMenu();
-    if(isOver){msg.className='px-gb-msg danger';msg.onclick=null;msg.textContent='✖ 超支！全員倒地！';}
+    if(isOver){msg.className='px-gb-msg danger';msg.onclick=openMenu;msg.textContent='✖ 超支！全員倒地！（點此記帳）';}
     else if(pct>=70){msg.className='px-gb-msg warn';msg.onclick=openMenu;msg.textContent='！注意！剩 NT$'+remain.toLocaleString()+' 要小心了';}
     else{msg.className='px-gb-msg safe';msg.onclick=openMenu;msg.textContent='▶ 安全！還可以花 NT$'+remain.toLocaleString();}
   };
