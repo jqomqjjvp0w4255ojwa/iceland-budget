@@ -98,6 +98,8 @@ function setSyncState(state,msg){
 // ── 住宿卡片渲染
 
 function renderAll(){
+  // ── 記住目前分頁，renderAll 後恢復
+  const _activeTab = window._activeMainTab || 'ledger';
   const d=window.APP_DATA || window.STATIC;
   const totalAccom    = d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
   const totalActivity = (d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
@@ -310,10 +312,14 @@ function renderAll(){
     </div>
   `;
 
-  // ── DOM 建立完後初始化圓餅 canvas 和卷軸選擇器
+  // ── DOM 建立完後初始化圓餅 canvas 和卷軸選擇器，並恢復分頁
   requestAnimationFrame(()=>{
     drawDonutCanvas(carPct, flightPct, accomPct, actPct);
     initDonutPicker();
+    if (_activeTab !== 'ledger') {
+      const btn = document.getElementById('mainTab-' + _activeTab);
+      if (btn) switchMainTab(_activeTab, btn);
+    }
   });
 }
 
@@ -325,6 +331,7 @@ function showTab(id,btn){
 }
 
 function switchMainTab(key, btn){
+  window._activeMainTab = key;
   if (key === 'info') {
     setTimeout(() => {
       const el = document.getElementById('infoContent');
