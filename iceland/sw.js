@@ -1,5 +1,5 @@
 // 每次修改檔案內容後，把版本號往上加
-const CACHE_NAME = 'iceland-budget-v18.2';
+const CACHE_NAME = 'iceland-budget-v18.3';
 
 const ASSETS = [
   '/iceland-budget/iceland/',

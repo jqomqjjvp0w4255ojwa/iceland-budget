@@ -147,13 +147,14 @@
     }
     const perPerson=Math.round(perPersonAmt);
     const budget = d.budgetPerPerson || BUDGET;
-    const pct=Math.min(Math.round(posPerPerson/budget*100),100);
-    const remain=budget-posPerPerson;
-    const isOver=posPerPerson>=budget;
 
     // 角色位置：永遠用均分（共同花費 + 機票平均），不受選擇器影響
     const posPerPerson = Math.round((sharedTotal + totalFlight) / 3);
     const posPct = Math.min(Math.round(posPerPerson / budget * 100), 100);
+
+    const pct=Math.min(Math.round(posPerPerson/budget*100),100);
+    const remain=budget-posPerPerson;
+    const isOver=posPerPerson>=budget;
 
     const bar=document.getElementById('pxBar');
     bar.style.width=pct+'%';
