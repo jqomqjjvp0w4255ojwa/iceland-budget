@@ -349,23 +349,70 @@ function renderFlightSegs(segs) {
 function renderInfoFlights(flights) {
   if (!flights || !flights.length) return '<div class="empty">✈️ 航班資訊填入後顯示</div>';
   return flights.map(f => {
-    const goSegs  = f.segments.filter(s => s.isGo);
-    const retSegs = f.segments.filter(s => !s.isGo);
-    const luggageDiv = f.luggage ? '<div style="font-size:.68rem;color:var(--muted);">🧳 行李 ' + f.luggage + '</div>' : '';
-    const goHtml  = goSegs.length  ? '<div class="section-title" style="margin:4px 0 6px;font-size:.65rem;">去程</div>'  + renderFlightSegs(goSegs)  : '';
-    const retHtml = retSegs.length ? '<div class="section-title" style="margin:10px 0 6px;font-size:.65rem;">回程</div>' + renderFlightSegs(retSegs) : '';
-    return '<div class="card" style="margin-bottom:11px;">'
-      + '<div class="card-header">'
-      + '<div style="display:flex;align-items:center;gap:8px;">'
-      + '<span style="font-size:1.2rem">✈️</span>'
-      + '<div><div style="font-family:\'Cinzel\',serif;font-size:.95rem;color:var(--accent2);">' + f.person + '</div>' + luggageDiv + '</div>'
-      + '</div>'
-      + '<div style="text-align:right;">'
-      + '<div style="font-family:\'Cinzel\',serif;font-size:1rem;color:var(--gold);">' + (f.totalTWD ? fmt(f.totalTWD) : '—') + '</div>'
-      + '<div style="font-size:.62rem;color:var(--muted);">各付各的</div>'
-      + '</div></div>'
-      + '<div style="padding:0 16px 12px;">' + goHtml + retHtml + '</div>'
-      + '</div>';
+    const goSegs  = f.segments.filter(s => s.direction === '去程');
+    const retSegs = f.segments.filter(s => s.direction === '回程');
+
+    // 計算轉乘次數（目的地為中轉的段數）
+    const goTransfers  = goSegs.filter(s => s.isTransit).length;
+    const retTransfers = retSegs.filter(s => s.isTransit).length;
+
+    // 去程出發/抵達時間
+    const goDepTime = goSegs[0]?.depTime ? String(goSegs[0].depTime).replace('T',' ').slice(0,16) : '—';
+    const goArrTime = goSegs.at(-1)?.arrTime ? String(goSegs.at(-1).arrTime).replace('T',' ').slice(0,16) : '—';
+    const retDepTime = retSegs[0]?.depTime ? String(retSegs[0].depTime).replace('T',' ').slice(0,16) : '—';
+    const retArrTime = retSegs.at(-1)?.arrTime ? String(retSegs.at(-1).arrTime).replace('T',' ').slice(0,16) : '—';
+
+    // 執飛航空去重
+    const operators = [...new Set(f.segments.map(s=>s.operatedBy).filter(Boolean))].join(' / ');
+
+    // 段落渲染
+    function segRows(segs) {
+      return segs.map(s => `
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:.7rem;color:var(--accent2);font-weight:600;min-width:32px">${s.from}</div>
+          <div style="font-size:.6rem;color:var(--muted)">→</div>
+          <div style="font-size:.7rem;color:${s.isTransit?'var(--muted)':'var(--text)'};min-width:32px">${s.to}${s.isTransit?'<span style="font-size:.55rem;color:var(--muted)"> 轉</span>':''}</div>
+          <div style="flex:1;font-size:.62rem;color:var(--muted)">${s.flightNo}${s.aircraft?' · '+s.aircraft:''}</div>
+          <div style="font-size:.62rem;color:var(--muted);text-align:right">${s.flightTime||''}</div>
+        </div>`).join('');
+    }
+
+    return `
+      <div class="card" style="margin-bottom:11px;">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
+                         border-radius:4px;padding:1px 6px;">✈️ 機票</span>
+            ${avatarSvg(f.person)}
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">${f.totalTWD?fmt(f.totalTWD):'—'}</div>
+            <div style="font-size:.62rem;color:var(--muted)">各付各的</div>
+          </div>
+        </div>
+        <div style="padding:0 16px 12px;">
+          <!-- 機票摘要 -->
+          <div style="margin-bottom:10px">
+            <div style="font-size:.85rem;color:var(--text);margin-bottom:2px">${f.airline}</div>
+            <div style="font-size:.72rem;color:var(--muted)">${f.from} → ${f.to} · ${f.type}</div>
+            ${operators?`<div style="font-size:.65rem;color:var(--muted);margin-top:2px">執飛：${operators}</div>`:''}
+          </div>
+          <!-- Tags -->
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+            ${goTransfers>0?`<span class="tag tag-cancel">去程轉${goTransfers}次</span>`:'<span class="tag tag-paid">去程直飛</span>'}
+            ${retSegs.length?(retTransfers>0?`<span class="tag tag-cancel">回程轉${retTransfers}次</span>`:'<span class="tag tag-paid">回程直飛</span>'):''}
+            ${f.luggage?`<span class="tag tag-fee">🧳 ${f.luggage}</span>`:''}
+          </div>
+          <!-- 去程 -->
+          ${goSegs.length?`
+            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.08em;margin-bottom:4px">去程 · 出發 ${goDepTime} 抵達 ${goArrTime}</div>
+            ${segRows(goSegs)}`:''}
+          <!-- 回程 -->
+          ${retSegs.length?`
+            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.08em;margin:10px 0 4px">回程 · 出發 ${retDepTime} 抵達 ${retArrTime}</div>
+            ${segRows(retSegs)}`:''}
+        </div>
+      </div>`;
   }).join('');
 }
 
@@ -517,38 +564,49 @@ window.setTransportFilter = function(f) {
 };
 
 function renderCar(car){
+  // 取車/還車日期簡化顯示
+  const pickup  = car.pickup  || '—';
+  const dropoff = car.dropoff || '—';
   return `
     <div class="car-card">
-      <div class="car-header">
-        <div class="car-title">${car.company}</div>
-        <div class="car-model">${car.model}</div>
-      </div>
-      <div class="car-grid">
-        <div class="car-item">
-          <div class="car-item-label">確認碼</div>
-          <div class="car-item-value" style="color:var(--gold);font-family:'Cinzel',serif;letter-spacing:.1em">${car.code}</div>
-        </div>
-        <div class="car-item">
-          <div class="car-item-label">租用天數</div>
-          <div class="car-item-value">${car.days} 天</div>
-        </div>
-        <div class="car-item">
-          <div class="car-item-label">取車時間</div>
-          <div class="car-item-value" style="font-size:.8rem">${car.pickup}</div>
-        </div>
-        <div class="car-item">
-          <div class="car-item-label">還車時間</div>
-          <div class="car-item-value" style="font-size:.8rem">${car.dropoff}</div>
-        </div>
-        <div class="car-item" style="grid-column:1/-1;border-right:none">
-          <div class="car-item-label">取還車地點</div>
-          <div class="car-item-value" style="font-size:.78rem;font-weight:400;color:var(--muted)">${car.location}</div>
-        </div>
-        <div class="car-item" style="grid-column:1/-1;border-right:none;border-top:1px solid var(--border)">
-          <div class="car-item-label">取車里程</div>
-          <div class="car-item-value">${car.startMileage ? car.startMileage.toLocaleString()+' km' : '<span style="color:var(--muted);font-size:.75rem">待填入</span>'}</div>
+      <div class="car-header" style="position:relative">
+        <div style="position:absolute;top:10px;left:12px;font-size:.6rem;color:var(--muted);
+                    background:var(--bg3);border:1px solid var(--border);border-radius:4px;
+                    padding:1px 6px;letter-spacing:.08em">🚗 租車</div>
+        <div style="margin-top:22px">
+          <div class="car-title">${car.company}</div>
+          <div class="car-model">${car.model}</div>
         </div>
       </div>
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+        <!-- 取還車日期 -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:.63rem;color:var(--muted);margin-bottom:2px">取車</div>
+            <div style="font-size:.82rem;color:var(--text)">${pickup}</div>
+          </div>
+          <div style="color:var(--muted);font-size:.9rem">→</div>
+          <div style="flex:1;text-align:right">
+            <div style="font-size:.63rem;color:var(--muted);margin-bottom:2px">還車</div>
+            <div style="font-size:.82rem;color:var(--text)">${dropoff}</div>
+          </div>
+        </div>
+        <!-- 取車地點 -->
+        <div style="font-size:.72rem;color:var(--muted);display:flex;align-items:flex-start;gap:4px">
+          <span>📍</span>
+          <span>${car.location}</span>
+        </div>
+      </div>
+      <!-- Tags -->
+      <div class="card-body" style="padding:10px 16px;gap:5px">
+        <span class="tag tag-person" style="display:inline-flex;align-items:center;gap:3px">
+          付款 ${avatarSvg(car.payer)}
+        </span>
+        <span class="tag tag-cancel">${car.days} 天</span>
+        ${car.model ? `<span class="tag" style="background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border)">${car.model.split('\n')[0]}</span>` : ''}
+        ${car.code  ? `<span class="tag tag-fee">#{car.code}</span>` : ''}
+      </div>
+      <!-- 金額 -->
       <div class="car-price-row">
         <div>
           <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px">每人分攤</div>
@@ -561,13 +619,12 @@ function renderCar(car){
       </div>
     </div>
     <div class="section-title">保險項目</div>
-    <div class="car-card"><ul class="insurance-list">${car.insurance.map(i=>`<li>${i}</li>`).join('')}</ul></div>
+    <div class="car-card"><ul class="insurance-list">${(car.insurance||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
     <div class="section-title">駕駛資訊</div>
     <div class="car-card">
       <div class="card-body" style="padding:13px 16px">
         <span class="tag tag-person" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">主要駕駛 ${avatarSvg(car.driver1)}</span>
         <span class="tag tag-person" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">副駕駛 ${avatarSvg(car.driver2)}</span>
-        <span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;">付款 ${avatarSvg(car.payer)}</span>
       </div>
     </div>
   `;
@@ -582,7 +639,7 @@ if(window._flightMode === undefined) window._flightMode = 'equal';
 // ── 依 flightMode 算「/人顯示金額」和「合計顯示金額」
 function calcFlightDisplay(sharedTotal, totalFlight, flights){
   const flightByPerson = {};
-  (flights||[]).forEach(f=>{ flightByPerson[f.person] = f.totalTWD||0; });
+  (flights||[]).forEach(f=>{ flightByPerson[f.person] = (flightByPerson[f.person]||0) + (f.totalTWD||0); });
   const mode = window._flightMode;
   let perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel;
   if(mode==='none'){

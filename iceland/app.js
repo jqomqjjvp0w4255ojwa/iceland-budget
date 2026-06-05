@@ -169,43 +169,54 @@
         fuelEfficiency: num(pick(row, ['平均油耗'])),
       }));
 
-    // ── 航班
+    // ── 航班（依機票編號分組）
     const flightRows = cellsToRows(flight);
-    const flightByPerson = {};
-    let currentPerson = null;
+    const flightByTicket = {};
     flightRows.forEach(row => {
-      const person = String(row['乘客'] ?? '').trim();
-      if (person) currentPerson = person;
-      if (!currentPerson) return;
-      if (!flightByPerson[currentPerson]) flightByPerson[currentPerson] = { segments: [], totalTWD: 0, luggage: '' };
+      const ticketNo = String(row['機票編號(給程式辨識用的虛假編號)'] ?? '').trim();
+      const person   = String(row['乘客'] ?? '').trim();
+      if (!ticketNo || !person) return;
+      if (!flightByTicket[ticketNo]) {
+        flightByTicket[ticketNo] = {
+          ticketNo,
+          person,
+          type:     String(row['票種']      ?? '').trim(),
+          airline:  String(row['航空公司']   ?? '').trim(),
+          from:     String(row['最初出發地'] ?? '').trim(),
+          to:       String(row['最終目的地'] ?? '').trim(),
+          totalTWD: 0,
+          luggage:  '',
+          segments: [],
+        };
+      }
+      const t = flightByTicket[ticketNo];
+      const cost = num(pick(row, ['機票費用(寫在第一筆)']));
+      const twd  = num(pick(row, ['換算台幣']));
+      if (cost > 0) t.totalTWD = twd || cost;
+      const luggage = String(row['行李'] ?? '').trim();
+      if (luggage) t.luggage = luggage;
+
       const seg = {
-        isGo:        String(row['去?'] ?? '').toLowerCase() === 'true' || row['去?'] === true,
-        isTransit:   String(row['中轉站?'] ?? '').toLowerCase() === 'true' || row['中轉站?'] === true,
-        segNo:       num(pick(row, ['航段'], 0)),
-        from:        String(row['出發地'] ?? '').trim(),
-        fromTerm:    String(row['出發航廈'] ?? '').trim(),
-        to:          String(row['目的地'] ?? '').trim(),
-        toTerm:      String(row['目的地航廈'] ?? '').trim(),
-        wait:        String(row['等待時間(轉機用)'] ?? '').trim(),
-        depTime:     String(row['出發時間'] ?? '').trim(),
-        arrTime:     String(row['抵達時間'] ?? '').trim(),
-        airline:     String(row['航空公司'] ?? '').trim(),
-        operatedBy:  String(row['執飛航空'] ?? '').trim(),
-        aircraft:    String(row['機種'] ?? '').trim(),
-        flightNo:    String(row['航班號'] ?? '').trim(),
-        luggageCheck:String(row['托運行李'] ?? '').trim(),
-        luggageHand: String(row['手提行李'] ?? '').trim(),
-        cost:        num(pick(row, ['機票費用(寫在第一筆)', '費用'])),
-        currency:    String(row['幣別'] ?? '').replace(/\.$/, '').trim(),
-        foreignFee:  num(pick(row, ['國際手續費'])),
-        twd:         num(pick(row, ['換算台幣'])),
-        note:        String(row['備註'] ?? '').trim(),
+        direction:  String(row['去程/回程']    ?? '').trim(),
+        isTransit:  String(row['目的地為中轉?'] ?? '').toLowerCase() === 'true' || row['目的地為中轉?'] === true,
+        segNo:      num(pick(row, ['航段'], 0)),
+        from:       String(row['出發地']       ?? '').trim(),
+        fromTerm:   String(row['出發航廈']     ?? '').trim(),
+        to:         String(row['目的地']       ?? '').trim(),
+        toTerm:     String(row['目的地航廈']   ?? '').trim(),
+        flightTime: String(row['飛行時間']     ?? '').trim(),
+        waitTime:   String(row['轉機等待時間'] ?? '').trim(),
+        depTime:    String(row['出發時間']     ?? '').trim(),
+        arrTime:    String(row['抵達時間']     ?? '').trim(),
+        operatedBy: String(row['執飛航空']     ?? '').trim(),
+        aircraft:   String(row['機種']         ?? '').trim(),
+        flightNo:   String(row['航班號']       ?? '').trim(),
+        note:       String(row['備註']         ?? '').trim(),
       };
-      if (seg.cost > 0) flightByPerson[currentPerson].totalTWD = seg.twd || seg.cost;
-      if (seg.luggage) flightByPerson[currentPerson].luggage = seg.luggage;
-      if (seg.from || seg.to || seg.flightNo) flightByPerson[currentPerson].segments.push(seg);
+      if (seg.from || seg.to || seg.flightNo) t.segments.push(seg);
     });
-    const flights = Object.entries(flightByPerson).map(([person, data]) => ({ person, ...data }));
+
+    const flights = Object.values(flightByTicket);
     const totalFlightTWD = flights.reduce((s, f) => s + (f.totalTWD || 0), 0);
 
     return {
