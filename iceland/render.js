@@ -436,25 +436,28 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights){
   const flightByPerson = {};
   (flights||[]).forEach(f=>{ flightByPerson[f.person] = f.totalTWD||0; });
   const mode = window._flightMode;
-  let perPersonAmt, grandDisplay, whoLabel, flightForDisplay;
+  let perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel;
   if(mode==='none'){
-    perPersonAmt   = sharedTotal/3;
-    grandDisplay   = sharedTotal;
+    perPersonAmt     = sharedTotal/3;
+    grandDisplay     = sharedTotal;
     flightForDisplay = 0;
-    whoLabel       = '不含機票';
+    whoLabel         = '不含機票';
+    flightLabel      = '—';
   } else if(mode==='equal'){
-    perPersonAmt   = (sharedTotal + totalFlight)/3;
-    grandDisplay   = sharedTotal + totalFlight;
+    perPersonAmt     = (sharedTotal + totalFlight)/3;
+    grandDisplay     = sharedTotal + totalFlight;
     flightForDisplay = totalFlight;
-    whoLabel       = '含機票均分';
+    whoLabel         = '含機票均分';
+    flightLabel      = fmt(totalFlight/3);
   } else {
     const personal   = flightByPerson[mode]||0;
     perPersonAmt     = sharedTotal/3 + personal;
-    grandDisplay     = sharedTotal + personal;   // 只加個人機票
+    grandDisplay     = sharedTotal + personal;
     flightForDisplay = personal;
     whoLabel         = '+ '+mode+' 的機票';
+    flightLabel      = fmt(personal);
   }
-  return { perPersonAmt, grandDisplay, whoLabel, flightByPerson, flightForDisplay };
+  return { perPersonAmt, grandDisplay, whoLabel, flightByPerson, flightForDisplay, flightLabel };
 }
 
 // ── 畫圓餅（canvas，在 renderAll 之後由 initDonutCanvas 呼叫）
@@ -575,7 +578,7 @@ function refreshDonut(){
   const totalFlight  = d.totalFlightTWD||0;
   const carTotal     = d.car.totalTWD||0;
   const sharedTotal  = carTotal+totalAccom+totalActivity;
-  const {perPersonAmt, grandDisplay, whoLabel, flightForDisplay} =
+  const {perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel} =
     calcFlightDisplay(sharedTotal, totalFlight, d.flights);
 
   // grandForCat = grandDisplay（已依 mode 計算好）
@@ -595,9 +598,55 @@ function refreshDonut(){
   const pt = grandDisplay||1;
   drawDonutCanvas(carTotal/pt, flightForDisplay/pt, totalAccom/pt, totalActivity/pt);
 
+  // Legend（不含機票時隱藏機票項）
+  const elLegend = document.getElementById('donutLegend');
+  if(elLegend) elLegend.innerHTML = buildLegend(carTotal/pt, flightForDisplay/pt, totalAccom/pt, totalActivity/pt);
+
   // 小計進度條
   const elCat = document.getElementById('catRowsContent');
-  if(elCat) elCat.innerHTML = buildCatRows(carTotal, totalFlight, totalAccom, totalActivity, grandForCat);
+  if(elCat) elCat.innerHTML = buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandForCat);
+}
+
+// ── 各類別進度條（模組級函式，refreshDonut 和 renderAll 都可呼叫）
+// flightForDisplay：已依 mode 算好的機票金額（0/個人/三人總）
+// flightLabel：已算好的 /人 顯示文字
+function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandTotal){
+  const gt = grandTotal||1;
+  const cats=[
+    {label:'🚗 租車', total:carTotal,          perLabel:fmt(carTotal/3),      color:'#f0c040', pct:carTotal/gt},
+    {label:'✈️ 機票', total:flightForDisplay,  perLabel:flightLabel,          color:'#4fc3f7', pct:flightForDisplay/gt},
+    {label:'🏕 住宿', total:totalAccom,        perLabel:fmt(totalAccom/3),    color:'#7c4dff', pct:totalAccom/gt},
+    {label:'🎯 活動', total:totalActivity,     perLabel:fmt(totalActivity/3), color:'#4caf6e', pct:totalActivity/gt},
+    {label:'🛒 日常', total:0,                 perLabel:'—',                  color:'#4fc3f7', pct:0},
+  ];
+  return cats.map(c=>`
+    <div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+        <span style="font-size:.72rem;color:var(--text)">${c.label}</span>
+        <span style="font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold)">${c.total?c.perLabel:'—'}<span style="font-size:.6em;color:var(--muted)">/人</span></span>
+      </div>
+      <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${(c.pct*100).toFixed(1)}%;background:${c.color};border-radius:3px;transition:width .6s"></div>
+      </div>
+      <div style="font-size:.63rem;color:var(--muted);margin-top:2px">合計 ${c.total?fmt(c.total):'—'}</div>
+    </div>`).join('');
+}
+
+// ── 圓餅 Legend（模組級，不含機票時隱藏機票那行）
+function buildLegend(carPct, flightPct, accomPct, actPct){
+  const mode = window._flightMode||'equal';
+  const items = [
+    {color:'#f0c040', label:'租車', pct:carPct,    always:true},
+    {color:'#4fc3f7', label:'機票', pct:flightPct, always:false},
+    {color:'#7c4dff', label:'住宿', pct:accomPct,  always:true},
+    {color:'#4caf6e', label:'活動', pct:actPct,    always:true},
+  ];
+  return items
+    .filter(l => l.always || mode!=='none')
+    .map(l=>`<span style="font-size:.62rem;display:flex;align-items:center;gap:3px">
+      <span style="width:7px;height:7px;background:${l.color};display:inline-block;border-radius:1px"></span>
+      ${l.label} ${l.pct>0?(l.pct*100).toFixed(0)+'%':'—'}
+    </span>`).join('');
 }
 
 // ── 主渲染
@@ -656,7 +705,7 @@ function renderAll(){
   const memberOrder = [...MEMBERS].sort((a,b)=>paid[b]-paid[a]);
 
   // ── 圓餅比例（依 flightMode）
-  const { perPersonAmt, grandDisplay, whoLabel, flightForDisplay } =
+  const { perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel } =
     calcFlightDisplay(sharedTotal, totalFlight, d.flights||[]);
   const pieTotal   = grandDisplay || 1;
   const carPct     = carTotal/pieTotal;
@@ -679,48 +728,9 @@ function renderAll(){
       </div>
     </div>`;
 
-  // ── 各類別進度條（用 id="catRows" 讓 refreshDonut 可以單獨更新）
-  // 實際內容由 buildCatRows() 產生，依 _flightMode 決定機票欄位
-  function buildCatRows(carTotal, totalFlight, totalAccom, totalActivity, grandTotal){
-    const mode = window._flightMode||'equal';
-    const flightByPerson = {};
-    const flights = (window.APP_DATA||window.STATIC).flights||[];
-    flights.forEach(f=>{ flightByPerson[f.person]=f.totalTWD||0; });
-
-    let flightDisplay, flightLabel;
-    if(mode==='none'){
-      flightDisplay=0;
-      flightLabel='—';
-    } else if(mode==='equal'){
-      flightDisplay=totalFlight;
-      flightLabel=fmt(totalFlight/3);
-    } else {
-      // 個人模式：/人 和 合計 都只顯示那個人的機票
-      const personal = flightByPerson[mode]||0;
-      flightDisplay=personal;
-      flightLabel=fmt(personal);
-    }
-    const gt = grandTotal||1;
-    const cats=[
-      {label:'🚗 租車', total:carTotal,       perLabel:fmt(carTotal/3),    color:'#f0c040', pct:carTotal/gt},
-      {label:'✈️ 機票', total:flightDisplay,  perLabel:flightLabel,        color:'#4fc3f7', pct:flightDisplay/gt},
-      {label:'🏕 住宿', total:totalAccom,     perLabel:fmt(totalAccom/3),  color:'#7c4dff', pct:totalAccom/gt},
-      {label:'🎯 活動', total:totalActivity,  perLabel:fmt(totalActivity/3),color:'#4caf6e',pct:totalActivity/gt},
-      {label:'🛒 日常', total:0,              perLabel:'—',                color:'#4fc3f7', pct:0},
-    ];
-    return cats.map(c=>`
-      <div style="margin-bottom:9px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
-          <span style="font-size:.72rem;color:var(--text)">${c.label}</span>
-          <span style="font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold)">${c.total?c.perLabel:'—'}<span style="font-size:.6em;color:var(--muted)">/人</span></span>
-        </div>
-        <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${(c.pct*100).toFixed(1)}%;background:${c.color};border-radius:3px;transition:width .6s"></div>
-        </div>
-        <div style="font-size:.63rem;color:var(--muted);margin-top:2px">合計 ${c.total?fmt(c.total):'—'}</div>
-      </div>`).join('');
-  }
-  const catRows = buildCatRows(carTotal, totalFlight, totalAccom, totalActivity, grandDisplay);
+  // ── 各類別進度條
+  // 實際內容由模組級 buildCatRows() 產生，依 _flightMode 決定機票欄位
+  const catRows = buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandDisplay);
 
   // ── 分帳明細（從 寫入_分帳 Sheet 讀取，若無則 fallback 自算）
   const splitData = d.split || {};
@@ -795,11 +805,8 @@ function renderAll(){
               </div>
               <div style="font-size:.65rem;color:var(--accent);margin-top:1px;min-height:14px" id="donutWhoLabel">${whoLabel}</div>
               <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="donutGrandTotal">合計 ${fmt(grandDisplay)}</div>
-              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-                <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#f0c040;display:inline-block;border-radius:1px"></span>租車 ${carPct>0?(carPct*100).toFixed(0)+'%':'—'}</span>
-                <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#4fc3f7;display:inline-block;border-radius:1px"></span>機票 ${flightPct>0?(flightPct*100).toFixed(0)+'%':'—'}</span>
-                <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#7c4dff;display:inline-block;border-radius:1px"></span>住宿 ${accomPct>0?(accomPct*100).toFixed(0)+'%':'—'}</span>
-                <span style="font-size:.62rem;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;background:#4caf6e;display:inline-block;border-radius:1px"></span>活動 ${actPct>0?(actPct*100).toFixed(0)+'%':'—'}</span>
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap" id="donutLegend">
+                ${buildLegend(carPct, flightPct, accomPct, actPct)}
               </div>
             </div>
           </div>
