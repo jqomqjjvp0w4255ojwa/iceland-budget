@@ -132,8 +132,7 @@
     const carTotal=d.car.totalTWD||0;
     const sharedTotal=carTotal+totalAccom+totalAct;
 
-    // 依機票顯示模式決定進度條的 perPerson
-    // 與 render.js 的 calcFlightDisplay 邏輯一致
+    // 進度條數字：跟選擇器同步（顯示用）
     const mode = window._flightMode || 'equal';
     let perPersonAmt;
     if(mode==='none'){
@@ -143,20 +142,25 @@
     } else {
       const flightByPerson = {};
       (d.flights||[]).forEach(f=>{ flightByPerson[f.person]=f.totalTWD||0; });
-      perPersonAmt = sharedTotal/3 + (flightByPerson[mode]||0);
+      const personalExp = d.split?.[mode]?.personal || 0;
+      perPersonAmt = sharedTotal/3 + (flightByPerson[mode]||0) + personalExp;
     }
     const perPerson=Math.round(perPersonAmt);
     const budget = d.budgetPerPerson || BUDGET;
-    const pct=Math.min(Math.round(perPerson/budget*100),100);
-    const remain=budget-perPerson;
-    const isOver=perPerson>=budget;
+    const pct=Math.min(Math.round(posPerPerson/budget*100),100);
+    const remain=budget-posPerPerson;
+    const isOver=posPerPerson>=budget;
+
+    // 角色位置：永遠用均分（共同花費 + 機票平均），不受選擇器影響
+    const posPerPerson = Math.round((sharedTotal + totalFlight) / 3);
+    const posPct = Math.min(Math.round(posPerPerson / budget * 100), 100);
 
     const bar=document.getElementById('pxBar');
     bar.style.width=pct+'%';
     bar.className='px-bar-fill '+(pct>=100?'danger':pct>=70?'warn':'safe');
     document.getElementById('pxPct').textContent=pct+'%';
     const spentEl=document.getElementById('pxSpent');
-    if(spentEl)spentEl.textContent='NT$ '+perPerson.toLocaleString('zh-TW');
+    if(spentEl)spentEl.textContent='約 NT$ '+posPerPerson.toLocaleString('zh-TW');
 
     // 付款多的站前面
     const d2=window.APP_DATA||window.STATIC;
@@ -170,17 +174,18 @@
     }
     const membersSorted=[...['花','猴','寧']].sort((a,b)=>paid2[b]-paid2[a]);
     const idMap={'花':'pxHana','猴':'pxMonkey','寧':'pxNing'};
+    const posIsOver = posPerPerson >= budget;
     membersSorted.forEach((name,i)=>{
       const el=document.getElementById(idMap[name]);
       if(!el)return;
-      if(isOver){el.classList.add('dead');el.style.left=(25+i*12)+'%';}
-      else{el.classList.remove('dead');el.style.left=Math.min(pct*0.85+i*5,86)+'%';}
+      if(posIsOver){el.classList.add('dead');el.style.left=(25+i*12)+'%';}
+      else{el.classList.remove('dead');el.style.left=Math.min(posPct*0.85+i*5,86)+'%';}
     });
 
-    // 車子跟在角色群前面（花的位置再往前一段）
+    // 車子跟在角色群前面
     const carEl=document.getElementById('pxCarEl');
     if(carEl){
-      const carLeft = isOver ? 8 : Math.max(Math.min(pct*0.85-15, 74), 2);
+      const carLeft = posIsOver ? 8 : Math.max(Math.min(posPct*0.85-15, 74), 2);
       carEl.style.left = carLeft+'%';
     }
 

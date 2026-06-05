@@ -595,16 +595,20 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights){
     perPersonAmt     = (sharedTotal + totalFlight)/3;
     grandDisplay     = sharedTotal + totalFlight;
     flightForDisplay = totalFlight;
-    whoLabel         = '含機票均分';
+    whoLabel         = '+ 機票均分';
     flightLabel      = fmt(totalFlight/3);
   } else {
-    const personal     = flightByPerson[mode]||0;
-    const personalExp  = (window.APP_DATA||window.STATIC).split?.[mode]?.personal || 0;
-    perPersonAmt     = sharedTotal/3 + personal + personalExp;
-    grandDisplay     = sharedTotal + personal;
-    flightForDisplay = personal;
-    whoLabel         = '+ '+mode+' 的機票及個人消費';
-    flightLabel      = fmt(personal);
+    const personal    = flightByPerson[mode]||0;
+    const personalExp = (window.APP_DATA||window.STATIC).split?.[mode]?.personal || 0;
+    perPersonAmt      = sharedTotal/3 + personal + personalExp;
+    grandDisplay      = sharedTotal + personal;
+    flightForDisplay  = personal;
+    // whoLabel 改成多行，0時不顯示個人消費那行
+    whoLabel = [
+      personal    ? `+ 機票 ${fmt(personal)}`        : '',
+      personalExp ? `+ 個人消費 ${fmt(personalExp)}` : '',
+    ].filter(Boolean).join('｜') || '+ 機票及個人消費';
+    flightLabel = fmt(personal);
   }
   return { perPersonAmt, grandDisplay, whoLabel, flightByPerson, flightForDisplay, flightLabel };
 }
@@ -662,8 +666,8 @@ function initDonutPicker(){
                      text-shadow:0 0 4px rgba(0,0,0,.8);line-height:1;">✕</span>
       </div>`;
     }
-    // 均分：彩色 ✈️
-    return `<span style="font-size:22px;">✈️</span>`;
+    // 均分：天平
+    return `<span style="font-size:22px;">⚖️</span>`;
   }
 
   const pad = `<div style="height:${ITEM_H}px;flex-shrink:0;"></div>`;
@@ -739,7 +743,7 @@ function refreshDonut(){
   const elAll    = document.getElementById('donutGrandTotal');
   const elApprox = document.getElementById('donutApprox');
   if(elAmt)    elAmt.textContent    = Math.round(perPersonAmt).toLocaleString('zh-TW');
-  if(elWho)    elWho.textContent    = whoLabel;
+  if(elWho)    elWho.innerHTML    = whoLabel.replace(/｜/g,'<br>');
   if(elAll)    elAll.textContent    = '合計 '+fmt(grandDisplay);
   if(elApprox) elApprox.textContent = (window._flightMode==='equal')?'約':'';
 
@@ -964,7 +968,7 @@ function renderAll(){
               <div style="font-family:'Cinzel',serif;font-size:1.55rem;color:var(--gold);font-weight:600;line-height:1.1">
                 <span id="donutApprox" style="font-size:.7rem;color:var(--muted);font-family:'Lato',sans-serif;margin-right:1px">${window._flightMode==='equal'?'約':''}</span>NT$ <span id="donutPerPerson">${Math.round(perPersonAmt).toLocaleString('zh-TW')}</span><span style="font-size:.5em;color:var(--muted)">/人</span>
               </div>
-              <div style="font-size:.65rem;color:var(--accent);margin-top:1px;min-height:14px" id="donutWhoLabel">${whoLabel}</div>
+              <div style="font-size:.65rem;color:var(--accent);margin-top:1px;min-height:14px;line-height:1.6" id="donutWhoLabel">${whoLabel}</div>
               <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="donutGrandTotal">合計 ${fmt(grandDisplay)}</div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap" id="donutLegend">
                 ${buildLegend(carPct, flightPct, accomPct, actPct)}
