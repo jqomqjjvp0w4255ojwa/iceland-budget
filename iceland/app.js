@@ -43,6 +43,9 @@
     const exchangeISK = iskIdx >= 0 ? num(iskRow[iskIdx + 1]) : (window.STATIC?.exchangeISK ?? 0);
     const exchangeEUR = eurIdx >= 0 ? num(eurRow[eurIdx + 1]) : (window.STATIC?.exchangeEUR ?? 0);
 
+    // ── 花銷類別清單（總覽 M 欄，由 GAS 回傳 expenseCategories）
+    const expenseCategories = (overview?.expenseCategories || []).filter(Boolean);
+
     // ── 住宿
     const accomRows = cellsToRows(accommodation);
     const accom = accomRows
@@ -206,6 +209,7 @@
     return {
       exchangeISK,
       exchangeEUR,
+      expenseCategories,
       car: carData,
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
       activity: cellsToRows(activity),

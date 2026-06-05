@@ -320,6 +320,26 @@
       content:'▶';position:absolute;right:8px;top:50%;transform:translateY(-50%);
       font-size:8px;opacity:.6;
     }
+    /* ══ 滑動卡片 ══ */
+    .swipe-card-wrap{position:relative;overflow:hidden;border-radius:8px;margin-bottom:8px;}
+    .swipe-card-actions{position:absolute;right:0;top:0;bottom:0;display:flex;align-items:stretch;transform:translateX(100%);transition:transform .25s ease;z-index:1;}
+    .swipe-card-wrap.open .swipe-card-actions{transform:translateX(0);}
+    .swipe-action-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:60px;cursor:pointer;border:none;font-family:'Silkscreen',monospace;font-size:6px;}
+    .swipe-action-btn.edit{background:#2a4a7a;color:#81d4fa;}
+    .swipe-action-btn.delete{background:#6a1a1a;color:#ff8a80;}
+    .swipe-action-btn span{font-size:1.1rem;line-height:1;}
+    .swipe-card-content{position:relative;z-index:2;background:var(--card);transition:transform .25s ease;touch-action:pan-y;}
+    .swipe-card-wrap.open .swipe-card-content{transform:translateX(-120px);}
+    /* ══ 刪除確認框 ══ */
+    .px-delete-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:center;justify-content:center;}
+    .px-delete-overlay.show{display:flex;}
+    .px-delete-box{background:#e8f0d0;border:3px solid #000;font-family:'Silkscreen',monospace;padding:16px;max-width:280px;width:90%;}
+    .px-delete-title{font-size:8px;color:#6a1a1a;margin-bottom:8px;border-bottom:2px solid #6a1a1a;padding-bottom:4px;}
+    .px-delete-msg{font-size:7px;color:#2a4a1a;margin-bottom:12px;line-height:1.6;}
+    .px-delete-actions{display:flex;gap:8px;}
+    .px-delete-actions button{flex:1;padding:8px 4px;border:2px solid #000;font-family:'Silkscreen',monospace;font-size:7px;cursor:pointer;}
+    .px-delete-actions .confirm{background:#6a1a1a;color:#fff;}
+    .px-delete-actions .cancel{background:#c8d8a8;color:#2a4a1a;}
   </style>
 </head>
 <body>
@@ -418,11 +438,6 @@
         <label class="px-label">▸ 類別 *</label>
         <select class="px-select" id="pxExpCat" onchange="pxCheckSubmit()">
           <option value="">-- 選擇類別 --</option>
-          <option value="fuel">油費</option>
-          <option value="parking">停車費</option>
-          <option value="accommodation">訂房</option>
-          <option value="activity">門票 / 體驗</option>
-          <option value="daily">日常</option>
         </select>
       </div>
       <div class="px-field">
@@ -654,6 +669,18 @@
   window.openRadialMenu = function(){ dragging=false; hovered=null; openRadial(); };
 })();
 </script>
+
+<!-- ══ 刪除確認框 ══ -->
+<div class="px-delete-overlay" id="pxDeleteOverlay">
+  <div class="px-delete-box">
+    <div class="px-delete-title">⚠ 確認刪除</div>
+    <div class="px-delete-msg">確定要刪除<br>「<span id="pxDeleteLabel"></span>」嗎？<br>此操作無法復原。</div>
+    <div class="px-delete-actions">
+      <button class="cancel" onclick="pxCancelDelete()">[ 取消 ]</button>
+      <button class="confirm" onclick="pxExecuteDelete()">[ 刪除 ]</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 <script src="sprites.js"></script>

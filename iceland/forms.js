@@ -15,6 +15,33 @@ let _calcTarget = '';
 let _calcCb    = '';
 let _calcPrev  = '';
 
+// 修改模式（刪舊＋新增）
+let _editMode     = false;   // 是否為修改模式
+let _editRowIndex = null;    // 要刪除的舊資料行號
+let _editSheet    = '';      // 'expense' | 'repay'
+
+// ══ GAS API ══
+const _GAS_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
+
+async function postToGAS(payload) {
+  // GAS 串接後取消下面的註解，刪掉 mock return
+  console.log('[GAS mock] postToGAS:', payload);
+  return { success: true };
+
+  // const res = await fetch(_GAS_BASE, {
+  //   method: 'POST',
+  //   headers: { 'Content-Type': 'application/json' },
+  //   body: JSON.stringify(payload),
+  //   redirect: 'follow',
+  // });
+  // if (!res.ok) throw new Error('GAS 回應錯誤：' + res.status);
+  // return res.json();
+}
+
+async function deleteRowFromGAS(sheet, rowIndex) {
+  return postToGAS({ action: 'deleteRow', sheet, rowIndex });
+}
+
 function pxLocalNow() {
   const now = new Date();
   const p = n => String(n).padStart(2,'0');
@@ -37,7 +64,7 @@ function pxAvatarSvg(name, size=28) {
   return `<span style="font-size:.8rem">${name}</span>`;
 }
 
-// ── 角色按鈕 HTML（黯淡效果）
+// ── 角色按鈕 HTML
 function pxMemberBtnHtml(name, isSelected, onclickFn) {
   const op  = isSelected ? '1' : '0.3';
   const fil = isSelected ? 'none' : 'grayscale(70%)';
@@ -65,40 +92,112 @@ window.closeAddMenuOutside = function(e) {
 };
 
 // ══ Modal 開關 ══
-window.openPxModal = function(type) {
+window.openPxModal = function(type, prefill = null) {
   closeAddMenu();
   lockBody();
+
   if (type === 'expense') {
-    _pxPayer     = '';
-    _pxSplitMode = 'equal';
-    _pxSplitSel  = new Set(['花','猴','寧']);
-    _pxCustomAmt = {'花':0,'猴':0,'寧':0};
-    document.getElementById('pxExpCat').value  = '';
-    document.getElementById('pxExpAmt').value  = '';
-    document.getElementById('pxExpCur').value  = 'NT';
-    document.getElementById('pxExpLoc').value  = '';
-    document.getElementById('pxExpNote').value = '';
-    document.getElementById('pxExpDate').value = pxLocalNow();
-    document.getElementById('pxBtnExpense').disabled = true;
+    _pxPayer     = prefill?.payer || '';
+    _pxSplitMode = prefill?.splitMode || 'equal';
+    _pxSplitSel  = new Set(prefill?.splitSel || ['花','猴','寧']);
+    _pxCustomAmt = prefill?.customAmt || {'花':0,'猴':0,'寧':0};
+
+    // 動態建立類別選單
+    const catSel = document.getElementById('pxExpCat');
+    const cats = window.APP_DATA?.expenseCategories || window.STATIC?.expenseCategories || [];
+    if (cats.length) {
+      catSel.innerHTML = '<option value="">-- 選擇類別 --</option>' +
+        cats.map(c => `<option value="${c}"${prefill?.category===c?' selected':''}>${c}</option>`).join('');
+    }
+
+    document.getElementById('pxExpAmt').value  = prefill?.amount || '';
+    document.getElementById('pxExpCur').value  = prefill?.currency || 'NT';
+    document.getElementById('pxExpLoc').value  = prefill?.location || '';
+    document.getElementById('pxExpNote').value = prefill?.note || '';
+    document.getElementById('pxExpDate').value = prefill?.date || pxLocalNow();
+
+    // 修改模式標題
+    const header = document.querySelector('#pxModalExpense .px-modal-header span');
+    if (header) header.textContent = _editMode ? '▶ 修改消費' : '▶ 新增消費';
+    document.getElementById('pxBtnExpense').textContent = _editMode ? '[ 確認修改 ]' : '[ 記帳！]';
+    document.getElementById('pxBtnExpense').disabled = !_editMode;
+
     document.getElementById('pxSplitSummary').textContent = '均分（三人）';
     pxRenderPayerBtns();
     pxRenderSplitBtns();
+    if (_editMode) pxCheckSubmit();
     document.getElementById('pxModalExpense').classList.add('show');
+
   } else {
-    _pxRepayFrom = ''; _pxRepayTo = '';
-    document.getElementById('pxRepayAmt').value  = '';
-    document.getElementById('pxRepayNote').value = '';
-    document.getElementById('pxRepayDate').value = pxLocalNow();
-    document.getElementById('pxBtnRepay').disabled = true;
-    pxRenderScrollPicker('pxRepayFromList', '', 'pxScrollSelectFrom');
-    pxRenderScrollPicker('pxRepayToList',   '', 'pxScrollSelectTo');
+    _pxRepayFrom = prefill?.from || '';
+    _pxRepayTo   = prefill?.to || '';
+
+    document.getElementById('pxRepayAmt').value  = prefill?.amount || '';
+    document.getElementById('pxRepayNote').value = prefill?.note || '';
+    document.getElementById('pxRepayDate').value = prefill?.date || pxLocalNow();
+
+    const header = document.querySelector('#pxModalRepay .px-modal-header span');
+    if (header) header.textContent = _editMode ? '▶ 修改還款' : '▶ 還錢';
+    document.getElementById('pxBtnRepay').textContent = _editMode ? '[ 確認修改 ]' : '[ 確認還款 ]';
+    document.getElementById('pxBtnRepay').disabled = !_editMode;
+
+    pxRenderScrollPicker('pxRepayFromList', _pxRepayFrom, 'pxScrollSelectFrom');
+    pxRenderScrollPicker('pxRepayToList',   _pxRepayTo,   'pxScrollSelectTo');
+    if (_editMode) pxValidateRepay();
     document.getElementById('pxModalRepay').classList.add('show');
   }
+};
+
+// ══ 修改入口（從卡片滑動後呼叫）══
+window.openEditExpense = function(rowIndex, data) {
+  _editMode     = true;
+  _editRowIndex = rowIndex;
+  _editSheet    = 'expense';
+  window.openPxModal('expense', data);
+};
+
+window.openEditRepay = function(rowIndex, data) {
+  _editMode     = true;
+  _editRowIndex = rowIndex;
+  _editSheet    = 'repay';
+  window.openPxModal('repay', data);
+};
+
+// ══ 刪除入口（從卡片滑動後呼叫）══
+window.pxConfirmDelete = function(rowIndex, sheet, label) {
+  // 像素風確認框
+  const overlay = document.getElementById('pxDeleteOverlay');
+  document.getElementById('pxDeleteLabel').textContent = label || '這筆記錄';
+  overlay.classList.add('show');
+  overlay._rowIndex = rowIndex;
+  overlay._sheet    = sheet;
+};
+
+window.pxExecuteDelete = async function() {
+  const overlay = document.getElementById('pxDeleteOverlay');
+  const rowIndex = overlay._rowIndex;
+  const sheet    = overlay._sheet;
+  overlay.classList.remove('show');
+  try {
+    await deleteRowFromGAS(sheet, rowIndex);
+    alert('[ ✓ 已刪除！]\nGAS 串接後會同步從 Sheet 移除。');
+    window.__syncIcelandBudgetFromSheets?.();
+  } catch(e) {
+    alert('刪除失敗：' + e.message);
+  }
+};
+
+window.pxCancelDelete = function() {
+  document.getElementById('pxDeleteOverlay').classList.remove('show');
 };
 
 window.cancelPxModal = function(id) {
   document.getElementById(id).classList.remove('show');
   unlockBody();
+  // 重置修改狀態
+  _editMode     = false;
+  _editRowIndex = null;
+  _editSheet    = '';
 };
 window.closePxModalOutside = function(e, id) {
   if (e.target === document.getElementById(id)) window.cancelPxModal(id);
@@ -153,9 +252,8 @@ function pxUpdateSplitSummary() {
 function pxCheckSubmit() {
   const amt = parseFloat(document.getElementById('pxExpAmt').value) || 0;
   const cat = document.getElementById('pxExpCat').value;
-  // 油費欄位顯示/隱藏
   const fuelFields = document.getElementById('pxFuelFields');
-  if (fuelFields) fuelFields.style.display = cat === 'fuel' ? 'block' : 'none';
+  if (fuelFields) fuelFields.style.display = cat === '加油' ? 'block' : 'none';
   document.getElementById('pxBtnExpense').disabled =
     !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
 }
@@ -228,7 +326,7 @@ window.pxCloseCustomSplit = function() {
   document.getElementById('pxCustomSplitOverlay').classList.remove('show');
 };
 
-// ══ 送出記帳 ══
+// ══ 送出記帳（新增 or 修改） ══
 window.pxSubmitExpense = async function() {
   const amt  = parseFloat(document.getElementById('pxExpAmt').value) || 0;
   const cat  = document.getElementById('pxExpCat').value;
@@ -244,18 +342,27 @@ window.pxSubmitExpense = async function() {
     const each = Math.round((amt/sel.length)*100)/100;
     sel.forEach(m => { splits[m] = each; });
   }
-  // 油費特殊欄位
-  const fuelMileage = cat === 'fuel' ? (parseFloat(document.getElementById('pxFuelMileage')?.value)||0) : 0;
-  const fuelLiters  = cat === 'fuel' ? (parseFloat(document.getElementById('pxFuelLiters')?.value)||0)  : 0;
-  const fuelBrand   = cat === 'fuel' ? (document.getElementById('pxFuelBrand')?.value||'')              : '';
+  const fuelMileage = cat === '加油' ? (parseFloat(document.getElementById('pxFuelMileage')?.value)||0) : 0;
+  const fuelLiters  = cat === '加油' ? (parseFloat(document.getElementById('pxFuelLiters')?.value)||0)  : 0;
+  const fuelBrand   = cat === '加油' ? (document.getElementById('pxFuelBrand')?.value||'')              : '';
 
-  const payload = { action:'addExpense', category:cat, amount:amt, currency:cur, payer:_pxPayer,
-    split花:splits['花'], split猴:splits['猴'], split寧:splits['寧'], date, location:loc, note,
-    fuelMileage, fuelLiters, fuelBrand };
-  console.log('[forms] 新增開銷:', payload);
-  // TODO: await postToGAS(payload);
-  window.cancelPxModal('pxModalExpense');
-  alert('[ ✓ 已記錄！]\nGAS 串接後會同步寫入 Sheet。');
+  try {
+    // 修改模式：先刪舊的
+    if (_editMode && _editRowIndex) {
+      await deleteRowFromGAS(_editSheet, _editRowIndex);
+    }
+    // 新增
+    await postToGAS({
+      action: 'addExpense', category: cat, amount: amt, currency: cur, payer: _pxPayer,
+      split花: splits['花'], split猴: splits['猴'], split寧: splits['寧'],
+      date, location: loc, note, fuelMileage, fuelLiters, fuelBrand,
+    });
+    window.cancelPxModal('pxModalExpense');
+    alert(_editMode ? '[ ✓ 已修改！]' : '[ ✓ 已記錄！]');
+    window.__syncIcelandBudgetFromSheets?.();
+  } catch(e) {
+    alert('送出失敗：' + e.message);
+  }
 };
 
 // ══ 還錢：卷軸選擇 ══
@@ -286,15 +393,23 @@ window.pxValidateRepay = function() {
   document.getElementById('pxBtnRepay').disabled =
     !_pxRepayFrom || !_pxRepayTo || _pxRepayFrom === _pxRepayTo || amt <= 0;
 };
+
+// ══ 送出還款（新增 or 修改）══
 window.pxSubmitRepay = async function() {
   const amt  = parseFloat(document.getElementById('pxRepayAmt').value) || 0;
   const date = document.getElementById('pxRepayDate').value || pxLocalNow();
   const note = document.getElementById('pxRepayNote').value;
-  const payload = { action:'addRepay', from:_pxRepayFrom, to:_pxRepayTo, amount:amt, date, note };
-  console.log('[forms] 還款:', payload);
-  // TODO: await postToGAS(payload);
-  window.cancelPxModal('pxModalRepay');
-  alert('[ ✓ 已記錄還款！]\nGAS 串接後會同步寫入 Sheet。');
+  try {
+    if (_editMode && _editRowIndex) {
+      await deleteRowFromGAS(_editSheet, _editRowIndex);
+    }
+    await postToGAS({ action: 'addRepay', from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note });
+    window.cancelPxModal('pxModalRepay');
+    alert(_editMode ? '[ ✓ 已修改還款！]' : '[ ✓ 已記錄還款！]');
+    window.__syncIcelandBudgetFromSheets?.();
+  } catch(e) {
+    alert('送出失敗：' + e.message);
+  }
 };
 
 // ══ 像素算盤 ══

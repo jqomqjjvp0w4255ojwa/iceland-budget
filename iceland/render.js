@@ -42,6 +42,7 @@ window.STATIC = {
     {name:'Icelandic Apartments by Heimaleiga',date:'9/27–9/28',nights:2,cur:'EUR',orig:351,  twd:12804.81, paid:false,cancel:true, payer:'猴🙉',payDate:null,  deductDate:'9/27',foreignFee:null,note:''},
   ],
   activity: [],
+  expenseCategories: ['停車費','旅遊日常','訂房','門票與體驗','加油','行前'],
 };
 window.APP_DATA = JSON.parse(JSON.stringify(window.STATIC));
 let currentFilter='all';
@@ -168,7 +169,7 @@ function renderDaily(expenses) {
 
   const html = items.map(item => {
     const date  = item.date ? String(item.date).split('T')[0] : '—';
-    const isFuel = item.category === '油費';
+    const isFuel = item.category === '加油';
     const label = `${item.category||'開銷'} ${item.location||''} NT$${Math.round(item.total||item.twd||0).toLocaleString()}`;
     const sheet = 'expense';
 
@@ -809,22 +810,27 @@ function renderAll(){
   const sharedTotal = carTotal + totalAccom + totalActivity;
   const grandTotal  = sharedTotal + totalFlight;
 
-  // ── 負債試算（誰付了多少 vs 應付）
+  // ── 負債試算
+  // paid：優先用 sheet 寫入_分帳 的「總付出」（含所有代墊）
+  // shouldPay：優先用 sheet 的「總負擔」（含自己付自己的正確分攤）
+  // 兩者都 fallback 到本地自算（sheet 資料未填時）
+  const splitData = d.split || {};
   const MEMBERS = ['花','猴','寧'];
-  const paid = {'花':0,'猴':0,'寧':0};
-  // 住宿付款
+
+  // 本地自算 paid（只有住宿＋租車，日常開銷 GAS 串接後才完整）
+  const paidLocal = {'花':0,'猴':0,'寧':0};
   d.accommodation.forEach(a=>{
     if(!a.payer||!a.twd) return;
-    for(const m of MEMBERS){ if(a.payer.includes(m)){ paid[m]+=a.twd; break; } }
+    for(const m of MEMBERS){ if(a.payer.includes(m)){ paidLocal[m]+=a.twd; break; } }
   });
-  // 租車付款
   if(d.car.totalTWD && d.car.payer){
-    for(const m of MEMBERS){ if(d.car.payer.includes(m)){ paid[m]+=d.car.totalTWD; break; } }
+    for(const m of MEMBERS){ if(d.car.payer.includes(m)){ paidLocal[m]+=d.car.totalTWD; break; } }
   }
-  // shouldPay：優先用 sheet 的「總負擔 (攤帳)」
-  // 這樣自己付自己的帳（非均分）也能正確反映，不會污染別人的應付金額
-  // fallback：sheet 還沒有資料時才用 sharedTotal/3
-  const splitData = d.split || {};
+
+  const paid = {};
+  MEMBERS.forEach(m=>{
+    paid[m] = splitData[m]?.paid || paidLocal[m] || 0;
+  });
   const shouldPay = {};
   MEMBERS.forEach(m=>{
     shouldPay[m] = splitData[m]?.burden || sharedTotal/3;
