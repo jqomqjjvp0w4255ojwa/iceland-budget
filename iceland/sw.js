@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iceland-budget-v19.8';
+const CACHE_NAME = 'iceland-budget-v19.9';
 
 const ASSETS = [
   '/iceland-budget/iceland/',
@@ -31,28 +31,22 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Stale-while-revalidate：快取優先，背景更新
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Google Sheets API 和天氣 API：永遠走網路
+  // API 請求（GAS、天氣）：有網路就走網路，沒網路就算了
   if (url.hostname.includes('script.google.com') ||
       url.hostname.includes('open-meteo.com') ||
-      url.hostname.includes('fonts.googleapis.com')) {
-    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+      url.hostname.includes('fonts.googleapis.com') ||
+      url.hostname.includes('fonts.gstatic.com')) {
+    event.respondWith(
+      fetch(event.request).catch(() => new Response('', { status: 503 }))
+    );
     return;
   }
 
-  // 靜態資源：快取優先，背景更新
+  // 靜態檔案：有網路走網路，沒網路用快取
   event.respondWith(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      const cached = await cache.match(event.request);
-      const fetchPromise = fetch(event.request).then((res) => {
-        if (res.ok) cache.put(event.request, res.clone());
-        return res;
-      }).catch(() => null);
-
-      return cached || fetchPromise;
-    })
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
