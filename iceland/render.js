@@ -44,7 +44,7 @@ window.STATIC = {
     {name:'Icelandic Apartments by Heimaleiga',date:'9/27–9/28',nights:2,cur:'EUR',orig:351,  twd:12804.81, paid:false,cancel:true, payer:'猴🙉',payDate:null,  deductDate:'9/27',foreignFee:null,note:''},
   ],
   activity: [],
-  expenseCategories: ['停車費','旅遊日常','訂房','門票與體驗','加油','行前'],
+  expenseCategories: ['停車費','雜支','訂房','門票與體驗','加油','行前'],
   budgetPerPerson: 100000,
 };
 window.APP_DATA = JSON.parse(JSON.stringify(window.STATIC));
@@ -106,11 +106,11 @@ function renderAll(){
   const totalFlight   = d.totalFlightTWD||0;
   const carTotal      = d.car.totalTWD||0;
 
-  // 日常開銷分成共同和個人兩類
+  // 雜支分成共同和個人兩類
   const totalExpenseShared   = (d.expenses||[]).filter(e=>e.isShared).reduce((s,e)=>s+(e.total||0),0);
   const totalExpensePersonal = (d.expenses||[]).filter(e=>!e.isShared).reduce((s,e)=>s+(e.total||0),0);
 
-  // sharedTotal = 所有共同費用（住宿＋租車＋活動＋共同日常）
+  // sharedTotal = 所有共同費用（住宿＋租車＋活動＋共同雜支）
   const sharedTotal = carTotal + totalAccom + totalActivity + totalExpenseShared;
   const grandTotal  = sharedTotal + totalFlight;
 
@@ -121,7 +121,7 @@ function renderAll(){
   const splitData = d.split || {};
   const MEMBERS = ['花','猴','寧'];
 
-  // 本地自算 paid（只有住宿＋租車，日常開銷 GAS 串接後才完整）
+  // 本地自算 paid（只有住宿＋租車，雜支 GAS 串接後才完整）
   const paidLocal = {'花':0,'猴':0,'寧':0};
   d.accommodation.forEach(a=>{
     if(!a.payer||!a.twd) return;
@@ -234,13 +234,13 @@ function renderAll(){
         style="flex:1;padding:6px 4px 9px;font-size:.72rem;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
                background:var(--bg3);border:1px solid var(--border);border-bottom:none;
                border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;position:relative;z-index:1;">
-        <span style="font-size:.95rem">📅</span><span>行程</span>
+        <span style="font-size:.95rem">📅</span><span>旅途</span>
       </button>
       <button id="mainTab-map" onclick="switchMainTab('map',this)"
         style="flex:1;padding:6px 4px 9px;font-size:.72rem;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
                background:var(--bg3);border:1px solid var(--border);border-bottom:none;
                border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;position:relative;z-index:1;">
-        <span style="font-size:.95rem">📍</span><span>足跡</span>
+        <span style="font-size:.95rem">📍</span><span>腳印</span>
       </button>
       <button id="mainTab-bag" onclick="switchMainTab('bag',this)"
         style="flex:1;padding:6px 4px 9px;font-size:.72rem;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
@@ -293,7 +293,8 @@ function renderAll(){
           <button class="tab active" onclick="showTab('accommodation',this)">🏕 住宿</button>
           <button class="tab" onclick="showTab('car',this)">🚗 交通</button>
           <button class="tab" onclick="showTab('activity',this)">🎯 活動</button>
-          <button class="tab" onclick="showTab('daily',this)">🛒 日常</button>
+          <button class="tab" onclick="showTab('daily',this)">🛒 雜支</button>
+          <button class="tab" onclick="showTab('insurance',this)">🛡 保險</button>
           <button class="tab" onclick="showTab('repay',this)">💸 還款</button>
         </div>
         <div id="accommodation" class="section active">
@@ -302,12 +303,13 @@ function renderAll(){
         <div id="car" class="section"><div id="carContent">${renderTransport(d)}</div></div>
         <div id="activity" class="section"><div class="empty">🚧 施工中，敬請期待</div></div>
         <div id="daily" class="section"><div id="dailyContent">${renderDaily(d.expenses||[])}</div></div>
+        <div id="insurance" class="section"><div id="insuranceContent"><div class="empty">🛡 保險資訊填入後顯示</div></div></div>
         <div id="repay" class="section"><div id="repayContent">${renderRepay(d.repayHistory||[])}</div></div>
       </div>
 
       <!-- 其他分頁（待開發） -->
       <div id="mainSection-info" style="display:none"><div id="infoContent"></div></div>
-      <div id="mainSection-map"  style="display:none"><div class="empty">📍 足跡頁面施工中</div></div>
+      <div id="mainSection-map"  style="display:none"><div class="empty">🐾 腳印頁面施工中</div></div>
       <div id="mainSection-bag"  style="display:none"><div class="empty">📖 手冊頁面施工中</div></div>
     </div>
   `;
@@ -405,4 +407,4 @@ async function init(){
   syncFromCloud();
 }
 
-// ── init() 由 index.html 最後一個 defer script 呼叫，確保所有模組都已載入
+// ── init() 由 index.html 最後一個 defer script 呼叫，確保所有模組都已載入好
