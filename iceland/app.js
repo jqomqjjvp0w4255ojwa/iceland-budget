@@ -1,6 +1,6 @@
 (function () {
   const API_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
-  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班" };
+  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷", fuel: "寫入_油錢" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function num(value) {
@@ -14,13 +14,15 @@
   }
 
   // cells 二維陣列 → [{欄位名: 值}] rows 格式
-  function cellsToRows(sheet) {
+  // withRowIndex: true 時每筆加上 _rowIndex（供刪除/修改用，只對寫入類 sheet 啟用）
+  function cellsToRows(sheet, withRowIndex = false) {
     const cells = sheet?.cells;
     if (!Array.isArray(cells) || cells.length < 2) return [];
     const headers = cells[0].map(h => String(h ?? '').trim());
-    return cells.slice(1).map(row => {
+    return cells.slice(1).map((row, i) => {
       const obj = {};
-      headers.forEach((h, i) => { if (h) obj[h] = row[i] ?? ''; });
+      if (withRowIndex) obj._rowIndex = i + 2; // +2：第1行是header，試算表從1起算
+      headers.forEach((h, j) => { if (h) obj[h] = row[j] ?? ''; });
       return obj;
     });
   }
@@ -30,7 +32,7 @@
     return fallback;
   }
 
-  function transformData({ overview, accommodation, car, activity, split, lines, flight }) {
+  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense, fuel }) {
 
     // ── 匯率（總覽）
     const oCells = overview?.cells ?? [];
@@ -92,7 +94,7 @@
     if (d2Row) carData.driver2 = String(d2Row[0]).replace(/額外駕駛[:：]?/, '').trim();
 
     // ── 分帳明細
-    const splitRows = cellsToRows(split);
+    const splitRows = cellsToRows(split, true);  // 需要 rowIndex 供還款刪除用
     const splitData = {};
     splitRows
       .filter(row => ['猴','花','寧'].some(m => String(row['成員'] ?? '').includes(m)))
@@ -119,15 +121,15 @@
       dialogLines[char][state] = [line1, line2].filter(Boolean);
     });
 
-    // ── 還款記錄
-    const repayRows = cellsToRows(split);
-    const repayHistory = repayRows
+    // ── 還款記錄（複用已含 _rowIndex 的 splitRows）
+    const repayHistory = splitRows
       .filter(row => {
         const from = String(row['還款人'] ?? '').trim();
         const to   = String(row['還給'] ?? '').trim();
         return from && to;
       })
       .map(row => ({
+        _rowIndex: row._rowIndex,
         from:   String(row['還款人'] ?? '').trim(),
         to:     String(row['還給'] ?? '').trim(),
         amount: num(pick(row, ['還款金額', '金額'])),
@@ -135,6 +137,49 @@
         note:   String(row['備註'] ?? '').trim(),
       }))
       .filter(r => r.amount > 0);
+
+    // ── 一般開銷
+    const expenseRows = cellsToRows(expense, true);
+    const expenses = expenseRows
+      .filter(row => num(pick(row, ['合計', '換算台幣'])) > 0)
+      .map(row => ({
+        _rowIndex:  row._rowIndex,
+        location:   String(row['地點']   ?? '').trim(),
+        date:       String(row['日期']   ?? '').trim(),
+        category:   String(row['類別']   ?? '').trim(),
+        amount:     num(pick(row, ['金額'])),
+        currency:   String(row['幣別']   ?? '').replace(/\.$/, '').trim() || 'NT',
+        twd:        num(pick(row, ['換算台幣'])),
+        foreignFee: num(pick(row, ['海外手續費'])),
+        total:      num(pick(row, ['合計'])),
+        payer:      String(row['付款人'] ?? '').trim(),
+        splitMode:  String(row['如何分'] ?? '').trim(),
+        burden:     { '猴': num(row['猴負擔']), '花': num(row['花負擔']), '寧': num(row['寧負擔']) },
+        note:       String(row['備註']   ?? '').trim(),
+      }));
+
+    // ── 油錢
+    const fuelRows = cellsToRows(fuel, true);
+    const fuels = fuelRows
+      .filter(row => num(pick(row, ['合計', '換算台幣'])) > 0)
+      .map(row => ({
+        _rowIndex:  row._rowIndex,
+        location:   String(row['地點']   ?? '').trim(),
+        date:       String(row['日期']   ?? '').trim(),
+        brand:      String(row['品牌']   ?? '').trim(),
+        amount:     num(pick(row, ['金額'])),
+        currency:   String(row['幣別']   ?? '').replace(/\.$/, '').trim() || 'ISK',
+        twd:        num(pick(row, ['換算台幣'])),
+        foreignFee: num(pick(row, ['海外手續費'])),
+        total:      num(pick(row, ['合計'])),
+        payer:      String(row['付款人'] ?? '').trim(),
+        mileage:    num(pick(row, ['目前里程 (km)'])),
+        liters:     num(pick(row, ['公升數 (L)'])),
+        tripKm:     num(pick(row, ['單次行駛里程 (km)'])),
+        efficiency: num(pick(row, ['平均油耗'])),
+        burden:     { '猴': num(row['猴負擔']), '花': num(row['花負擔']), '寧': num(row['寧負擔']) },
+        note:       String(row['備註']   ?? '').trim(),
+      }));
 
     // ── 航班
     const flightRows = cellsToRows(flight);
@@ -176,6 +221,8 @@
       car: carData,
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
       activity: cellsToRows(activity),
+      expenses,
+      fuels,
       split: splitData,
       dialogLines,
       flights,
@@ -209,11 +256,11 @@
   window.setSyncState?.('syncing', '同步中…');
 
   try {
-    const [overview, accommodation, car, activity, split, lines, flight] = await Promise.all([
-      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity'), fetchSheet('split'), fetchSheet('lines'), fetchSheet('flight')
+    const [overview, accommodation, car, activity, split, lines, flight, expense, fuel] = await Promise.all([
+      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity'), fetchSheet('split'), fetchSheet('lines'), fetchSheet('flight'), fetchSheet('expense'), fetchSheet('fuel')
     ]);
     
-    window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight });
+    window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight, expense, fuel });
     localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
     window.renderAll?.();
     window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
