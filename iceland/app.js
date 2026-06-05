@@ -258,23 +258,21 @@
     return;
   }
 
-  // ── 已有快取時靜默更新（不顯示「同步中」避免閃爍）
   const hasCached = !!localStorage.getItem('cached_iceland_budget');
   if (!hasCached) window.setSyncState?.('syncing', '同步中…');
 
   try {
-    // ── 優先載入首屏需要的 sheet（overview/accommodation/car），其餘延後
-    const [overview, accommodation, car, activity, split, lines, flight, expense] = await Promise.all([
-      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'),
-      fetchSheet('activity'), fetchSheet('split'), fetchSheet('lines'),
-      fetchSheet('flight'), fetchSheet('expense')
-    ]);
+    // ── 單一請求取得全部 sheets（GAS ?sheet=all）
+    const res = await fetch(API_BASE + '?sheet=all', { cache: 'no-store', redirect: 'follow' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const all = await res.json();
+    if (all.error) throw new Error(all.error);
+    const { overview, accommodation, car, activity, split, lines, flight, expense } = all;
 
     window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
     localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
     window.renderAll?.();
-    const timeStr = new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    window.setSyncState?.('cloud', '☁ 雲端同步：' + timeStr);
+    window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
 
   } catch (error) {
     console.error(error);
