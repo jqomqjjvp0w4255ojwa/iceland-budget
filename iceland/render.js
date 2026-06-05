@@ -398,9 +398,16 @@ function renderInfoFlights(flights) {
             </div>
           </div>
           <!-- 時間 -->
-          <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted);margin-bottom:5px;">
-            <span>${dep}</span>
-            <span>${arr}</span>
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:5px;">
+            <div>
+              <div style="font-size:.6rem;color:var(--muted);margin-bottom:1px">${dep.slice(0,10)}</div>
+              <div style="font-family:'Cinzel',serif;font-size:1.05rem;color:var(--text);font-weight:600;letter-spacing:.05em">${dep.slice(11)||'—'}</div>
+            </div>
+            <div style="font-size:.6rem;color:var(--muted);padding-bottom:2px">→</div>
+            <div style="text-align:right">
+              <div style="font-size:.6rem;color:var(--muted);margin-bottom:1px">${arr.slice(0,10)}</div>
+              <div style="font-family:'Cinzel',serif;font-size:1.05rem;color:var(--text);font-weight:600;letter-spacing:.05em">${arr.slice(11)||'—'}</div>
+            </div>
           </div>
           <!-- 執飛航空 + 機型 -->
           <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:.62rem;color:var(--muted);
@@ -443,7 +450,7 @@ function renderInfoFlights(flights) {
                  margin-bottom:-2px;padding:8px 4px;cursor:pointer;
                  display:flex;flex-direction:column;align-items:center;gap:3px;">
           ${avatarSvg(p)}
-          <div style="font-family:'Silkscreen',monospace;font-size:6px;color:${i===0?'var(--accent)':'var(--muted)'};">${summary}</div>
+          <div style="font-family:'Silkscreen',monospace;font-size:7px;color:${i===0?'var(--accent)':'var(--muted)'};line-height:1.5;text-align:center">${summary}</div>
         </button>`;
       }).join('')}
     </div>`;
