@@ -155,29 +155,183 @@ function setFilter(f){
 }
 
 // ── 租車
-function renderRepay(items) {
-  if (!items.length) return `<div class="empty">💸 還款記錄會顯示在這裡</div>`;
-  return items.map(r => {
-    const date = r.date ? r.date.split('T')[0] : '—';
+// ── 類別中文對應
+const CAT_LABEL = {
+  food:'🍽 餐飲', shop:'🛍 購物', transport:'🚌 交通', activity:'🎯 活動',
+  fuel:'⛽ 油費', accommodation:'🏕 住宿', other:'📦 其他',
+};
+function catLabel(c){ return CAT_LABEL[c] || c || '📦 其他'; }
+
+function renderDaily(expenses, fuels) {
+  // 合併並依日期排序
+  const items = [
+    ...(expenses||[]).map(e=>({...e, _type:'expense'})),
+    ...(fuels||[]).map(f=>({...f, _type:'fuel', category:'fuel'})),
+  ].sort((a,b)=> String(a.date).localeCompare(String(b.date)));
+
+  if (!items.length) return `<div class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div>`;
+
+  const html = items.map(item => {
+    const date  = item.date ? String(item.date).split('T')[0] : '—';
+    const label = `${catLabel(item.category)} ${item.location||''} NT$${Math.round(item.total||item.twd||0).toLocaleString()}`;
+    const sheet = item._type==='fuel' ? 'fuel' : 'expense';
+
+    // 分攤標籤
+    const burdenTags = ['猴','花','寧']
+      .filter(m => (item.burden?.[m]||0) > 0)
+      .map(m => `<span style="display:inline-flex;align-items:center;gap:2px;font-size:.62rem;
+                   background:var(--bg3);border:1px solid var(--border);
+                   border-radius:4px;padding:1px 5px;color:var(--muted)">
+                   ${avatarSvg(m)} NT$${Math.round(item.burden[m]).toLocaleString()}
+                 </span>`).join('');
+
+    // 油費額外資訊
+    const fuelExtra = item._type==='fuel' ? `
+      <div style="font-size:.63rem;color:var(--muted);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
+        ${item.brand ? `<span>⛽ ${item.brand}</span>` : ''}
+        ${item.liters ? `<span>${item.liters}L</span>` : ''}
+        ${item.mileage ? `<span>📍 ${item.mileage.toLocaleString()} km</span>` : ''}
+        ${item.efficiency ? `<span>🔁 ${Number(item.efficiency).toFixed(1)} km/L</span>` : ''}
+      </div>` : '';
+
+    const editData = JSON.stringify({
+      category: item.category, amount: item.amount, currency: item.currency,
+      location: item.location, note: item.note, date: item.date,
+      payer: item.payer,
+    }).replace(/"/g,'&quot;');
+
     return `
-      <div class="card" style="margin-bottom:10px;">
-        <div class="card-header">
-          <div>
-            <div class="card-date" style="font-size:.85rem">${date}</div>
-            <div class="card-name-row" style="margin-top:5px;display:flex;align-items:center;gap:6px;">
-              ${avatarSvg(r.from)}
-              <span style="font-size:.8rem;color:var(--muted)">→</span>
-              ${avatarSvg(r.to)}
-              <span style="font-size:.75rem;color:var(--muted)">${r.from} 還給 ${r.to}</span>
+      <div class="swipe-card-wrap">
+        <div class="swipe-card-actions">
+          <button class="swipe-action-btn edit"
+            onclick="openEditExpense(${item._rowIndex||0}, JSON.parse(this.dataset.d))"
+            data-d="${editData}">
+            <span>✏️</span>修改
+          </button>
+          <button class="swipe-action-btn delete"
+            onclick="pxConfirmDelete(${item._rowIndex||0},'${sheet}','${label.replace(/'/g,'')}')">
+            <span>🗑️</span>刪除
+          </button>
+        </div>
+        <div class="swipe-card-content card">
+          <div class="card-header">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+                <span style="font-size:.72rem;color:var(--text)">${catLabel(item.category)}</span>
+                <span style="font-size:.65rem;color:var(--muted)">${date}</span>
+                ${item.location ? `<span style="font-size:.65rem;color:var(--muted)">📍 ${item.location}</span>` : ''}
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+                ${item.payer ? `${avatarSvg(item.payer)}` : ''}
+                ${burdenTags}
+              </div>
+              ${fuelExtra}
+              ${item.note ? `<div class="card-note" style="margin-top:4px">📌 ${item.note}</div>` : ''}
+            </div>
+            <div class="card-price" style="flex-shrink:0;text-align:right">
+              <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">
+                NT$ ${Math.round(item.total||item.twd||0).toLocaleString()}
+              </div>
+              ${item.currency!=='NT' ? `<div style="font-size:.62rem;color:var(--muted)">${item.amount} ${item.currency}</div>` : ''}
             </div>
           </div>
-          <div class="card-price">
-            <div class="price-per" style="font-size:1.1rem">NT$ ${Math.round(r.amount).toLocaleString('zh-TW')}</div>
-          </div>
         </div>
-        ${r.note ? `<div class="card-note">📌 ${r.note}</div>` : ''}
       </div>`;
   }).join('');
+
+  setTimeout(() => {
+    const el = document.getElementById('dailyContent');
+    if (el) window.initSwipeCards(el);
+  }, 50);
+
+  return html;
+}
+
+
+window.initSwipeCards = function(container) {
+  const wraps = container.querySelectorAll('.swipe-card-wrap');
+  wraps.forEach(wrap => {
+    let startX = 0, startY = 0, isDragging = false, isHoriz = null;
+    const content = wrap.querySelector('.swipe-card-content');
+    if (!content) return;
+
+    function openCard()  { wraps.forEach(w => w.classList.remove('open')); wrap.classList.add('open'); }
+    function closeCard() { wrap.classList.remove('open'); }
+
+    content.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      isDragging = false; isHoriz = null;
+    }, {passive:true});
+
+    content.addEventListener('touchmove', e => {
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (isHoriz === null) isHoriz = Math.abs(dx) > Math.abs(dy);
+      if (!isHoriz) return;
+      e.preventDefault();
+      isDragging = true;
+    }, {passive:false});
+
+    content.addEventListener('touchend', e => {
+      if (!isDragging) return;
+      const dx = e.changedTouches[0].clientX - startX;
+      if (dx < -40) openCard();
+      else if (dx > 20) closeCard();
+      isDragging = false;
+    }, {passive:true});
+
+    // 點擊其他卡片時關閉
+    document.addEventListener('touchstart', e => {
+      if (!wrap.contains(e.target)) closeCard();
+    }, {passive:true});
+  });
+};
+
+function renderRepay(items) {
+  if (!items.length) return `<div class="empty">💸 還款記錄會顯示在這裡</div>`;
+  const html = items.map(r => {
+    const date  = r.date ? r.date.split('T')[0] : '—';
+    const label = `${r.from}→${r.to} NT$${Math.round(r.amount).toLocaleString('zh-TW')}`;
+    const editData = JSON.stringify({from:r.from, to:r.to, amount:r.amount, date:r.date||'', note:r.note||''}).replace(/"/g,'&quot;');
+    return `
+      <div class="swipe-card-wrap">
+        <div class="swipe-card-actions">
+          <button class="swipe-action-btn edit"
+            onclick="openEditRepay(${r._rowIndex||0}, JSON.parse(this.dataset.d))"
+            data-d="${editData}">
+            <span>✏️</span>修改
+          </button>
+          <button class="swipe-action-btn delete"
+            onclick="pxConfirmDelete(${r._rowIndex||0},'repay','${label.replace(/'/g,'')}')">
+            <span>🗑️</span>刪除
+          </button>
+        </div>
+        <div class="swipe-card-content card">
+          <div class="card-header">
+            <div>
+              <div class="card-date" style="font-size:.85rem">${date}</div>
+              <div class="card-name-row" style="margin-top:5px;display:flex;align-items:center;gap:6px;">
+                ${avatarSvg(r.from)}
+                <span style="font-size:.8rem;color:var(--muted)">→</span>
+                ${avatarSvg(r.to)}
+                <span style="font-size:.75rem;color:var(--muted)">${r.from} 還給 ${r.to}</span>
+              </div>
+            </div>
+            <div class="card-price">
+              <div class="price-per" style="font-size:1.1rem">NT$ ${Math.round(r.amount).toLocaleString('zh-TW')}</div>
+            </div>
+          </div>
+          ${r.note ? `<div class="card-note">📌 ${r.note}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+  // 初始化滑動（DOM 插入後呼叫）
+  setTimeout(() => {
+    const el = document.getElementById('repayContent');
+    if (el) window.initSwipeCards(el);
+  }, 50);
+  return html;
 }
 
 function renderFlightSegs(segs) {
@@ -845,7 +999,7 @@ function renderAll(){
         </div>
         <div id="car" class="section"><div id="carContent">${renderTransport(d)}</div></div>
         <div id="activity" class="section"><div class="empty">🚧 施工中，敬請期待</div></div>
-        <div id="daily" class="section"><div id="dailyContent" class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div></div>
+        <div id="daily" class="section"><div id="dailyContent">${renderDaily(d.expenses||[], d.fuels||[])}</div></div>
         <div id="repay" class="section"><div id="repayContent">${renderRepay(d.repayHistory||[])}</div></div>
       </div>
 
