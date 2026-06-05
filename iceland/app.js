@@ -32,6 +32,17 @@
     return fallback;
   }
 
+  // 模糊欄位比對：只要欄位名「包含」任一 keyword 就算到，解決 Sheet 欄位名有多餘括號或空格的問題
+  function fuzzyPick(row, keywords, fallback = '') {
+    if (!row) return fallback;
+    const rowKeys = Object.keys(row);
+    for (const kw of keywords) {
+      const matched = rowKeys.find(k => k.includes(kw));
+      if (matched !== undefined && row[matched] !== undefined && row[matched] !== '') return row[matched];
+    }
+    return fallback;
+  }
+
   function transformData({ overview, accommodation, car, activity, split, lines, flight, expense }) {
 
     // ── 匯率（總覽）
@@ -170,51 +181,68 @@
       }));
 
     // ── 航班（依機票編號分組）
+    // 欄位名用 fuzzyPick（includes 比對），避免 Sheet 欄位有多餘括號/空格導致對不到
     const flightRows = cellsToRows(flight);
+
+    // debug：印出航班 sheet 第一筆 row 的所有欄位名，方便確認 Sheet 實際欄位
+    if (flightRows.length > 0) {
+      console.log('[航班 sheet 欄位名]', Object.keys(flightRows[0]));
+    } else {
+      console.warn('[航班] flightRows 是空的，請確認 GAS 有正確回傳航班 sheet');
+    }
+
     const flightByTicket = {};
     flightRows.forEach(row => {
-      const ticketNo = String(row['機票編號(給程式辨識用的虛假編號)'] ?? '').trim();
-      const person   = String(row['乘客'] ?? '').trim();
+      // 用 fuzzyPick：只需欄位名「包含」關鍵字即可，不需完全一致
+      const ticketNo = String(fuzzyPick(row, ['機票編號'], '') ?? '').trim();
+      const person   = String(fuzzyPick(row, ['乘客', '旅客', '姓名'], '') ?? '').trim();
+
       if (!ticketNo || !person) return;
+
       if (!flightByTicket[ticketNo]) {
         flightByTicket[ticketNo] = {
           ticketNo,
           person,
-          type:     String(row['票種']      ?? '').trim(),
-          airline:  String(row['航空公司']   ?? '').trim(),
-          from:     String(row['最初出發地'] ?? '').trim(),
-          to:       String(row['最終目的地'] ?? '').trim(),
+          type:     String(fuzzyPick(row, ['票種'])      ?? '').trim(),
+          airline:  String(fuzzyPick(row, ['航空公司'])   ?? '').trim(),
+          from:     String(fuzzyPick(row, ['最初出發地']) ?? '').trim(),
+          to:       String(fuzzyPick(row, ['最終目的地']) ?? '').trim(),
           totalTWD: 0,
           luggage:  '',
           segments: [],
         };
       }
       const t = flightByTicket[ticketNo];
-      const cost = num(pick(row, ['機票費用(寫在第一筆)']));
+
+      // 「機票費用」欄位名可能有括號備註，用 fuzzyPick
+      const cost = num(fuzzyPick(row, ['機票費用']));
       const twd  = num(pick(row, ['換算台幣']));
       if (cost > 0) t.totalTWD = twd || cost;
-      const luggage = String(row['行李'] ?? '').trim();
+
+      const luggage = String(fuzzyPick(row, ['行李']) ?? '').trim();
       if (luggage) t.luggage = luggage;
 
       const seg = {
-        direction:  String(row['去程/回程']    ?? '').trim(),
-        isTransit:  String(row['目的地為中轉?'] ?? '').toLowerCase() === 'true' || row['目的地為中轉?'] === true,
-        segNo:      num(pick(row, ['航段'], 0)),
-        from:       String(row['出發地']       ?? '').trim(),
-        fromTerm:   String(row['出發航廈']     ?? '').trim(),
-        to:         String(row['目的地']       ?? '').trim(),
-        toTerm:     String(row['目的地航廈']   ?? '').trim(),
-        flightTime: String(row['飛行時間']     ?? '').trim(),
-        waitTime:   String(row['轉機等待時間'] ?? '').trim(),
-        depTime:    String(row['出發時間']     ?? '').trim(),
-        arrTime:    String(row['抵達時間']     ?? '').trim(),
-        operatedBy: String(row['執飛航空']     ?? '').trim(),
-        aircraft:   String(row['機種']         ?? '').trim(),
-        flightNo:   String(row['航班號']       ?? '').trim(),
-        note:       String(row['備註']         ?? '').trim(),
+        direction:  String(fuzzyPick(row, ['去程/回程', '去回程', '方向'])  ?? '').trim(),
+        isTransit:  String(fuzzyPick(row, ['中轉', '轉機?', '目的地為中轉']) ?? '').toLowerCase() === 'true',
+        segNo:      num(fuzzyPick(row, ['航段'], 0)),
+        from:       String(fuzzyPick(row, ['出發地'])       ?? '').trim(),
+        fromTerm:   String(fuzzyPick(row, ['出發航廈'])     ?? '').trim(),
+        to:         String(fuzzyPick(row, ['目的地'])       ?? '').trim(),
+        toTerm:     String(fuzzyPick(row, ['目的地航廈'])   ?? '').trim(),
+        flightTime: String(fuzzyPick(row, ['飛行時間'])     ?? '').trim(),
+        waitTime:   String(fuzzyPick(row, ['轉機等待', '等待時間']) ?? '').trim(),
+        depTime:    String(fuzzyPick(row, ['出發時間'])     ?? '').trim(),
+        arrTime:    String(fuzzyPick(row, ['抵達時間'])     ?? '').trim(),
+        operatedBy: String(fuzzyPick(row, ['執飛航空', '執飛']) ?? '').trim(),
+        aircraft:   String(fuzzyPick(row, ['機種'])         ?? '').trim(),
+        flightNo:   String(fuzzyPick(row, ['航班號', '航班']) ?? '').trim(),
+        note:       String(pick(row, ['備註'])              ?? '').trim(),
       };
       if (seg.from || seg.to || seg.flightNo) t.segments.push(seg);
     });
+
+    console.log('[航班] 解析到幾張機票：', Object.keys(flightByTicket).length, Object.keys(flightByTicket));
 
     const flights = Object.values(flightByTicket);
     const totalFlightTWD = flights.reduce((s, f) => s + (f.totalTWD || 0), 0);
