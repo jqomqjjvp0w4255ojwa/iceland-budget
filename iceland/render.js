@@ -675,10 +675,16 @@ function renderAll(){
   if(d.car.totalTWD && d.car.payer){
     for(const m of MEMBERS){ if(d.car.payer.includes(m)){ paid[m]+=d.car.totalTWD; break; } }
   }
-  // shouldPay 只平攤 sharedTotal，機票各付各的不列入
-  const shouldPay = sharedTotal/3;
+  // shouldPay：優先用 sheet 的「總負擔 (攤帳)」
+  // 這樣自己付自己的帳（非均分）也能正確反映，不會污染別人的應付金額
+  // fallback：sheet 還沒有資料時才用 sharedTotal/3
+  const splitData = d.split || {};
+  const shouldPay = {};
+  MEMBERS.forEach(m=>{
+    shouldPay[m] = splitData[m]?.burden || sharedTotal/3;
+  });
   const debt = {};
-  MEMBERS.forEach(m=>{ debt[m]=Math.round(paid[m]-shouldPay); });
+  MEMBERS.forEach(m=>{ debt[m]=Math.round(paid[m]-shouldPay[m]); });
 
   // ── 倒數計時
   const DEPART = new Date('2026-09-14T00:00:00+08:00');
@@ -733,7 +739,6 @@ function renderAll(){
   const catRows = buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandDisplay);
 
   // ── 分帳明細（從 寫入_分帳 Sheet 讀取，若無則 fallback 自算）
-  const splitData = d.split || {};
   const maxPaid = Math.max(...MEMBERS.map(m => splitData[m]?.paid || paid[m] || 0), 1);
   const debtRows = MEMBERS.map(m => {
     const paidAmt  = splitData[m]?.paid    ?? paid[m] ?? 0;
