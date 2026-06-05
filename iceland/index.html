@@ -8,7 +8,9 @@
   <title>🇮🇸 冰島旅行小帳</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" rel="stylesheet" /></noscript>
   <style>
     :root {
       --bg:#07111f; --bg2:#0d1f35; --bg3:#112540; --card:#0f2240;
@@ -340,6 +342,21 @@
     .px-delete-actions button{flex:1;padding:8px 4px;border:2px solid #000;font-family:'Silkscreen',monospace;font-size:7px;cursor:pointer;}
     .px-delete-actions .confirm{background:#6a1a1a;color:#fff;}
     .px-delete-actions .cancel{background:#c8d8a8;color:#2a4a1a;}
+
+    /* ── Tag chips ── */
+    .px-tag-chip{display:inline-flex;align-items:center;gap:4px;background:#2a4a1a;color:#c8d8a8;font-size:7px;padding:4px 8px;border-radius:999px;animation:chipIn .15s ease;cursor:default;user-select:none;}
+    @keyframes chipIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+    .px-tag-chip-x{width:12px;height:12px;border-radius:50%;background:rgba(200,216,168,.25);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:8px;line-height:1;transition:background .12s;flex-shrink:0;}
+    .px-tag-chip-x:hover{background:rgba(200,216,168,.55);}
+    .px-tag-add-pill{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1.5px dashed #5a7a3a;color:#5a7a3a;font-family:'Silkscreen',monospace;font-size:7px;padding:3px 9px;border-radius:999px;cursor:pointer;transition:border-color .12s,color .12s,background .12s;}
+    .px-tag-add-pill:hover{border-color:#2a4a1a;color:#2a4a1a;background:rgba(42,74,26,.07);}
+    .px-tag-suggest-pill{background:#dde8c0;border:1.5px solid #8aaa6a;color:#2a4a1a;font-family:'Silkscreen',monospace;font-size:7px;padding:3px 9px;border-radius:999px;cursor:pointer;transition:background .12s,border-color .12s;user-select:none;}
+    .px-tag-suggest-pill:hover:not(.used){background:#c8d8a8;border-color:#2a4a1a;}
+    .px-tag-suggest-pill.used{opacity:.3;cursor:default;text-decoration:line-through;}
+    /* ── Brand chips ── */
+    .px-brand-chip{background:#dde8c0;border:1.5px solid #8aaa6a;color:#2a4a1a;font-family:'Silkscreen',monospace;font-size:7px;padding:4px 10px;border-radius:999px;cursor:pointer;transition:background .12s,border-color .12s,color .12s;user-select:none;}
+    .px-brand-chip:hover{background:#c8d8a8;border-color:#2a4a1a;}
+    .px-brand-chip.sel{background:#2a4a1a;border-color:#2a4a1a;color:#c8d8a8;}
   </style>
 </head>
 <body>
@@ -466,7 +483,14 @@
         </div>
         <div style="margin-top:6px;">
           <div style="font-size:7px;color:#2a4a1a;margin-bottom:3px;">品牌（選填）</div>
-          <input class="px-input" type="text" id="pxFuelBrand" placeholder="例：Orkan">
+          <div style="position:relative;">
+            <input class="px-input" type="text" id="pxFuelBrand" placeholder="點選或輸入…"
+              style="padding:5px 8px;font-size:14px;padding-right:28px;"
+              oninput="pxOnBrandInput()" onfocus="pxShowBrandChips()">
+            <button id="pxBrandClear" onclick="pxClearBrand()"
+              style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#5a7a3a;cursor:pointer;font-size:12px;display:none;padding:2px;">✕</button>
+          </div>
+          <div id="pxBrandChips" style="display:none;flex-wrap:wrap;gap:5px;margin-top:7px;"></div>
         </div>
       </div>
       <div class="px-field">
@@ -495,6 +519,23 @@
         <label class="px-label">▸ 地點（選填）</label>
         <input class="px-input" type="text" id="pxExpLoc" placeholder="">
       </div>
+      <!-- ── Tag 欄位（類別為雜支時顯示）── -->
+      <div class="px-field" id="pxTagField" style="display:none;">
+        <div class="px-label">▸ 標籤（選填）</div>
+        <div id="pxTagRow" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:26px;"></div>
+        <div id="pxTagPanel" style="overflow:hidden;max-height:0;opacity:0;transition:max-height .22s ease,opacity .18s ease;margin-top:0;">
+          <div style="display:flex;gap:5px;margin-bottom:8px;margin-top:8px;">
+            <input id="pxTagInput" style="flex:1;background:#f8fce8;border:2px solid #2a4a1a;padding:5px 9px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;outline:none;border-radius:3px;" placeholder="輸入新標籤…" maxlength="10"
+              oninput="pxOnTagInput()"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();pxConfirmTag();}if(event.key==='Escape')pxCloseTagPanel();">
+            <button id="pxTagConfirmBtn" onclick="pxConfirmTag()" disabled
+              style="background:#2a4a1a;border:none;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:7px;padding:5px 10px;cursor:pointer;border-radius:3px;opacity:.35;">確認</button>
+          </div>
+          <div style="font-size:6px;color:#7a9a5a;letter-spacing:1px;margin-bottom:5px;">常用標籤</div>
+          <div id="pxTagSuggestRow" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+        </div>
+      </div>
+
       <div class="px-field">
         <label class="px-label">▸ 備註（選填）</label>
         <input class="px-input" type="text" id="pxExpNote" placeholder="">
@@ -696,5 +737,164 @@
 <script src="scene.js" defer></script>
 <script src="forms.js" defer></script>
 <script>document.addEventListener('DOMContentLoaded', () => init());</script>
+
+<script>
+// ════ Tag 選擇器 ════
+(function(){
+  let _selectedTags = [];
+  let _tagLibrary   = ['食物','飲料','紀念品','景點門票','交通','藥局','超市'];
+  let _panelOpen    = false;
+
+  function _buildTagChips() {
+    const row = document.getElementById('pxTagRow');
+    if (!row) return;
+    row.innerHTML = _selectedTags.map(t =>
+      `<span class="px-tag-chip">${t}<span class="px-tag-chip-x" data-tag="${t}">✕</span></span>`
+    ).join('') + `<button class="px-tag-add-pill" onclick="pxToggleTagPanel()">＋ 標籤</button>`;
+    // bind remove events without re-render
+    row.querySelectorAll('.px-tag-chip-x').forEach(el => {
+      el.addEventListener('click', () => {
+        _selectedTags = _selectedTags.filter(t => t !== el.dataset.tag);
+        _buildTagChips();
+        _buildSuggests();
+      });
+    });
+  }
+
+  function _buildSuggests() {
+    const row = document.getElementById('pxTagSuggestRow');
+    if (!row) return;
+    const q = (document.getElementById('pxTagInput')?.value || '').trim().toLowerCase();
+    row.innerHTML = _tagLibrary
+      .filter(t => !q || t.toLowerCase().includes(q))
+      .map(t => {
+        const used = _selectedTags.includes(t);
+        return `<span class="px-tag-suggest-pill${used?' used':''}" data-tag="${t}">${t}</span>`;
+      }).join('');
+    row.querySelectorAll('.px-tag-suggest-pill:not(.used)').forEach(el => {
+      el.addEventListener('click', () => {
+        if (!_selectedTags.includes(el.dataset.tag)) _selectedTags.push(el.dataset.tag);
+        _buildTagChips();
+        _buildSuggests();
+        document.getElementById('pxTagInput').value = '';
+        document.getElementById('pxTagConfirmBtn').disabled = true;
+        document.getElementById('pxTagConfirmBtn').style.opacity = '.35';
+        document.getElementById('pxTagInput').focus();
+      });
+    });
+  }
+
+  window.pxToggleTagPanel = function() {
+    if (_panelOpen) return;
+    _panelOpen = true;
+    const panel = document.getElementById('pxTagPanel');
+    panel.style.maxHeight = '200px';
+    panel.style.opacity   = '1';
+    panel.style.marginTop = '8px';
+    setTimeout(() => document.getElementById('pxTagInput')?.focus(), 50);
+    _buildSuggests();
+  };
+
+  window.pxOnTagInput = function() {
+    const val = document.getElementById('pxTagInput').value.trim();
+    const btn = document.getElementById('pxTagConfirmBtn');
+    btn.disabled     = !val;
+    btn.style.opacity = val ? '1' : '.35';
+    _buildSuggests();
+  };
+
+  window.pxConfirmTag = function() {
+    const input = document.getElementById('pxTagInput');
+    const val   = input.value.trim();
+    if (!val) return;
+    if (!_selectedTags.includes(val)) _selectedTags.push(val);
+    if (!_tagLibrary.includes(val))   _tagLibrary.push(val);
+    input.value = '';
+    document.getElementById('pxTagConfirmBtn').disabled = true;
+    document.getElementById('pxTagConfirmBtn').style.opacity = '.35';
+    _buildTagChips();
+    _buildSuggests();
+    input.focus();
+  };
+
+  window.pxGetSelectedTags = function() { return [..._selectedTags]; };
+  window.pxResetTags = function() {
+    _selectedTags = [];
+    _panelOpen    = false;
+    const panel   = document.getElementById('pxTagPanel');
+    if (panel) { panel.style.maxHeight='0'; panel.style.opacity='0'; panel.style.marginTop='0'; }
+    _buildTagChips();
+  };
+  window.pxUpdateTagLibrary = function(lib) { if (Array.isArray(lib)) _tagLibrary = [...new Set([..._tagLibrary, ...lib])]; };
+
+  // 類別切換時顯示/隱藏 tag 欄
+  document.addEventListener('DOMContentLoaded', () => {
+    _buildTagChips();
+    const catEl = document.getElementById('pxExpCat');
+    if (catEl) catEl.addEventListener('change', function(){
+      const show = this.value === '雜支';
+      const field = document.getElementById('pxTagField');
+      if (field) field.style.display = show ? 'block' : 'none';
+      if (!show) window.pxResetTags?.();
+    });
+  });
+})();
+
+// ════ 品牌選擇器 ════
+(function(){
+  const BRANDS = ['N1','Orkan','Olís','ÓB','Atlantsolía','Costco'];
+  let _selectedBrand = '';
+
+  function _buildBrandChips() {
+    const wrap = document.getElementById('pxBrandChips');
+    if (!wrap) return;
+    wrap.innerHTML = BRANDS.map(b =>
+      `<span class="px-brand-chip${_selectedBrand===b?' sel':''}" data-brand="${b}">${b}</span>`
+    ).join('');
+    wrap.querySelectorAll('.px-brand-chip').forEach(el => {
+      el.addEventListener('click', () => {
+        _selectedBrand = _selectedBrand === el.dataset.brand ? '' : el.dataset.brand;
+        document.getElementById('pxFuelBrand').value = _selectedBrand;
+        document.getElementById('pxBrandClear').style.display = _selectedBrand ? 'block' : 'none';
+        wrap.querySelectorAll('.px-brand-chip').forEach(c => c.classList.toggle('sel', c.dataset.brand === _selectedBrand));
+      });
+    });
+  }
+
+  window.pxShowBrandChips = function() {
+    const wrap = document.getElementById('pxBrandChips');
+    if (wrap) wrap.style.display = 'flex';
+    _buildBrandChips();
+  };
+
+  window.pxOnBrandInput = function() {
+    const val = document.getElementById('pxFuelBrand').value.trim();
+    if (val && !BRANDS.includes(val)) {
+      _selectedBrand = '';
+      document.getElementById('pxBrandChips')?.querySelectorAll('.px-brand-chip').forEach(c => c.classList.remove('sel'));
+    }
+    document.getElementById('pxBrandClear').style.display = val ? 'block' : 'none';
+  };
+
+  window.pxClearBrand = function() {
+    _selectedBrand = '';
+    document.getElementById('pxFuelBrand').value = '';
+    document.getElementById('pxBrandClear').style.display = 'none';
+    document.getElementById('pxBrandChips')?.querySelectorAll('.px-brand-chip').forEach(c => c.classList.remove('sel'));
+  };
+
+  window.pxGetSelectedBrand = function() { return _selectedBrand || document.getElementById('pxFuelBrand')?.value.trim() || ''; };
+  window.pxResetBrand = function() {
+    _selectedBrand = '';
+    const input = document.getElementById('pxFuelBrand');
+    if (input) input.value = '';
+    const clear = document.getElementById('pxBrandClear');
+    if (clear) clear.style.display = 'none';
+    const wrap  = document.getElementById('pxBrandChips');
+    if (wrap)  { wrap.style.display = 'none'; wrap.querySelectorAll('.px-brand-chip').forEach(c => c.classList.remove('sel')); }
+  };
+})();
+</script>
+
 </body>
 </html>
