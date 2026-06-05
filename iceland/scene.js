@@ -163,6 +163,11 @@
     document.getElementById('pxPct').textContent=pct+'%';
     const spentEl=document.getElementById('pxSpent');
     if(spentEl)spentEl.textContent='約 NT$ '+posPerPerson.toLocaleString('zh-TW');
+    const budgetLabel=document.getElementById('pxBudgetLabel');
+    const budgetMax=document.getElementById('pxBudgetMax');
+    const budgetStr='NT$ '+budget.toLocaleString('zh-TW');
+    if(budgetLabel)budgetLabel.textContent=budgetStr;
+    if(budgetMax)budgetMax.textContent=budgetStr;
 
     // 付款多的站前面
     const d2=window.APP_DATA||window.STATIC;
