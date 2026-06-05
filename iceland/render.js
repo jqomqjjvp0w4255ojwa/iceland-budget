@@ -43,6 +43,7 @@ window.STATIC = {
   ],
   activity: [],
   expenseCategories: ['停車費','旅遊日常','訂房','門票與體驗','加油','行前'],
+  budgetPerPerson: 100000,
 };
 window.APP_DATA = JSON.parse(JSON.stringify(window.STATIC));
 let currentFilter='all';

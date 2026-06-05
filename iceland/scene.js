@@ -1,7 +1,7 @@
 // scene.js — 像素天氣場景、時鐘、預算條（從 index.html 拆出）
 // ── 冰島即時天氣場景
 (function(){
-  const BUDGET = 100000;
+  const BUDGET = 100000; // fallback，實際值從 APP_DATA.budgetPerPerson 讀
   const ITINERARY = [
     {from:'09-15',to:'09-16',name:'Hekla 附近',lat:63.98,lon:-19.67},
     {from:'09-17',to:'09-17',name:'Þakgil',lat:63.47,lon:-18.93},
@@ -146,9 +146,10 @@
       perPersonAmt = sharedTotal/3 + (flightByPerson[mode]||0);
     }
     const perPerson=Math.round(perPersonAmt);
-    const pct=Math.min(Math.round(perPerson/BUDGET*100),100);
-    const remain=BUDGET-perPerson;
-    const isOver=perPerson>=BUDGET;
+    const budget = d.budgetPerPerson || BUDGET;
+    const pct=Math.min(Math.round(perPerson/budget*100),100);
+    const remain=budget-perPerson;
+    const isOver=perPerson>=budget;
 
     const bar=document.getElementById('pxBar');
     bar.style.width=pct+'%';
