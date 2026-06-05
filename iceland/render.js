@@ -349,20 +349,26 @@ function renderFlightSegs(segs) {
 function renderInfoFlights(flights) {
   if (!flights || !flights.length) return '<div class="empty">✈️ 航班資訊填入後顯示</div>';
 
-  // 計算每人的去回總飛行時間（含轉機等待）
+  // 解析時間字串 "2:45:00" 或 "2:45" → 總分鐘數
+  function parseTimeToMin(str) {
+    if (!str) return 0;
+    const parts = String(str).split(':').map(Number);
+    if (parts.length >= 2) return (parts[0] * 60) + parts[1];
+    return 0;
+  }
+
+  // 分鐘數 → "Xh Ym"
+  function minToHM(min) {
+    if (!min) return '';
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`;
+  }
+
+  // 總飛行時間 = 各段 flightTime 加總（純飛行，不含轉機等待）
   function totalFlightTime(segs) {
-    // 用首段出發到末段抵達
-    if (!segs.length) return '';
-    const dep = segs[0]?.depTime;
-    const arr = segs.at(-1)?.arrTime;
-    if (!dep || !arr) return '';
-    try {
-      const diff = new Date(arr) - new Date(dep);
-      if (isNaN(diff) || diff <= 0) return '';
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      return `${h}h${m > 0 ? m + 'm' : ''}`;
-    } catch(e) { return ''; }
+    const total = segs.reduce((s, seg) => s + parseTimeToMin(seg.flightTime), 0);
+    return minToHM(total);
   }
 
   // 段落詳情渲染（接收整個陣列，在段間插入轉機等待）
@@ -380,33 +386,31 @@ function renderInfoFlights(flights) {
         </div>` : '';
       return `
         <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:4px;">
-          <!-- 出發→目的地 -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <div style="text-align:center;min-width:36px;">
-              <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--accent2);font-weight:600">${s.from}</div>
+          <!-- 出發→目的地 + 時間 整合 -->
+          <div style="display:flex;align-items:stretch;gap:6px;margin-bottom:6px;">
+            <!-- 出發 -->
+            <div style="text-align:center;min-width:44px;">
+              <div style="font-family:'Cinzel',serif;font-size:1.1rem;color:var(--accent2);font-weight:600;line-height:1">${s.from}</div>
               ${s.fromTerm?`<div style="font-size:.58rem;color:var(--muted)">T${s.fromTerm}</div>`:''}
+              <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--text);font-weight:600;margin-top:4px;line-height:1">${dep.slice(11)||'—'}</div>
+              <div style="font-size:.58rem;color:var(--muted);margin-top:1px">${dep.slice(0,10)}</div>
             </div>
-            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <!-- 中間箭頭 -->
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
               <div style="font-size:.6rem;color:var(--muted)">${s.flightTime||''}</div>
-              <div style="height:1px;width:100%;background:linear-gradient(90deg,var(--accent),${s.isTransit?'var(--aurora3)':'var(--green)'})"></div>
+              <div style="display:flex;align-items:center;width:100%;gap:2px;">
+                <div style="flex:1;height:1px;background:linear-gradient(90deg,var(--accent),${s.isTransit?'var(--aurora3)':'var(--green)'})"></div>
+                <div style="font-size:.6rem;color:${s.isTransit?'var(--aurora3)':'var(--green)'}">›</div>
+              </div>
               <div style="font-size:.58rem;color:var(--muted)">${s.flightNo||''}</div>
             </div>
-            <div style="text-align:center;min-width:36px;">
-              <div style="font-family:'Cinzel',serif;font-size:1rem;color:${s.isTransit?'var(--aurora3)':'var(--text)'};font-weight:600">${s.to}</div>
+            <!-- 目的地 -->
+            <div style="text-align:center;min-width:44px;">
+              <div style="font-family:'Cinzel',serif;font-size:1.1rem;color:${s.isTransit?'var(--aurora3)':'var(--text)'};font-weight:600;line-height:1">${s.to}</div>
               ${s.toTerm?`<div style="font-size:.58rem;color:var(--muted)">T${s.toTerm}</div>`:''}
-              ${s.isTransit?`<div style="font-size:.55rem;color:var(--aurora3)">轉機</div>`:''}
-            </div>
-          </div>
-          <!-- 時間 -->
-          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:5px;">
-            <div>
-              <div style="font-size:.6rem;color:var(--muted);margin-bottom:1px">${dep.slice(0,10)}</div>
-              <div style="font-family:'Cinzel',serif;font-size:1.05rem;color:var(--text);font-weight:600;letter-spacing:.05em">${dep.slice(11)||'—'}</div>
-            </div>
-            <div style="font-size:.6rem;color:var(--muted);padding-bottom:2px">→</div>
-            <div style="text-align:right">
-              <div style="font-size:.6rem;color:var(--muted);margin-bottom:1px">${arr.slice(0,10)}</div>
-              <div style="font-family:'Cinzel',serif;font-size:1.05rem;color:var(--text);font-weight:600;letter-spacing:.05em">${arr.slice(11)||'—'}</div>
+              ${s.isTransit?`<div style="font-size:.55rem;color:var(--aurora3);margin-top:2px">轉機</div>`:''}
+              <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--text);font-weight:600;margin-top:4px;line-height:1">${arr.slice(11)||'—'}</div>
+              <div style="font-size:.58rem;color:var(--muted);margin-top:1px">${arr.slice(0,10)}</div>
             </div>
           </div>
           <!-- 執飛航空 + 機型 -->
