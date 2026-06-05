@@ -387,26 +387,60 @@ window.pxSubmitExpense = async function() {
 };
 
 // ══ 還錢：卷軸選擇 ══
-function pxRenderScrollPicker(listId, selectedName, onclickFn) {
+const PICKER_ITEM_H = 58;
+
+function pxRenderScrollPicker(listId, selectedName, onSelectFn) {
   const el = document.getElementById(listId);
   if (!el) return;
-  el.innerHTML = PX_MEMBERS.map(m => `
-    <div class="px-scroll-picker-item${selectedName===m?' sel':''}" onclick="${onclickFn}('${m}')">
+
+  // 上下各加一個空白 padding item，讓第一/最後個能滾到中間
+  const pad = `<div style="height:${PICKER_ITEM_H}px;flex-shrink:0;"></div>`;
+  el.innerHTML = pad + PX_MEMBERS.map(m => `
+    <div class="px-scroll-picker-item" data-name="${m}" style="height:${PICKER_ITEM_H}px;flex-shrink:0;">
       ${pxAvatarSvg(m, 32)}
       <span>${m}</span>
-    </div>`).join('');
+    </div>`).join('') + pad;
+
+  // 滾到選中位置
   const idx = PX_MEMBERS.indexOf(selectedName);
-  if (idx >= 0) setTimeout(() => { el.scrollTop = idx * 58; }, 50);
+  el.scrollTop = (idx >= 0 ? idx : 0) * PICKER_ITEM_H;
+
+  // 更新高亮
+  function updateHighlight() {
+    const centerIdx = Math.round(el.scrollTop / PICKER_ITEM_H);
+    const clamped   = Math.max(0, Math.min(centerIdx, PX_MEMBERS.length - 1));
+    el.querySelectorAll('.px-scroll-picker-item').forEach((item, i) => {
+      item.classList.toggle('sel', i === clamped);
+    });
+    return PX_MEMBERS[clamped];
+  }
+
+  updateHighlight();
+
+  // 滾動時自動高亮 + 結束時觸發選取
+  let _scrollTimer;
+  el._pickerScrollHandler && el.removeEventListener('scroll', el._pickerScrollHandler);
+  el._pickerScrollHandler = () => {
+    updateHighlight();
+    clearTimeout(_scrollTimer);
+    _scrollTimer = setTimeout(() => {
+      const name = updateHighlight();
+      if (name) onSelectFn(name, true); // true = from scroll, skip re-render
+    }, 80);
+  };
+  el.addEventListener('scroll', el._pickerScrollHandler, { passive: true });
 }
 
-window.pxScrollSelectFrom = function(name) {
+window.pxScrollSelectFrom = function(name, fromScroll) {
   _pxRepayFrom = name;
-  pxRenderScrollPicker('pxRepayFromList', name, 'pxScrollSelectFrom');
+  if (!fromScroll) pxRenderScrollPicker('pxRepayFromList', name, window.pxScrollSelectFrom);
+  else { /* 只更新狀態，不重建 DOM */ }
   pxValidateRepay();
 };
-window.pxScrollSelectTo = function(name) {
+window.pxScrollSelectTo = function(name, fromScroll) {
   _pxRepayTo = name;
-  pxRenderScrollPicker('pxRepayToList', name, 'pxScrollSelectTo');
+  if (!fromScroll) pxRenderScrollPicker('pxRepayToList', name, window.pxScrollSelectTo);
+  else { /* 只更新狀態，不重建 DOM */ }
   pxValidateRepay();
 };
 window.pxValidateRepay = function() {
@@ -474,4 +508,4 @@ window.pxCancelCalc = function() {
   const el = document.getElementById(_calcTarget);
   if (el) el.value = _calcPrev;
   document.getElementById('pxCalcOverlay').classList.remove('show');
-};或
+};
