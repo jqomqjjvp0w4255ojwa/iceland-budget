@@ -205,12 +205,12 @@
       margin-top:-1px;border:4px solid transparent;border-top-color:#e8f0d0;z-index:1;}
     .px-bubble.show{opacity:1;}
     /* ── 卷軸選擇器 */
-    .px-scroll-picker-list{overflow-y:scroll;border:2px solid #2a4a1a;background:#f8fce8;scrollbar-width:none;}
-    .px-scroll-picker-list::-webkit-scrollbar{display:none;}
-    .px-scroll-picker-item{padding:8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;border-bottom:1px solid #b8c8a0;transition:background .15s;box-sizing:border-box;}
-    .px-scroll-picker-item.sel{background:#f5e97a;border-left:3px solid #2a4a1a;}
-    .px-scroll-picker-item.sel span{color:#2a4a1a;font-weight:bold;}
-    .px-scroll-picker-item span{font-size:7px;color:#2a4a1a;font-family:'Silkscreen',monospace;}
+    .px-repay-picker-col{width:100px;display:flex;flex-direction:column;align-items:center;gap:0;position:relative;}
+    .px-repay-picker-indicator{position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:10px;color:#2a4a1a;pointer-events:none;z-index:10;line-height:1;}
+    .px-repay-picker-list{width:100%;height:88px;overflow-y:scroll;border:2px solid #2a4a1a;background:#f8fce8;scrollbar-width:none;overscroll-behavior:contain;}
+    .px-repay-picker-list::-webkit-scrollbar{display:none;}
+    .px-repay-picker-item{height:88px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;scroll-snap-align:center;transition:background .15s;}
+    .px-repay-picker-item span{font-size:9px;color:#2a4a1a;letter-spacing:1px;}
     /* ── 算盤 */
     .px-calc-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:180;align-items:flex-end;justify-content:center;padding-bottom:32px;}
     .px-calc-overlay.show{display:flex;}
@@ -561,13 +561,19 @@
     <div class="px-form">
       <div class="px-field">
         <label class="px-label">▸ 選擇雙方 *</label>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div class="px-scroll-picker-list" id="pxRepayFromList" style="flex:1;height:110px;"></div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
-            <div style="font-size:8px;color:#2a4a1a;font-family:'Silkscreen',monospace;">還錢給</div>
-            <div style="font-size:18px;color:#2a4a1a;">→</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px;">
+          <div class="px-repay-picker-col">
+            <div class="px-repay-picker-indicator">▼</div>
+            <div class="px-repay-picker-list" id="pxRepayFromList"></div>
           </div>
-          <div class="px-scroll-picker-list" id="pxRepayToList" style="flex:1;height:110px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+            <div style="font-size:9px;color:#2a4a1a;font-family:'Silkscreen',monospace;letter-spacing:1px;">還錢給</div>
+            <div style="font-size:28px;color:#2a4a1a;line-height:1;">→</div>
+          </div>
+          <div class="px-repay-picker-col">
+            <div class="px-repay-picker-indicator">▼</div>
+            <div class="px-repay-picker-list" id="pxRepayToList"></div>
+          </div>
         </div>
       </div>
       <div class="px-field">
