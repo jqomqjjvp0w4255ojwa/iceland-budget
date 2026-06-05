@@ -8,9 +8,7 @@
   <title>🇮🇸 冰島旅行小帳</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" rel="stylesheet" /></noscript>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg:#07111f; --bg2:#0d1f35; --bg3:#112540; --card:#0f2240;
@@ -322,12 +320,11 @@
       content:'▶';position:absolute;right:8px;top:50%;transform:translateY(-50%);
       font-size:8px;opacity:.6;
     }
-
     /* ══ 滑動卡片 ══ */
     .swipe-card-wrap{position:relative;overflow:hidden;border-radius:8px;margin-bottom:8px;}
     .swipe-card-actions{position:absolute;right:0;top:0;bottom:0;display:flex;align-items:stretch;transform:translateX(100%);transition:transform .25s ease;z-index:1;}
     .swipe-card-wrap.open .swipe-card-actions{transform:translateX(0);}
-    .swipe-action-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:60px;cursor:pointer;border:none;font-family:"Silkscreen",monospace;font-size:6px;}
+    .swipe-action-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:60px;cursor:pointer;border:none;font-family:'Silkscreen',monospace;font-size:6px;}
     .swipe-action-btn.edit{background:#2a4a7a;color:#81d4fa;}
     .swipe-action-btn.delete{background:#6a1a1a;color:#ff8a80;}
     .swipe-action-btn span{font-size:1.1rem;line-height:1;}
@@ -336,11 +333,11 @@
     /* ══ 刪除確認框 ══ */
     .px-delete-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:center;justify-content:center;}
     .px-delete-overlay.show{display:flex;}
-    .px-delete-box{background:#e8f0d0;border:3px solid #000;font-family:"Silkscreen",monospace;padding:16px;max-width:280px;width:90%;}
+    .px-delete-box{background:#e8f0d0;border:3px solid #000;font-family:'Silkscreen',monospace;padding:16px;max-width:280px;width:90%;}
     .px-delete-title{font-size:8px;color:#6a1a1a;margin-bottom:8px;border-bottom:2px solid #6a1a1a;padding-bottom:4px;}
     .px-delete-msg{font-size:7px;color:#2a4a1a;margin-bottom:12px;line-height:1.6;}
     .px-delete-actions{display:flex;gap:8px;}
-    .px-delete-actions button{flex:1;padding:8px 4px;border:2px solid #000;font-family:"Silkscreen",monospace;font-size:7px;cursor:pointer;}
+    .px-delete-actions button{flex:1;padding:8px 4px;border:2px solid #000;font-family:'Silkscreen',monospace;font-size:7px;cursor:pointer;}
     .px-delete-actions .confirm{background:#6a1a1a;color:#fff;}
     .px-delete-actions .cancel{background:#c8d8a8;color:#2a4a1a;}
   </style>
@@ -394,8 +391,8 @@
         </div>
       </div>
       <div class="px-dialog">
-        <div class="px-dialog-title">▶ ICELAND BUDGET　目標：&lt; <span id="pxBudgetLabel">NT$100,000</span> / 人</div>
-        <div class="px-bar-label"><span>NT$0</span><span id="pxSpent">NT$ —</span><span id="pxBudgetMax">NT$100,000</span> ⚠</div>
+        <div class="px-dialog-title">▶ ICELAND BUDGET　目標：&lt; NT$100,000 / 人</div>
+        <div class="px-bar-label"><span>NT$0</span><span id="pxSpent">NT$ —</span><span>NT$100,000 ⚠</span></div>
         <div class="px-bar-bg" style="position:relative">
           <div class="px-bar-fill safe" id="pxBar" style="width:0%"></div>
           <div class="px-bar-limit"></div>
@@ -441,11 +438,6 @@
         <label class="px-label">▸ 類別 *</label>
         <select class="px-select" id="pxExpCat" onchange="pxCheckSubmit()">
           <option value="">-- 選擇類別 --</option>
-          <option value="fuel">油費</option>
-          <option value="parking">停車費</option>
-          <option value="accommodation">訂房</option>
-          <option value="activity">門票 / 體驗</option>
-          <option value="daily">日常</option>
         </select>
       </div>
       <div class="px-field">
@@ -486,6 +478,11 @@
         <div class="px-member-row" id="pxSplitBtns" style="margin-bottom:8px;"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <div id="pxSplitSummary" style="font-size:7px;color:#2a4a1a;flex:1;">均分（三人）</div>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;">
+            <input type="checkbox" id="pxExpShared" checked
+              style="width:14px;height:14px;cursor:pointer;accent-color:#2a4a1a;">
+            <span style="font-family:'Silkscreen',monospace;font-size:6px;color:#2a4a1a;white-space:nowrap;">共同消費</span>
+          </label>
           <button class="px-member-btn" onclick="pxOpenCustomSplit()" style="flex:0 0 auto;padding:5px 10px;font-size:7px;white-space:nowrap;">自訂金額</button>
         </div>
       </div>
@@ -690,15 +687,14 @@
   </div>
 </div>
 
+<script src="app.js" defer></script>
+<script src="sprites.js" defer></script>
 <script src="render.js" defer></script>
 <script src="render-ledger.js" defer></script>
 <script src="render-cards.js" defer></script>
 <script src="render-info.js" defer></script>
-<script src="app.js" defer></script>
-<script src="sprites.js" defer></script>
 <script src="scene.js" defer></script>
 <script src="forms.js" defer></script>
-<!-- 所有模組載入完畢後才呼叫 init()，確保 scene.js 已包裝 renderAll -->
-<script defer>init();</script>
+<script>document.addEventListener('DOMContentLoaded', () => init());</script>
 </body>
 </html>
