@@ -190,7 +190,8 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
     {label:'✈️ 機票', total:flightForDisplay,  perLabel:flightLabel,          color:'#4fc3f7', pct:flightForDisplay/gt},
     {label:'🏕 住宿', total:totalAccom,        perLabel:fmt(totalAccom/3),    color:'#7c4dff', pct:totalAccom/gt},
     {label:'🎯 活動', total:totalActivity,     perLabel:fmt(totalActivity/3), color:'#4caf6e', pct:totalActivity/gt},
-    {label:'🛒 日常', total:0,                 perLabel:'—',                  color:'#4fc3f7', pct:0},
+    {label:'🛒 雜支',  total:0,                 perLabel:'—',                  color:'#4fc3f7', pct:0},
+    {label:'🛡 保險',  total:0,                 perLabel:'—',                  color:'#e07040', pct:0},
   ];
   return cats.map(c=>`
     <div style="margin-bottom:9px">
