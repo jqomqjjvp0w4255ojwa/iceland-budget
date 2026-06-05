@@ -133,7 +133,7 @@ window.openPxModal = function(type, prefill = null) {
     window.pxResetBrand?.();
     if (prefill?.tags) prefill.tags.forEach(t => window.pxGetSelectedTags && window.pxGetSelectedTags()); // prefill tags handled later
     const tagField = document.getElementById('pxTagField');
-    if (tagField) tagField.style.display = prefill?.category === '雜支' ? 'block' : 'none';
+    if (tagField) tagField.style.display = prefill?.category ? 'block' : 'none';
 
     document.getElementById('pxModalExpense').classList.add('show');
 
@@ -150,8 +150,8 @@ window.openPxModal = function(type, prefill = null) {
     document.getElementById('pxBtnRepay').textContent = _editMode ? '[ 確認修改 ]' : '[ 確認還款 ]';
     document.getElementById('pxBtnRepay').disabled = !_editMode;
 
-    pxRenderScrollPicker('pxRepayFromList', _pxRepayFrom, 'pxScrollSelectFrom');
-    pxRenderScrollPicker('pxRepayToList',   _pxRepayTo,   'pxScrollSelectTo');
+    pxRenderScrollPicker('pxRepayFromList', _pxRepayFrom, 'from');
+    pxRenderScrollPicker('pxRepayToList',   _pxRepayTo,   'to');
     if (_editMode) pxValidateRepay();
     document.getElementById('pxModalRepay').classList.add('show');
   }
@@ -274,11 +274,7 @@ function pxCheckSubmit() {
   if (fuelFields) fuelFields.style.display = cat === '加油' ? 'block' : 'none';
   // tag 欄位顯示/隱藏
   const tagField = document.getElementById('pxTagField');
-  if (tagField) {
-    const show = cat === '雜支';
-    tagField.style.display = show ? 'block' : 'none';
-    if (!show) window.pxResetTags?.();
-  }
+  if (tagField) tagField.style.display = cat ? 'block' : 'none';
   document.getElementById('pxBtnExpense').disabled =
     !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
 }
@@ -393,74 +389,59 @@ window.pxSubmitExpense = async function() {
   }
 };
 
-// ══ 還錢：卷軸選擇 ══
-const PICKER_ITEM_H = 58;
+// ══ 還錢：卷軸選擇（同圓餅圖邏輯）══
+const PICKER_ITEM_H = 88;
 
-function pxRenderScrollPicker(listId, selectedName, onSelectFn) {
+function pxRenderScrollPicker(listId, selectedName, side) {
   const el = document.getElementById(listId);
   if (!el) return;
 
-  // 上下各加 padding 讓第一/最後個能置中
-  const pad = `<div style="height:${PICKER_ITEM_H}px;flex-shrink:0;pointer-events:none;"></div>`;
-  el.innerHTML = pad + PX_MEMBERS.map((m, i) => `
-    <div class="px-scroll-picker-item" data-name="${m}" data-idx="${i}"
-      style="height:${PICKER_ITEM_H}px;flex-shrink:0;box-sizing:border-box;">
-      ${pxAvatarSvg(m, 32)}
+  const pad = `<div style="height:${PICKER_ITEM_H}px;flex-shrink:0;"></div>`;
+  el.innerHTML = pad + PX_MEMBERS.map(m =>
+    `<div class="px-repay-picker-item${m===selectedName?' sel':''}" data-key="${m}">
+      ${pxAvatarSvg(m, 44)}
       <span>${m}</span>
-    </div>`).join('') + pad;
+    </div>`
+  ).join('') + pad;
 
-  // 點擊直接捲到該項目
-  el.querySelectorAll('.px-scroll-picker-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const idx = parseInt(item.dataset.idx);
-      el.scrollTo({ top: idx * PICKER_ITEM_H, behavior: 'smooth' });
-    });
+  // 捲到選中位置
+  const idx = PX_MEMBERS.indexOf(selectedName);
+  el.scrollTop = (idx + 1) * PICKER_ITEM_H;
+
+  // 點擊：換下一個（同圓餅圖）
+  el.addEventListener('click', e => {
+    const item = e.target.closest('.px-repay-picker-item');
+    if (!item) return;
+    const cur     = side === 'from' ? _pxRepayFrom : _pxRepayTo;
+    const curIdx  = PX_MEMBERS.indexOf(cur);
+    const nextIdx = (curIdx + 1) % PX_MEMBERS.length;
+    const nextKey = PX_MEMBERS[nextIdx];
+    if (side === 'from') _pxRepayFrom = nextKey; else _pxRepayTo = nextKey;
+    el.scrollTo({ top: (nextIdx + 1) * PICKER_ITEM_H, behavior: 'smooth' });
+    el.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === nextKey));
+    pxValidateRepay();
   });
 
-  // 滾到選中位置（初始化，不用動畫）
-  const initIdx = PX_MEMBERS.indexOf(selectedName);
-  el.scrollTop = (initIdx >= 0 ? initIdx : 0) * PICKER_ITEM_H;
-
-  function getCenter() {
-    const idx = Math.round(el.scrollTop / PICKER_ITEM_H);
-    return Math.max(0, Math.min(idx, PX_MEMBERS.length - 1));
-  }
-
-  function updateHighlight() {
-    const cur = getCenter();
-    el.querySelectorAll('.px-scroll-picker-item').forEach((item, i) => {
-      item.classList.toggle('sel', i === cur);
-    });
-    return PX_MEMBERS[cur];
-  }
-
-  updateHighlight();
-
-  // 滾動結束後 snap 到最近的 item
+  // 滾動結束後更新（同圓餅圖）
   let _t;
-  el._pickerScrollHandler && el.removeEventListener('scroll', el._pickerScrollHandler);
-  el._pickerScrollHandler = () => {
+  el.addEventListener('scroll', () => {
     clearTimeout(_t);
     _t = setTimeout(() => {
-      const idx = getCenter();
-      // snap 對齊
-      el.scrollTo({ top: idx * PICKER_ITEM_H, behavior: 'smooth' });
-      updateHighlight();
-      const name = PX_MEMBERS[idx];
-      if (name) onSelectFn(name);
-    }, 100);
-  };
-  el.addEventListener('scroll', el._pickerScrollHandler, { passive: true });
+      const i       = Math.round(el.scrollTop / PICKER_ITEM_H) - 1;
+      const clamped = Math.max(0, Math.min(i, PX_MEMBERS.length - 1));
+      const newKey  = PX_MEMBERS[clamped];
+      const cur     = side === 'from' ? _pxRepayFrom : _pxRepayTo;
+      if (newKey !== cur) {
+        if (side === 'from') _pxRepayFrom = newKey; else _pxRepayTo = newKey;
+        el.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === newKey));
+        pxValidateRepay();
+      }
+    }, 80);
+  }, { passive: true });
 }
 
-window.pxScrollSelectFrom = function(name) {
-  _pxRepayFrom = name;
-  pxValidateRepay();
-};
-window.pxScrollSelectTo = function(name) {
-  _pxRepayTo = name;
-  pxValidateRepay();
-};
+window.pxScrollSelectFrom = function(name) { _pxRepayFrom = name; pxValidateRepay(); };
+window.pxScrollSelectTo   = function(name) { _pxRepayTo   = name; pxValidateRepay(); };
 window.pxValidateRepay = function() {
   const amt = parseFloat(document.getElementById('pxRepayAmt').value) || 0;
   document.getElementById('pxBtnRepay').disabled =
