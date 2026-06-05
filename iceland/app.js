@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
+  const API_BASE = "https://script.google.com/macros/s/AKfycbx5meLuHJziVGIqzDvLQH8vuSC8P5SHHBz65KL5ro1vTuAhGTQJ43axhrnwj94DHfSo/exec";
   const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
