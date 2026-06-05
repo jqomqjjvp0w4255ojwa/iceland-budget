@@ -261,15 +261,27 @@
   window.setSyncState?.('syncing', '同步中…');
 
   try {
-    const [overview, accommodation, car, activity, split, lines, flight, expense] = await Promise.all([
-      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity'), fetchSheet('split'), fetchSheet('lines'), fetchSheet('flight'), fetchSheet('expense')
-    ]);
-    
+    // 一次 fetch 全量資料，減少 HTTP 往返
+    const res = await fetch(API_BASE + '?all=1', { cache: 'no-store', redirect: 'follow' });
+    if (!res.ok) throw new Error(`全量讀取失敗：HTTP ${res.status}`);
+    const all = await res.json();
+
+    // 對應舊的 sheet key → 新的中文名
+    const overview      = all['總覽'];
+    const accommodation = all['住宿'];
+    const car           = all['租車'];
+    const activity      = all['活動'];
+    const split         = all['寫入_分帳'];
+    const lines         = all['台詞'];
+    const flight        = all['航班'];
+    const expense       = all['寫入_一般開銷'];
+
     window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
+
     localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
     window.renderAll?.();
     window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
-  
+
   } catch (error) {
     console.error(error);
     const cachedData = localStorage.getItem('cached_iceland_budget');

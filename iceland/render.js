@@ -352,8 +352,16 @@ function renderInfoFlights(flights) {
   // 解析時間字串 "2:45:00" 或 "2:45" → 總分鐘數
   function parseTimeToMin(str) {
     if (!str) return 0;
-    const parts = String(str).split(':').map(Number);
-    if (parts.length >= 2) return (parts[0] * 60) + parts[1];
+    const s = String(str).trim();
+    // 格式 A：3h45 / 3h45m / 3h / 45m
+    const hm = s.match(/^(\d+)h(\d*)/);
+    if (hm) return parseInt(hm[1]) * 60 + (parseInt(hm[2]) || 0);
+    const mOnly = s.match(/^(\d+)m$/);
+    if (mOnly) return parseInt(mOnly[1]);
+    // 格式 B：HH:MM / H:MM
+    const parts = s.split(':').map(Number);
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1]))
+      return parts[0] * 60 + parts[1];
     return 0;
   }
 
@@ -392,12 +400,12 @@ function renderInfoFlights(flights) {
         </div>` : '';
       return `
         <div style="border-radius:8px;padding:10px 12px;margin-bottom:4px;
-          background-color:${direction==='去程'?'#0d2038':'#15103a'};
+          background-color:${direction==='去程'?'#071e30':'#0d2018'};
           background-image:${direction==='去程'?
-            'linear-gradient(rgba(79,195,247,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.06) 1px,transparent 1px)':
-            'linear-gradient(rgba(124,77,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(124,77,255,.07) 1px,transparent 1px)'};
+            'linear-gradient(rgba(79,195,247,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.08) 1px,transparent 1px)':
+            'linear-gradient(rgba(100,210,130,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(100,210,130,.09) 1px,transparent 1px)'};
           background-size:8px 8px;
-          border:1px solid ${direction==='去程'?'rgba(79,195,247,.2)':'rgba(124,77,255,.25)'};"
+          border:1px solid ${direction==='去程'?'rgba(79,195,247,.25)':'rgba(100,210,130,.3)'};"
         >
           <!-- 出發→目的地 + 時間 整合 -->
           <div style="display:flex;align-items:stretch;gap:6px;margin-bottom:6px;">
