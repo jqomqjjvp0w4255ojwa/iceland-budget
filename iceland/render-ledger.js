@@ -221,5 +221,3 @@ function buildLegend(carPct, flightPct, accomPct, actPct){
       ${l.label} ${l.pct>0?(l.pct*100).toFixed(0)+'%':'—'}
     </span>`).join('');
 }
-
-// ── 主渲染
