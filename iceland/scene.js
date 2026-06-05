@@ -142,7 +142,7 @@
       perPersonAmt = (sharedTotal+totalFlight)/3;
     } else {
       const flightByPerson = {};
-      (d.flights||[]).forEach(f=>{ flightByPerson[f.person]=f.totalTWD||0; });
+      (d.flights||[]).forEach(f=>{ flightByPerson[f.person]=(flightByPerson[f.person]||0)+(f.totalTWD||0); });
       const personalExp = d.split?.[mode]?.personal || 0;
       perPersonAmt = sharedTotal/3 + (flightByPerson[mode]||0) + personalExp;
     }
