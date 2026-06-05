@@ -348,73 +348,173 @@ function renderFlightSegs(segs) {
 
 function renderInfoFlights(flights) {
   if (!flights || !flights.length) return '<div class="empty">✈️ 航班資訊填入後顯示</div>';
-  return flights.map(f => {
-    const goSegs  = f.segments.filter(s => s.direction === '去程');
-    const retSegs = f.segments.filter(s => s.direction === '回程');
 
-    // 計算轉乘次數（目的地為中轉的段數）
-    const goTransfers  = goSegs.filter(s => s.isTransit).length;
-    const retTransfers = retSegs.filter(s => s.isTransit).length;
+  // 計算每人的去回總飛行時間（含轉機等待）
+  function totalFlightTime(segs) {
+    // 用首段出發到末段抵達
+    if (!segs.length) return '';
+    const dep = segs[0]?.depTime;
+    const arr = segs.at(-1)?.arrTime;
+    if (!dep || !arr) return '';
+    try {
+      const diff = new Date(arr) - new Date(dep);
+      if (isNaN(diff) || diff <= 0) return '';
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      return `${h}h${m > 0 ? m + 'm' : ''}`;
+    } catch(e) { return ''; }
+  }
 
-    // 去程出發/抵達時間
-    const goDepTime = goSegs[0]?.depTime ? String(goSegs[0].depTime).replace('T',' ').slice(0,16) : '—';
-    const goArrTime = goSegs.at(-1)?.arrTime ? String(goSegs.at(-1).arrTime).replace('T',' ').slice(0,16) : '—';
-    const retDepTime = retSegs[0]?.depTime ? String(retSegs[0].depTime).replace('T',' ').slice(0,16) : '—';
-    const retArrTime = retSegs.at(-1)?.arrTime ? String(retSegs.at(-1).arrTime).replace('T',' ').slice(0,16) : '—';
-
-    // 執飛航空去重
-    const operators = [...new Set(f.segments.map(s=>s.operatedBy).filter(Boolean))].join(' / ');
-
-    // 段落渲染
-    function segRows(segs) {
-      return segs.map(s => `
-        <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)">
-          <div style="font-size:.7rem;color:var(--accent2);font-weight:600;min-width:32px">${s.from}</div>
-          <div style="font-size:.6rem;color:var(--muted)">→</div>
-          <div style="font-size:.7rem;color:${s.isTransit?'var(--muted)':'var(--text)'};min-width:32px">${s.to}${s.isTransit?'<span style="font-size:.55rem;color:var(--muted)"> 轉</span>':''}</div>
-          <div style="flex:1;font-size:.62rem;color:var(--muted)">${s.flightNo}${s.aircraft?' · '+s.aircraft:''}</div>
-          <div style="font-size:.62rem;color:var(--muted);text-align:right">${s.flightTime||''}</div>
-        </div>`).join('');
-    }
-
-    return `
-      <div class="card" style="margin-bottom:11px;">
-        <div class="card-header">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
-                         border-radius:4px;padding:1px 6px;">✈️ 機票</span>
-            ${avatarSvg(f.person)}
+  // 段落詳情渲染（接收整個陣列，在段間插入轉機等待）
+  function segDetails(segs) {
+    return segs.map((s, i) => {
+      const dep = s.depTime ? String(s.depTime).replace('T',' ').slice(0,16) : '—';
+      const arr = s.arrTime ? String(s.arrTime).replace('T',' ').slice(0,16) : '—';
+      // 這段之後的轉機等待（用下一段的 waitTime）
+      const nextWait = segs[i+1]?.waitTime;
+      const waitDiv = nextWait ? `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 4px;color:var(--aurora3);font-size:.63rem;">
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          ⏱ 轉機等待 ${nextWait}
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>` : '';
+      return `
+        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:4px;">
+          <!-- 出發→目的地 -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <div style="text-align:center;min-width:36px;">
+              <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--accent2);font-weight:600">${s.from}</div>
+              ${s.fromTerm?`<div style="font-size:.58rem;color:var(--muted)">T${s.fromTerm}</div>`:''}
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">
+              <div style="font-size:.6rem;color:var(--muted)">${s.flightTime||''}</div>
+              <div style="height:1px;width:100%;background:linear-gradient(90deg,var(--accent),${s.isTransit?'var(--aurora3)':'var(--green)'})"></div>
+              <div style="font-size:.58rem;color:var(--muted)">${s.flightNo||''}</div>
+            </div>
+            <div style="text-align:center;min-width:36px;">
+              <div style="font-family:'Cinzel',serif;font-size:1rem;color:${s.isTransit?'var(--aurora3)':'var(--text)'};font-weight:600">${s.to}</div>
+              ${s.toTerm?`<div style="font-size:.58rem;color:var(--muted)">T${s.toTerm}</div>`:''}
+              ${s.isTransit?`<div style="font-size:.55rem;color:var(--aurora3)">轉機</div>`:''}
+            </div>
           </div>
-          <div style="text-align:right">
-            <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">${f.totalTWD?fmt(f.totalTWD):'—'}</div>
-            <div style="font-size:.62rem;color:var(--muted)">各付各的</div>
+          <!-- 時間 -->
+          <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted);margin-bottom:5px;">
+            <span>${dep}</span>
+            <span>${arr}</span>
           </div>
+          <!-- 執飛航空 + 機型 -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:.62rem;color:var(--muted);
+                      padding-top:5px;border-top:1px solid var(--border);">
+            ${s.operatedBy?`<span>✈️ ${s.operatedBy}</span>`:''}
+            ${s.aircraft?`<span>🛩 ${s.aircraft}</span>`:''}
+          </div>
+          ${s.note?`<div style="font-size:.6rem;color:var(--muted);margin-top:4px;font-style:italic">📌 ${s.note}</div>`:''}
         </div>
-        <div style="padding:0 16px 12px;">
-          <!-- 機票摘要 -->
-          <div style="margin-bottom:10px">
-            <div style="font-size:.85rem;color:var(--text);margin-bottom:2px">${f.airline}</div>
-            <div style="font-size:.72rem;color:var(--muted)">${f.from} → ${f.to} · ${f.type}</div>
-            ${operators?`<div style="font-size:.65rem;color:var(--muted);margin-top:2px">執飛：${operators}</div>`:''}
+        ${waitDiv}`;
+    }).join('');
+  }
+
+  // 每個人的完整資訊（可能有多張票）
+  const byPerson = {};
+  flights.forEach(f => {
+    if (!byPerson[f.person]) byPerson[f.person] = [];
+    byPerson[f.person].push(f);
+  });
+  const persons = Object.keys(byPerson);
+  if (!persons.length) return '<div class="empty">✈️ 航班資訊填入後顯示</div>';
+
+  // 先算每人總飛行時間供標籤顯示
+  function personFlightSummary(tickets) {
+    const allGo  = tickets.flatMap(t => t.segments.filter(s=>s.direction==='去程'));
+    const allRet = tickets.flatMap(t => t.segments.filter(s=>s.direction==='回程'));
+    const goTime  = totalFlightTime(allGo);
+    const retTime = totalFlightTime(allRet);
+    return [goTime?`去 ${goTime}`:'', retTime?`回 ${retTime}`:''].filter(Boolean).join(' · ');
+  }
+
+  const tabsHtml = `
+    <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid var(--border);">
+      ${persons.map((p,i) => {
+        const summary = personFlightSummary(byPerson[p]);
+        return `<button onclick="showFlightPerson('${p}')"
+          id="flightTab_${p}"
+          style="flex:1;background:${i===0?'var(--bg3)':'transparent'};
+                 border:none;border-bottom:${i===0?'2px solid var(--accent)':'2px solid transparent'};
+                 margin-bottom:-2px;padding:8px 4px;cursor:pointer;
+                 display:flex;flex-direction:column;align-items:center;gap:3px;">
+          ${avatarSvg(p)}
+          <div style="font-family:'Silkscreen',monospace;font-size:6px;color:${i===0?'var(--accent)':'var(--muted)'};">${summary}</div>
+        </button>`;
+      }).join('')}
+    </div>`;
+
+  const contentHtml = persons.map((p, i) => {
+    const tickets = byPerson[p];
+    return `<div id="flightContent_${p}" style="display:${i===0?'block':'none'}">
+      ${tickets.map(f => {
+        const goSegs  = f.segments.filter(s => s.direction === '去程');
+        const retSegs = f.segments.filter(s => s.direction === '回程');
+        const goTransfers  = goSegs.filter(s => s.isTransit).length;
+        const retTransfers = retSegs.filter(s => s.isTransit).length;
+        const operators = [...new Set(f.segments.map(s=>s.operatedBy).filter(Boolean))].join(' · ');
+        return `
+          <!-- 機票摘要卡 -->
+          <div style="background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--border);
+                      border-radius:10px;padding:12px 14px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+              <div>
+                <div style="font-size:.9rem;color:var(--text);font-weight:600">${f.airline}</div>
+                <div style="font-size:.7rem;color:var(--muted);margin-top:2px">${f.from} → ${f.to} · ${f.type}</div>
+                ${operators?`<div style="font-size:.63rem;color:var(--muted);margin-top:2px">執飛：${operators}</div>`:''}
+              </div>
+              <div style="text-align:right">
+                <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">${f.totalTWD?fmt(f.totalTWD):'—'}</div>
+                <div style="font-size:.62rem;color:var(--muted)">各付各的</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+              ${goTransfers>0?`<span class="tag tag-cancel">去轉${goTransfers}次</span>`:'<span class="tag tag-paid">去程直飛</span>'}
+              ${retSegs.length?(retTransfers>0?`<span class="tag tag-cancel">回轉${retTransfers}次</span>`:'<span class="tag tag-paid">回程直飛</span>'):''}
+              ${f.luggage?`<span class="tag tag-fee">🧳 ${f.luggage}</span>`:''}
+            </div>
           </div>
-          <!-- Tags -->
-          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
-            ${goTransfers>0?`<span class="tag tag-cancel">去程轉${goTransfers}次</span>`:'<span class="tag tag-paid">去程直飛</span>'}
-            ${retSegs.length?(retTransfers>0?`<span class="tag tag-cancel">回程轉${retTransfers}次</span>`:'<span class="tag tag-paid">回程直飛</span>'):''}
-            ${f.luggage?`<span class="tag tag-fee">🧳 ${f.luggage}</span>`:''}
-          </div>
-          <!-- 去程 -->
+          <!-- 去程段落 -->
           ${goSegs.length?`
-            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.08em;margin-bottom:4px">去程 · 出發 ${goDepTime} 抵達 ${goArrTime}</div>
-            ${segRows(goSegs)}`:''}
-          <!-- 回程 -->
+            <div style="font-size:.68rem;color:var(--accent);letter-spacing:.08em;margin:0 0 6px;
+                        display:flex;align-items:center;gap:6px;">
+              <span>去程</span>
+              <span style="font-size:.6rem;color:var(--muted)">${totalFlightTime(goSegs)||''}</span>
+            </div>
+            ${segDetails(goSegs)}`:''}
+          <!-- 回程段落 -->
           ${retSegs.length?`
-            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.08em;margin:10px 0 4px">回程 · 出發 ${retDepTime} 抵達 ${retArrTime}</div>
-            ${segRows(retSegs)}`:''}
-        </div>
-      </div>`;
+            <div style="font-size:.68rem;color:var(--aurora3);letter-spacing:.08em;margin:12px 0 6px;
+                        display:flex;align-items:center;gap:6px;">
+              <span>回程</span>
+              <span style="font-size:.6rem;color:var(--muted)">${totalFlightTime(retSegs)||''}</span>
+            </div>
+            ${segDetails(retSegs)}`:''}`;
+      }).join('')}
+    </div>`;
   }).join('');
+
+  return tabsHtml + contentHtml;
 }
+
+window.showFlightPerson = function(person) {
+  const persons = Object.keys((window.APP_DATA||window.STATIC).flights?.reduce((acc,f)=>{acc[f.person]=1;return acc;},{})||{});
+  persons.forEach(p => {
+    const tab = document.getElementById('flightTab_'+p);
+    const content = document.getElementById('flightContent_'+p);
+    const isActive = p === person;
+    if (tab) {
+      tab.style.background    = isActive ? 'var(--bg3)' : 'transparent';
+      tab.style.borderBottom  = isActive ? '2px solid var(--accent)' : '2px solid transparent';
+      tab.querySelector('div').style.color = isActive ? 'var(--accent)' : 'var(--muted)';
+    }
+    if (content) content.style.display = isActive ? 'block' : 'none';
+  });
+};
 
 function renderInfo(d) {
   return `
@@ -534,22 +634,50 @@ function renderTransport(d) {
       </div>
     </div>` : '';
   const flightCards = (currentFilter === 'all' || currentFilter === 'flight') ?
-    flights.map(f => `
+    flights.map(f => {
+      const goSegs  = f.segments.filter(s => s.direction === '去程');
+      const retSegs = f.segments.filter(s => s.direction === '回程');
+      const goTransfers  = goSegs.filter(s => s.isTransit).length;
+      const retTransfers = retSegs.filter(s => s.isTransit).length;
+      const operators = [...new Set(f.segments.map(s=>s.operatedBy).filter(Boolean))].join(' · ');
+      const goDepTime  = goSegs[0]?.depTime  ? String(goSegs[0].depTime).replace('T',' ').slice(0,16)  : '—';
+      const goArrTime  = goSegs.at(-1)?.arrTime  ? String(goSegs.at(-1).arrTime).replace('T',' ').slice(0,16)  : '—';
+      const retDepTime = retSegs[0]?.depTime ? String(retSegs[0].depTime).replace('T',' ').slice(0,16) : '';
+      const retArrTime = retSegs.at(-1)?.arrTime ? String(retSegs.at(-1).arrTime).replace('T',' ').slice(0,16) : '';
+      return `
       <div class="card" style="margin-bottom:11px;">
         <div class="card-header">
           <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:1.1rem;">✈️</span>
-            <div>
-              <div style="font-size:.85rem;font-weight:700;color:var(--accent2);">${f.person}</div>
-              ${f.luggage ? `<div style="font-size:.68rem;color:var(--muted);">🧳 ${f.luggage}</div>` : ''}
-            </div>
+            <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
+                         border-radius:4px;padding:1px 6px;white-space:nowrap;">✈️ 機票</span>
+            ${avatarSvg(f.person)}
           </div>
           <div class="card-price">
-            <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${f.totalTWD ? fmt(f.totalTWD) : '—'}</div>
+            <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${f.totalTWD?fmt(f.totalTWD):'—'}</div>
             <div style="font-size:.65rem;color:var(--muted);">各付各的</div>
           </div>
         </div>
-      </div>`).join('') : '';
+        <div style="padding:0 16px 12px;">
+          <!-- 航空公司 & 路線 -->
+          <div style="margin-bottom:8px;">
+            <div style="font-size:.88rem;color:var(--text);font-weight:600;margin-bottom:2px">${f.airline||'—'}</div>
+            <div style="font-size:.72rem;color:var(--muted)">${f.from||'—'} → ${f.to||'—'} &nbsp;·&nbsp; ${f.type||'—'}</div>
+            ${operators?`<div style="font-size:.65rem;color:var(--muted);margin-top:2px">執飛：${operators}</div>`:''}
+          </div>
+          <!-- Tags -->
+          <div class="card-body" style="padding:0 0 8px;gap:5px;">
+            ${goTransfers>0?`<span class="tag tag-cancel">去轉${goTransfers}次</span>`:'<span class="tag tag-paid">去程直飛</span>'}
+            ${retSegs.length?(retTransfers>0?`<span class="tag tag-cancel">回轉${retTransfers}次</span>`:'<span class="tag tag-paid">回程直飛</span>'):''}
+            ${f.luggage?`<span class="tag tag-fee">🧳 ${f.luggage}</span>`:''}
+          </div>
+          <!-- 日期 -->
+          <div style="display:flex;gap:12px;font-size:.68rem;color:var(--muted);">
+            <div><span style="color:var(--accent)">出發</span> ${goDepTime}</div>
+            ${retDepTime?`<div><span style="color:var(--aurora3)">回程</span> ${retDepTime}</div>`:''}
+          </div>
+        </div>
+      </div>`;
+    }).join('') : '';
   const fuelCard = (currentFilter === 'all' || currentFilter === 'fuel') ?
     `<div class="empty" style="padding:16px;margin-bottom:8px;">⛽ 旅途中加油記錄會顯示在這裡</div>` : '';
   const parkCard = (currentFilter === 'all' || currentFilter === 'parking') ?
