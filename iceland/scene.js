@@ -167,7 +167,7 @@
     const budgetMax=document.getElementById('pxBudgetMax');
     const budgetStr='NT$ '+budget.toLocaleString('zh-TW');
     if(budgetLabel)budgetLabel.textContent=budgetStr;
-    if(budgetMax)budgetMax.textContent=budgetStr;
+    if(budgetMax)budgetMax.textContent=budgetStr+' ⚠';
 
     // 付款多的站前面
     const d2=window.APP_DATA||window.STATIC;
