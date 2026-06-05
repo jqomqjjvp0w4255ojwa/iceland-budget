@@ -494,6 +494,13 @@
         <label class="px-label">▸ 備註（選填）</label>
         <input class="px-input" type="text" id="pxExpNote" placeholder="">
       </div>
+      <div class="px-field" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="pxExpShared" checked
+          style="width:16px;height:16px;cursor:pointer;accent-color:#4fc3f7;">
+        <label for="pxExpShared" style="font-family:'Silkscreen',monospace;font-size:7px;color:#c8d8a8;cursor:pointer;">
+          共同消費（三人均攤）
+        </label>
+      </div>
       <div class="px-form-actions" style="margin-bottom:12px;">
         <button class="px-btn-submit" id="pxBtnExpense" onclick="pxSubmitExpense()" disabled style="flex:1;">[ 確認送出 ]</button>
       </div>

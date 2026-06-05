@@ -105,9 +105,10 @@
         const name = ['猴','花','寧'].find(m => String(row['成員'] ?? '').includes(m));
         if (!name) return;
         splitData[name] = {
-          paid:    num(pick(row, ['總付出 (代墊)', '總付出'])),
-          burden:  num(pick(row, ['總負擔 (攤帳)', '總負擔'])),
-          balance: num(pick(row, ['還款後結算'])),
+          paid:     num(pick(row, ['總付出 (代墊)', '總付出'])),
+          burden:   num(pick(row, ['總負擔 (攤帳)', '總負擔'])),
+          personal: num(pick(row, ['個人消費'])),
+          balance:  num(pick(row, ['還款後結算'])),
         };
       });
 
@@ -159,7 +160,7 @@
         splitMode:  String(row['如何分'] ?? '').trim(),
         burden:     { '猴': num(row['猴負擔']), '花': num(row['花負擔']), '寧': num(row['寧負擔']) },
         note:       String(row['備註']   ?? '').trim(),
-        // 油費專用欄位（類別=油費時才有值）
+        isShared:   yes(pick(row, ['共同消費?'])),
         fuelBrand:  String(row['品牌(油)'] ?? '').trim(),
         fuelMileage:num(pick(row, ['目前里程 (km)'])),
         fuelLiters: num(pick(row, ['公升數 (L)'])),

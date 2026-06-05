@@ -597,11 +597,12 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights){
     whoLabel         = '含機票均分';
     flightLabel      = fmt(totalFlight/3);
   } else {
-    const personal   = flightByPerson[mode]||0;
-    perPersonAmt     = sharedTotal/3 + personal;
+    const personal     = flightByPerson[mode]||0;
+    const personalExp  = (window.APP_DATA||window.STATIC).split?.[mode]?.personal || 0;
+    perPersonAmt     = sharedTotal/3 + personal + personalExp;
     grandDisplay     = sharedTotal + personal;
     flightForDisplay = personal;
-    whoLabel         = '+ '+mode+' 的機票';
+    whoLabel         = '+ '+mode+' 的機票及個人消費';
     flightLabel      = fmt(personal);
   }
   return { perPersonAmt, grandDisplay, whoLabel, flightByPerson, flightForDisplay, flightLabel };
@@ -799,15 +800,17 @@ function buildLegend(carPct, flightPct, accomPct, actPct){
 // ── 主渲染
 function renderAll(){
   const d=window.APP_DATA || window.STATIC;
-  const totalAccom=d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
-  const totalActivity=(d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
-  const totalFlight=d.totalFlightTWD||0;
-  const carTotal=d.car.totalTWD||0;
+  const totalAccom    = d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
+  const totalActivity = (d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
+  const totalFlight   = d.totalFlightTWD||0;
+  const carTotal      = d.car.totalTWD||0;
 
-  // sharedTotal = 可三人平攤的部分（租車＋住宿＋活動）
-  // grandTotal  = 全部花費含機票（用於「合計」顯示與圓餅）
-  // 機票各付各的，不列入 shouldPay 平攤基準
-  const sharedTotal = carTotal + totalAccom + totalActivity;
+  // 日常開銷分成共同和個人兩類
+  const totalExpenseShared   = (d.expenses||[]).filter(e=>e.isShared).reduce((s,e)=>s+(e.total||0),0);
+  const totalExpensePersonal = (d.expenses||[]).filter(e=>!e.isShared).reduce((s,e)=>s+(e.total||0),0);
+
+  // sharedTotal = 所有共同費用（住宿＋租車＋活動＋共同日常）
+  const sharedTotal = carTotal + totalAccom + totalActivity + totalExpenseShared;
   const grandTotal  = sharedTotal + totalFlight;
 
   // ── 負債試算

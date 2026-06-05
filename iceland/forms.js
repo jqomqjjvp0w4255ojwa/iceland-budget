@@ -115,6 +115,7 @@ window.openPxModal = function(type, prefill = null) {
     document.getElementById('pxExpLoc').value  = prefill?.location || '';
     document.getElementById('pxExpNote').value = prefill?.note || '';
     document.getElementById('pxExpDate').value = prefill?.date || pxLocalNow();
+    document.getElementById('pxExpShared').checked = prefill?.isShared !== false; // 預設勾選
 
     // 修改模式標題
     const header = document.querySelector('#pxModalExpense .px-modal-header span');
@@ -226,6 +227,7 @@ window.pxToggleSplit = function(btn, name) {
   _pxSplitMode = 'equal';
   pxRenderSplitBtns();
   pxUpdateSplitSummary();
+  pxAutoShared();
   pxCheckSubmit();
 };
 
@@ -233,6 +235,14 @@ window.pxUpdateSplit = function() {
   pxUpdateSplitSummary();
   pxCheckSubmit();
 };
+
+// 分攤人數 → 自動決定共同消費勾選
+// 3人 → 勾選，1或2人 → 取消勾選
+function pxAutoShared() {
+  const el = document.getElementById('pxExpShared');
+  if (!el) return;
+  el.checked = _pxSplitSel.size === 3;
+}
 
 function pxUpdateSplitSummary() {
   const el  = document.getElementById('pxSplitSummary');
@@ -334,6 +344,7 @@ window.pxSubmitExpense = async function() {
   const date = document.getElementById('pxExpDate').value || pxLocalNow();
   const loc  = document.getElementById('pxExpLoc').value;
   const note = document.getElementById('pxExpNote').value;
+  const isShared = document.getElementById('pxExpShared').checked;
   const sel  = [..._pxSplitSel];
   const splits = {'花':0,'猴':0,'寧':0};
   if (_pxSplitMode === 'custom') {
@@ -355,7 +366,8 @@ window.pxSubmitExpense = async function() {
     await postToGAS({
       action: 'addExpense', category: cat, amount: amt, currency: cur, payer: _pxPayer,
       split花: splits['花'], split猴: splits['猴'], split寧: splits['寧'],
-      date, location: loc, note, fuelMileage, fuelLiters, fuelBrand,
+      date, location: loc, note, isShared,
+      fuelMileage, fuelLiters, fuelBrand,
     });
     window.cancelPxModal('pxModalExpense');
     alert(_editMode ? '[ ✓ 已修改！]' : '[ ✓ 已記錄！]');
