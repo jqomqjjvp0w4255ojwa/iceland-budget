@@ -1,6 +1,6 @@
 (function () {
   const API_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
-  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷", fuel: "寫入_油錢" };
+  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function num(value) {
@@ -32,7 +32,7 @@
     return fallback;
   }
 
-  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense, fuel }) {
+  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense }) {
 
     // ── 匯率（總覽）
     const oCells = overview?.cells ?? [];
@@ -138,7 +138,7 @@
       }))
       .filter(r => r.amount > 0);
 
-    // ── 一般開銷
+    // ── 一般開銷（含油費，類別=油費時油費欄位才有值）
     const expenseRows = cellsToRows(expense, true);
     const expenses = expenseRows
       .filter(row => num(pick(row, ['合計', '換算台幣'])) > 0)
@@ -156,29 +156,12 @@
         splitMode:  String(row['如何分'] ?? '').trim(),
         burden:     { '猴': num(row['猴負擔']), '花': num(row['花負擔']), '寧': num(row['寧負擔']) },
         note:       String(row['備註']   ?? '').trim(),
-      }));
-
-    // ── 油錢
-    const fuelRows = cellsToRows(fuel, true);
-    const fuels = fuelRows
-      .filter(row => num(pick(row, ['合計', '換算台幣'])) > 0)
-      .map(row => ({
-        _rowIndex:  row._rowIndex,
-        location:   String(row['地點']   ?? '').trim(),
-        date:       String(row['日期']   ?? '').trim(),
-        brand:      String(row['品牌']   ?? '').trim(),
-        amount:     num(pick(row, ['金額'])),
-        currency:   String(row['幣別']   ?? '').replace(/\.$/, '').trim() || 'ISK',
-        twd:        num(pick(row, ['換算台幣'])),
-        foreignFee: num(pick(row, ['海外手續費'])),
-        total:      num(pick(row, ['合計'])),
-        payer:      String(row['付款人'] ?? '').trim(),
-        mileage:    num(pick(row, ['目前里程 (km)'])),
-        liters:     num(pick(row, ['公升數 (L)'])),
-        tripKm:     num(pick(row, ['單次行駛里程 (km)'])),
-        efficiency: num(pick(row, ['平均油耗'])),
-        burden:     { '猴': num(row['猴負擔']), '花': num(row['花負擔']), '寧': num(row['寧負擔']) },
-        note:       String(row['備註']   ?? '').trim(),
+        // 油費專用欄位（類別=油費時才有值）
+        fuelBrand:  String(row['品牌(油)'] ?? '').trim(),
+        fuelMileage:num(pick(row, ['目前里程 (km)'])),
+        fuelLiters: num(pick(row, ['公升數 (L)'])),
+        fuelTripKm: num(pick(row, ['單次行駛里程 (km)'])),
+        fuelEfficiency: num(pick(row, ['平均油耗'])),
       }));
 
     // ── 航班
@@ -191,22 +174,27 @@
       if (!currentPerson) return;
       if (!flightByPerson[currentPerson]) flightByPerson[currentPerson] = { segments: [], totalTWD: 0, luggage: '' };
       const seg = {
-        isGo:      String(row['去?'] ?? '').toLowerCase() === 'true' || row['去?'] === true,
-        isTransit: String(row['轉機?'] ?? '').toLowerCase() === 'true' || row['轉機?'] === true,
-        segNo:     num(pick(row, ['航段'], 0)),
-        from:      String(row['出發地'] ?? '').trim(),
-        fromTerm:  String(row['出發航廈'] ?? '').trim(),
-        to:        String(row['目的地'] ?? '').trim(),
-        toTerm:    String(row['目的地航廈'] ?? '').trim(),
-        wait:      String(row['等待時間(轉機用)'] ?? '').trim(),
-        depTime:   String(row['出發時間'] ?? '').trim(),
-        arrTime:   String(row['抵達時間'] ?? '').trim(),
-        airline:   String(row['航空公司'] ?? '').trim(),
-        flightNo:  String(row['航班號'] ?? '').trim(),
-        luggage:   String(row['行李額度'] ?? '').trim(),
-        cost:      num(pick(row, ['機票費用(寫在第一筆)', '費用'])),
-        twd:       num(pick(row, ['換算台幣'])),
-        note:      String(row['備註'] ?? '').trim(),
+        isGo:        String(row['去?'] ?? '').toLowerCase() === 'true' || row['去?'] === true,
+        isTransit:   String(row['中轉站?'] ?? '').toLowerCase() === 'true' || row['中轉站?'] === true,
+        segNo:       num(pick(row, ['航段'], 0)),
+        from:        String(row['出發地'] ?? '').trim(),
+        fromTerm:    String(row['出發航廈'] ?? '').trim(),
+        to:          String(row['目的地'] ?? '').trim(),
+        toTerm:      String(row['目的地航廈'] ?? '').trim(),
+        wait:        String(row['等待時間(轉機用)'] ?? '').trim(),
+        depTime:     String(row['出發時間'] ?? '').trim(),
+        arrTime:     String(row['抵達時間'] ?? '').trim(),
+        airline:     String(row['航空公司'] ?? '').trim(),
+        operatedBy:  String(row['執飛航空'] ?? '').trim(),
+        aircraft:    String(row['機種'] ?? '').trim(),
+        flightNo:    String(row['航班號'] ?? '').trim(),
+        luggageCheck:String(row['托運行李'] ?? '').trim(),
+        luggageHand: String(row['手提行李'] ?? '').trim(),
+        cost:        num(pick(row, ['機票費用(寫在第一筆)', '費用'])),
+        currency:    String(row['幣別'] ?? '').replace(/\.$/, '').trim(),
+        foreignFee:  num(pick(row, ['國際手續費'])),
+        twd:         num(pick(row, ['換算台幣'])),
+        note:        String(row['備註'] ?? '').trim(),
       };
       if (seg.cost > 0) flightByPerson[currentPerson].totalTWD = seg.twd || seg.cost;
       if (seg.luggage) flightByPerson[currentPerson].luggage = seg.luggage;
@@ -222,7 +210,6 @@
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
       activity: cellsToRows(activity),
       expenses,
-      fuels,
       split: splitData,
       dialogLines,
       flights,
@@ -256,11 +243,11 @@
   window.setSyncState?.('syncing', '同步中…');
 
   try {
-    const [overview, accommodation, car, activity, split, lines, flight, expense, fuel] = await Promise.all([
-      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity'), fetchSheet('split'), fetchSheet('lines'), fetchSheet('flight'), fetchSheet('expense'), fetchSheet('fuel')
+    const [overview, accommodation, car, activity, split, lines, flight, expense] = await Promise.all([
+      fetchSheet('overview'), fetchSheet('accommodation'), fetchSheet('car'), fetchSheet('activity'), fetchSheet('split'), fetchSheet('lines'), fetchSheet('flight'), fetchSheet('expense')
     ]);
     
-    window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight, expense, fuel });
+    window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
     localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
     window.renderAll?.();
     window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));

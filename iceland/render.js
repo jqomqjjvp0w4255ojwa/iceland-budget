@@ -162,21 +162,16 @@ const CAT_LABEL = {
 };
 function catLabel(c){ return CAT_LABEL[c] || c || '📦 其他'; }
 
-function renderDaily(expenses, fuels) {
-  // 合併並依日期排序
-  const items = [
-    ...(expenses||[]).map(e=>({...e, _type:'expense'})),
-    ...(fuels||[]).map(f=>({...f, _type:'fuel', category:'fuel'})),
-  ].sort((a,b)=> String(a.date).localeCompare(String(b.date)));
-
+function renderDaily(expenses) {
+  const items = (expenses||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   if (!items.length) return `<div class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div>`;
 
   const html = items.map(item => {
     const date  = item.date ? String(item.date).split('T')[0] : '—';
-    const label = `${catLabel(item.category)} ${item.location||''} NT$${Math.round(item.total||item.twd||0).toLocaleString()}`;
-    const sheet = item._type==='fuel' ? 'fuel' : 'expense';
+    const isFuel = item.category === '油費';
+    const label = `${item.category||'開銷'} ${item.location||''} NT$${Math.round(item.total||item.twd||0).toLocaleString()}`;
+    const sheet = 'expense';
 
-    // 分攤標籤
     const burdenTags = ['猴','花','寧']
       .filter(m => (item.burden?.[m]||0) > 0)
       .map(m => `<span style="display:inline-flex;align-items:center;gap:2px;font-size:.62rem;
@@ -185,19 +180,17 @@ function renderDaily(expenses, fuels) {
                    ${avatarSvg(m)} NT$${Math.round(item.burden[m]).toLocaleString()}
                  </span>`).join('');
 
-    // 油費額外資訊
-    const fuelExtra = item._type==='fuel' ? `
+    const fuelExtra = isFuel ? `
       <div style="font-size:.63rem;color:var(--muted);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
-        ${item.brand ? `<span>⛽ ${item.brand}</span>` : ''}
-        ${item.liters ? `<span>${item.liters}L</span>` : ''}
-        ${item.mileage ? `<span>📍 ${item.mileage.toLocaleString()} km</span>` : ''}
-        ${item.efficiency ? `<span>🔁 ${Number(item.efficiency).toFixed(1)} km/L</span>` : ''}
+        ${item.fuelBrand  ? `<span>⛽ ${item.fuelBrand}</span>` : ''}
+        ${item.fuelLiters ? `<span>${item.fuelLiters}L</span>` : ''}
+        ${item.fuelMileage? `<span>📍 ${item.fuelMileage.toLocaleString()} km</span>` : ''}
+        ${item.fuelEfficiency ? `<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>` : ''}
       </div>` : '';
 
     const editData = JSON.stringify({
       category: item.category, amount: item.amount, currency: item.currency,
-      location: item.location, note: item.note, date: item.date,
-      payer: item.payer,
+      location: item.location, note: item.note, date: item.date, payer: item.payer,
     }).replace(/"/g,'&quot;');
 
     return `
@@ -217,12 +210,12 @@ function renderDaily(expenses, fuels) {
           <div class="card-header">
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-                <span style="font-size:.72rem;color:var(--text)">${catLabel(item.category)}</span>
+                <span style="font-size:.72rem;color:var(--text)">${item.category||'—'}</span>
                 <span style="font-size:.65rem;color:var(--muted)">${date}</span>
                 ${item.location ? `<span style="font-size:.65rem;color:var(--muted)">📍 ${item.location}</span>` : ''}
               </div>
               <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-                ${item.payer ? `${avatarSvg(item.payer)}` : ''}
+                ${item.payer ? avatarSvg(item.payer) : ''}
                 ${burdenTags}
               </div>
               ${fuelExtra}
@@ -232,7 +225,7 @@ function renderDaily(expenses, fuels) {
               <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">
                 NT$ ${Math.round(item.total||item.twd||0).toLocaleString()}
               </div>
-              ${item.currency!=='NT' ? `<div style="font-size:.62rem;color:var(--muted)">${item.amount} ${item.currency}</div>` : ''}
+              ${item.currency&&item.currency!=='NT' ? `<div style="font-size:.62rem;color:var(--muted)">${item.amount} ${item.currency}</div>` : ''}
             </div>
           </div>
         </div>
@@ -243,7 +236,6 @@ function renderDaily(expenses, fuels) {
     const el = document.getElementById('dailyContent');
     if (el) window.initSwipeCards(el);
   }, 50);
-
   return html;
 }
 
@@ -999,7 +991,7 @@ function renderAll(){
         </div>
         <div id="car" class="section"><div id="carContent">${renderTransport(d)}</div></div>
         <div id="activity" class="section"><div class="empty">🚧 施工中，敬請期待</div></div>
-        <div id="daily" class="section"><div id="dailyContent">${renderDaily(d.expenses||[], d.fuels||[])}</div></div>
+        <div id="daily" class="section"><div id="dailyContent">${renderDaily(d.expenses||[])}</div></div>
         <div id="repay" class="section"><div id="repayContent">${renderRepay(d.repayHistory||[])}</div></div>
       </div>
 
