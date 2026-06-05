@@ -222,10 +222,11 @@ window.showFlightPerson = function(person) {
 function renderInfo(d) {
   return `
     <div class="tabs" style="margin-top:4px;">
-      <button class="tab active" onclick="showInfoTab('prep',this)">📋 行前準備</button>
+      <button class="tab active" onclick="showInfoTab('prep',this)">📋 行前</button>
       <button class="tab" onclick="showInfoTab('flight',this)">✈️ 航班</button>
       <button class="tab" onclick="showInfoTab('car',this)">🚗 取車</button>
       <button class="tab" onclick="showInfoTab('schedule',this)">📅 日程</button>
+      <button class="tab" onclick="showInfoTab('insurance',this)">🛡 保險</button>
     </div>
     <div id="infoTab-prep" class="section active">
       <div class="empty">🧳 行前準備清單（建置中）</div>
@@ -239,6 +240,10 @@ function renderInfo(d) {
     <div id="infoTab-schedule" class="section">
       <div class="empty">📅 日程 sheet 填入後顯示</div>
     </div>
+    <div id="infoTab-insurance" class="section">
+      <div class="empty">🛡 保險資訊填入後顯示</div>
+    </div>
+
   `;
 }
 
