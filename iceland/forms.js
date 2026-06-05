@@ -104,11 +104,11 @@ window.openPxModal = function(type, prefill = null) {
 
     // 動態建立類別選單
     const catSel = document.getElementById('pxExpCat');
-    const cats = window.APP_DATA?.expenseCategories || window.STATIC?.expenseCategories || [];
-    if (cats.length) {
-      catSel.innerHTML = '<option value="">-- 選擇類別 --</option>' +
-        cats.map(c => `<option value="${c}"${prefill?.category===c?' selected':''}>${c}</option>`).join('');
-    }
+    const cats = (window.APP_DATA?.expenseCategories?.length ? window.APP_DATA.expenseCategories : null)
+              || window.STATIC?.expenseCategories
+              || [];
+    catSel.innerHTML = '<option value="">-- 選擇類別 --</option>' +
+      cats.map(c => `<option value="${c}"${prefill?.category===c?' selected':''}>${c}</option>`).join('');
 
     document.getElementById('pxExpAmt').value  = prefill?.amount || '';
     document.getElementById('pxExpCur').value  = prefill?.currency || 'NT';

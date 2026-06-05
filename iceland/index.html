@@ -478,6 +478,11 @@
         <div class="px-member-row" id="pxSplitBtns" style="margin-bottom:8px;"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <div id="pxSplitSummary" style="font-size:7px;color:#2a4a1a;flex:1;">均分（三人）</div>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;">
+            <input type="checkbox" id="pxExpShared" checked
+              style="width:14px;height:14px;cursor:pointer;accent-color:#2a4a1a;">
+            <span style="font-family:'Silkscreen',monospace;font-size:6px;color:#2a4a1a;white-space:nowrap;">共同消費</span>
+          </label>
           <button class="px-member-btn" onclick="pxOpenCustomSplit()" style="flex:0 0 auto;padding:5px 10px;font-size:7px;white-space:nowrap;">自訂金額</button>
         </div>
       </div>
@@ -493,13 +498,6 @@
       <div class="px-field">
         <label class="px-label">▸ 備註（選填）</label>
         <input class="px-input" type="text" id="pxExpNote" placeholder="">
-      </div>
-      <div class="px-field" style="display:flex;align-items:center;gap:8px;">
-        <input type="checkbox" id="pxExpShared" checked
-          style="width:16px;height:16px;cursor:pointer;accent-color:#4fc3f7;">
-        <label for="pxExpShared" style="font-family:'Silkscreen',monospace;font-size:7px;color:#c8d8a8;cursor:pointer;">
-          共同消費（三人均攤）
-        </label>
       </div>
       <div class="px-form-actions" style="margin-bottom:12px;">
         <button class="px-btn-submit" id="pxBtnExpense" onclick="pxSubmitExpense()" disabled style="flex:1;">[ 確認送出 ]</button>
