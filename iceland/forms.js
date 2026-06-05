@@ -272,6 +272,13 @@ function pxCheckSubmit() {
   const cat = document.getElementById('pxExpCat').value;
   const fuelFields = document.getElementById('pxFuelFields');
   if (fuelFields) fuelFields.style.display = cat === '加油' ? 'block' : 'none';
+  // tag 欄位顯示/隱藏
+  const tagField = document.getElementById('pxTagField');
+  if (tagField) {
+    const show = cat === '雜支';
+    tagField.style.display = show ? 'block' : 'none';
+    if (!show) window.pxResetTags?.();
+  }
   document.getElementById('pxBtnExpense').disabled =
     !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
 }
@@ -393,54 +400,65 @@ function pxRenderScrollPicker(listId, selectedName, onSelectFn) {
   const el = document.getElementById(listId);
   if (!el) return;
 
-  // 上下各加一個空白 padding item，讓第一/最後個能滾到中間
-  const pad = `<div style="height:${PICKER_ITEM_H}px;flex-shrink:0;"></div>`;
-  el.innerHTML = pad + PX_MEMBERS.map(m => `
-    <div class="px-scroll-picker-item" data-name="${m}" style="height:${PICKER_ITEM_H}px;flex-shrink:0;">
+  // 上下各加 padding 讓第一/最後個能置中
+  const pad = `<div style="height:${PICKER_ITEM_H}px;flex-shrink:0;pointer-events:none;"></div>`;
+  el.innerHTML = pad + PX_MEMBERS.map((m, i) => `
+    <div class="px-scroll-picker-item" data-name="${m}" data-idx="${i}"
+      style="height:${PICKER_ITEM_H}px;flex-shrink:0;box-sizing:border-box;">
       ${pxAvatarSvg(m, 32)}
       <span>${m}</span>
     </div>`).join('') + pad;
 
-  // 滾到選中位置
-  const idx = PX_MEMBERS.indexOf(selectedName);
-  el.scrollTop = (idx >= 0 ? idx : 0) * PICKER_ITEM_H;
-
-  // 更新高亮
-  function updateHighlight() {
-    const centerIdx = Math.round(el.scrollTop / PICKER_ITEM_H);
-    const clamped   = Math.max(0, Math.min(centerIdx, PX_MEMBERS.length - 1));
-    el.querySelectorAll('.px-scroll-picker-item').forEach((item, i) => {
-      item.classList.toggle('sel', i === clamped);
+  // 點擊直接捲到該項目
+  el.querySelectorAll('.px-scroll-picker-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const idx = parseInt(item.dataset.idx);
+      el.scrollTo({ top: idx * PICKER_ITEM_H, behavior: 'smooth' });
     });
-    return PX_MEMBERS[clamped];
+  });
+
+  // 滾到選中位置（初始化，不用動畫）
+  const initIdx = PX_MEMBERS.indexOf(selectedName);
+  el.scrollTop = (initIdx >= 0 ? initIdx : 0) * PICKER_ITEM_H;
+
+  function getCenter() {
+    const idx = Math.round(el.scrollTop / PICKER_ITEM_H);
+    return Math.max(0, Math.min(idx, PX_MEMBERS.length - 1));
+  }
+
+  function updateHighlight() {
+    const cur = getCenter();
+    el.querySelectorAll('.px-scroll-picker-item').forEach((item, i) => {
+      item.classList.toggle('sel', i === cur);
+    });
+    return PX_MEMBERS[cur];
   }
 
   updateHighlight();
 
-  // 滾動時自動高亮 + 結束時觸發選取
-  let _scrollTimer;
+  // 滾動結束後 snap 到最近的 item
+  let _t;
   el._pickerScrollHandler && el.removeEventListener('scroll', el._pickerScrollHandler);
   el._pickerScrollHandler = () => {
-    updateHighlight();
-    clearTimeout(_scrollTimer);
-    _scrollTimer = setTimeout(() => {
-      const name = updateHighlight();
-      if (name) onSelectFn(name, true); // true = from scroll, skip re-render
-    }, 80);
+    clearTimeout(_t);
+    _t = setTimeout(() => {
+      const idx = getCenter();
+      // snap 對齊
+      el.scrollTo({ top: idx * PICKER_ITEM_H, behavior: 'smooth' });
+      updateHighlight();
+      const name = PX_MEMBERS[idx];
+      if (name) onSelectFn(name);
+    }, 100);
   };
   el.addEventListener('scroll', el._pickerScrollHandler, { passive: true });
 }
 
-window.pxScrollSelectFrom = function(name, fromScroll) {
+window.pxScrollSelectFrom = function(name) {
   _pxRepayFrom = name;
-  if (!fromScroll) pxRenderScrollPicker('pxRepayFromList', name, window.pxScrollSelectFrom);
-  else { /* 只更新狀態，不重建 DOM */ }
   pxValidateRepay();
 };
-window.pxScrollSelectTo = function(name, fromScroll) {
+window.pxScrollSelectTo = function(name) {
   _pxRepayTo = name;
-  if (!fromScroll) pxRenderScrollPicker('pxRepayToList', name, window.pxScrollSelectTo);
-  else { /* 只更新狀態，不重建 DOM */ }
   pxValidateRepay();
 };
 window.pxValidateRepay = function() {
