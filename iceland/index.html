@@ -8,7 +8,9 @@
   <title>🇮🇸 冰島旅行小帳</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" rel="stylesheet" /></noscript>
   <style>
     :root {
       --bg:#07111f; --bg2:#0d1f35; --bg3:#112540; --card:#0f2240;
@@ -688,13 +690,13 @@
   </div>
 </div>
 
-<script src="render.js"></script>
-<script src="render-ledger.js"></script>
-<script src="render-cards.js"></script>
-<script src="render-info.js"></script>
-<script src="app.js"></script>
-<script src="sprites.js"></script>
-<script src="scene.js"></script>
-<script src="forms.js"></script>
+<script src="render.js" defer></script>
+<script src="render-ledger.js" defer></script>
+<script src="render-cards.js" defer></script>
+<script src="render-info.js" defer></script>
+<script src="app.js" defer></script>
+<script src="sprites.js" defer></script>
+<script src="scene.js" defer></script>
+<script src="forms.js" defer></script>
 </body>
 </html>

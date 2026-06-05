@@ -274,9 +274,31 @@
     const locEl=document.getElementById('pxLoc');
     const wEl=document.getElementById('pxWeather');
     if(locEl)locEl.textContent='📍 '+loc.name;
+
+    // ── 天氣快取（30分鐘內不重打 API）
+    const WEATHER_TTL = 30 * 60 * 1000;
+    const cached = localStorage.getItem('wx_cache');
+    if (cached) {
+      try {
+        const { ts, data } = JSON.parse(cached);
+        if (Date.now() - ts < WEATHER_TTL) {
+          const w = decodeW(data.weathercode, data.is_day === 1);
+          const temp = Math.round(data.temperature_2m);
+          const wind = Math.round(data.windspeed_10m);
+          _weatherCache = { loc, w, temp, wind };
+          applyWeatherToDOM();
+          setSky(w.type); startParticles(w.type, wind);
+          updateClocks();
+          setInterval(updateClocks, 30000);
+          return;
+        }
+      } catch(e) { /* 快取壞了就繼續重打 */ }
+    }
+
     try{
       const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weathercode,is_day,windspeed_10m&timezone=Atlantic%2FReykjavik`);
       const data=await res.json();
+      localStorage.setItem('wx_cache', JSON.stringify({ ts: Date.now(), data: data.current }));
       const w=decodeW(data.current.weathercode,data.current.is_day===1);
       const temp=Math.round(data.current.temperature_2m);
       const wind=Math.round(data.current.windspeed_10m);
@@ -388,7 +410,13 @@
       applyWeatherToDOM();
       setTimeout(startBubbleLoop, 300);
     };
-    setTimeout(initWeather, 200);
+    // 天氣延遲到首屏後，避免搶主線程
+    const doWeather = () => setTimeout(initWeather, 1500);
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(doWeather, { timeout: 3000 });
+    } else {
+      doWeather();
+    }
     setTimeout(window.updatePixelBudget, 500);
     setTimeout(startBubbleLoop, 1000);
   });

@@ -239,7 +239,7 @@ function renderRepay(items) {
 }
 
 function renderTransport(d) {
-  const car = d.car;
+  const car = d.car || {};
   const flights = d.flights || [];
   const currentFilter = window._transportFilter || 'all';
   const filterBtns = ['all','car','flight','fuel','parking'].map(f => {

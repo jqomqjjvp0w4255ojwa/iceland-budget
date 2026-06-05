@@ -55,8 +55,11 @@ let dataSource='local'; // 'local'|'cloud'|'syncing'|'offline'
 function fmt(n){if(!n||isNaN(n))return'—';return'NT$ '+Math.round(n).toLocaleString('zh-TW');}
 
 // ── 角色頭像（靜態第1格）
+// ── memoized avatar
+const _avatarCache = {};
 function avatarSvg(name) {
   const s = String(name||'').trim();
+  if (_avatarCache[s] !== undefined) return _avatarCache[s];
   const maps = {
     '花': `<rect x="5" y="6" width="6" height="1" fill="#feae34"/><rect x="3" y="7" width="10" height="1" fill="#feae34"/><rect x="2" y="8" width="12" height="1" fill="#feae34"/><rect x="1" y="9" width="4" height="1" fill="#feae34"/><rect x="5" y="9" width="6" height="1" fill="#fee761"/><rect x="11" y="9" width="4" height="1" fill="#feae34"/><rect x="1" y="10" width="3" height="1" fill="#feae34"/><rect x="4" y="10" width="8" height="1" fill="#fee761"/><rect x="12" y="10" width="3" height="1" fill="#feae34"/><rect x="0" y="11" width="4" height="1" fill="#feae34"/><rect x="4" y="11" width="8" height="1" fill="#fee761"/><rect x="12" y="11" width="4" height="1" fill="#feae34"/><rect x="0" y="12" width="3" height="1" fill="#feae34"/><rect x="3" y="12" width="2" height="1" fill="#fee761"/><rect x="5" y="12" width="1" height="1" fill="#3f2832"/><rect x="6" y="12" width="4" height="1" fill="#fee761"/><rect x="10" y="12" width="1" height="1" fill="#3f2832"/><rect x="11" y="12" width="2" height="1" fill="#fee761"/><rect x="13" y="12" width="3" height="1" fill="#feae34"/><rect x="0" y="13" width="3" height="1" fill="#feae34"/><rect x="3" y="13" width="1" height="1" fill="#fee761"/><rect x="4" y="13" width="1" height="1" fill="#3f2832"/><rect x="5" y="13" width="1" height="1" fill="#fee761"/><rect x="6" y="13" width="1" height="1" fill="#3f2832"/><rect x="7" y="13" width="2" height="1" fill="#fee761"/><rect x="9" y="13" width="1" height="1" fill="#3f2832"/><rect x="10" y="13" width="1" height="1" fill="#fee761"/><rect x="11" y="13" width="1" height="1" fill="#3f2832"/><rect x="12" y="13" width="1" height="1" fill="#fee761"/><rect x="13" y="13" width="3" height="1" fill="#feae34"/><rect x="0" y="14" width="3" height="1" fill="#feae34"/><rect x="3" y="14" width="10" height="1" fill="#fee761"/><rect x="13" y="14" width="3" height="1" fill="#feae34"/><rect x="0" y="15" width="3" height="1" fill="#feae34"/><rect x="3" y="15" width="4" height="1" fill="#fee761"/><rect x="7" y="15" width="2" height="1" fill="#f6757a"/><rect x="9" y="15" width="4" height="1" fill="#fee761"/><rect x="13" y="15" width="3" height="1" fill="#feae34"/><rect x="1" y="16" width="3" height="1" fill="#feae34"/><rect x="4" y="16" width="8" height="1" fill="#fee761"/><rect x="12" y="16" width="3" height="1" fill="#feae34"/><rect x="1" y="17" width="4" height="1" fill="#feae34"/><rect x="5" y="17" width="6" height="1" fill="#fee761"/><rect x="11" y="17" width="4" height="1" fill="#feae34"/><rect x="2" y="18" width="5" height="1" fill="#feae34"/><rect x="7" y="18" width="2" height="1" fill="#fee761"/><rect x="9" y="18" width="5" height="1" fill="#feae34"/><rect x="3" y="19" width="10" height="1" fill="#feae34"/><rect x="5" y="20" width="6" height="1" fill="#feae34"/><rect x="7" y="21" width="2" height="1" fill="#3e8948"/><rect x="2" y="22" width="1" height="1" fill="#57ab62"/><rect x="3" y="22" width="1" height="1" fill="#3e8948"/><rect x="7" y="22" width="2" height="1" fill="#3e8948"/><rect x="12" y="22" width="1" height="1" fill="#3e8948"/><rect x="13" y="22" width="1" height="1" fill="#57ab62"/><rect x="2" y="23" width="1" height="1" fill="#57ab62"/><rect x="3" y="23" width="3" height="1" fill="#3e8948"/><rect x="7" y="23" width="2" height="1" fill="#3e8948"/><rect x="10" y="23" width="3" height="1" fill="#3e8948"/><rect x="13" y="23" width="1" height="1" fill="#57ab62"/><rect x="3" y="24" width="1" height="1" fill="#57ab62"/><rect x="4" y="24" width="8" height="1" fill="#3e8948"/><rect x="12" y="24" width="1" height="1" fill="#57ab62"/><rect x="3" y="25" width="1" height="1" fill="#57ab62"/><rect x="4" y="25" width="8" height="1" fill="#3e8948"/><rect x="12" y="25" width="1" height="1" fill="#57ab62"/><rect x="4" y="26" width="2" height="1" fill="#57ab62"/><rect x="6" y="26" width="4" height="1" fill="#3e8948"/><rect x="10" y="26" width="2" height="1" fill="#57ab62"/><rect x="6" y="27" width="1" height="1" fill="#57ab62"/><rect x="7" y="27" width="2" height="1" fill="#3e8948"/><rect x="9" y="27" width="1" height="1" fill="#57ab62"/>`,
     '猴': `<rect x="5" y="7" width="6" height="1" fill="#b86f50"/><rect x="4" y="8" width="8" height="1" fill="#b86f50"/><rect x="3" y="9" width="10" height="1" fill="#b86f50"/><rect x="3" y="10" width="2" height="1" fill="#b86f50"/><rect x="5" y="10" width="2" height="1" fill="#ffc8b5"/><rect x="7" y="10" width="2" height="1" fill="#b86f50"/><rect x="9" y="10" width="2" height="1" fill="#ffc8b5"/><rect x="11" y="10" width="2" height="1" fill="#b86f50"/><rect x="1" y="11" width="3" height="1" fill="#b86f50"/><rect x="4" y="11" width="8" height="1" fill="#ffc8b5"/><rect x="12" y="11" width="3" height="1" fill="#b86f50"/><rect x="1" y="12" width="1" height="1" fill="#b86f50"/><rect x="2" y="12" width="1" height="1" fill="#ffb89f"/><rect x="3" y="12" width="1" height="1" fill="#b86f50"/><rect x="4" y="12" width="2" height="1" fill="#ffc8b5"/><rect x="6" y="12" width="1" height="1" fill="#3f2832"/><rect x="7" y="12" width="2" height="1" fill="#ffc8b5"/><rect x="9" y="12" width="1" height="1" fill="#3f2832"/><rect x="10" y="12" width="2" height="1" fill="#ffc8b5"/><rect x="12" y="12" width="1" height="1" fill="#b86f50"/><rect x="13" y="12" width="1" height="1" fill="#ffb89f"/><rect x="14" y="12" width="1" height="1" fill="#b86f50"/><rect x="1" y="13" width="3" height="1" fill="#b86f50"/><rect x="4" y="13" width="2" height="1" fill="#ffb89f"/><rect x="6" y="13" width="4" height="1" fill="#ffc8b5"/><rect x="10" y="13" width="2" height="1" fill="#ffb89f"/><rect x="12" y="13" width="3" height="1" fill="#b86f50"/><rect x="2" y="14" width="2" height="1" fill="#b86f50"/><rect x="4" y="14" width="2" height="1" fill="#ffb89f"/><rect x="6" y="14" width="1" height="1" fill="#ffc8b5"/><rect x="7" y="14" width="2" height="1" fill="#f6757a"/><rect x="9" y="14" width="1" height="1" fill="#ffc8b5"/><rect x="10" y="14" width="2" height="1" fill="#ffb89f"/><rect x="12" y="14" width="2" height="1" fill="#b86f50"/><rect x="2" y="15" width="1" height="1" fill="#3f2832"/><rect x="3" y="15" width="2" height="1" fill="#b86f50"/><rect x="5" y="15" width="6" height="1" fill="#ffc8b5"/><rect x="11" y="15" width="2" height="1" fill="#b86f50"/><rect x="13" y="15" width="1" height="1" fill="#925237"/><rect x="1" y="16" width="1" height="1" fill="#925237"/><rect x="2" y="16" width="1" height="1" fill="#b86f50"/><rect x="3" y="16" width="1" height="1" fill="#3f2832"/><rect x="4" y="16" width="10" height="1" fill="#b86f50"/><rect x="14" y="16" width="1" height="1" fill="#925237"/><rect x="1" y="17" width="1" height="1" fill="#925237"/><rect x="2" y="17" width="2" height="1" fill="#b86f50"/><rect x="4" y="17" width="2" height="1" fill="#3f2832"/><rect x="6" y="17" width="8" height="1" fill="#b86f50"/><rect x="14" y="17" width="1" height="1" fill="#925237"/><rect x="1" y="18" width="1" height="1" fill="#925237"/><rect x="2" y="18" width="4" height="1" fill="#b86f50"/><rect x="6" y="18" width="1" height="1" fill="#3f2832"/><rect x="7" y="18" width="7" height="1" fill="#b86f50"/><rect x="14" y="18" width="1" height="1" fill="#925237"/><rect x="1" y="19" width="1" height="1" fill="#925237"/><rect x="2" y="19" width="5" height="1" fill="#b86f50"/><rect x="7" y="19" width="2" height="1" fill="#3f2832"/><rect x="9" y="19" width="5" height="1" fill="#b86f50"/><rect x="14" y="19" width="1" height="1" fill="#925237"/><rect x="1" y="20" width="1" height="1" fill="#925237"/><rect x="2" y="20" width="2" height="1" fill="#b86f50"/><rect x="4" y="20" width="1" height="1" fill="#925237"/><rect x="5" y="20" width="4" height="1" fill="#b86f50"/><rect x="9" y="20" width="2" height="1" fill="#3f2832"/><rect x="11" y="20" width="1" height="1" fill="#925237"/><rect x="12" y="20" width="2" height="1" fill="#b86f50"/><rect x="14" y="20" width="1" height="1" fill="#925237"/><rect x="2" y="21" width="1" height="1" fill="#ffc8b5"/><rect x="3" y="21" width="1" height="1" fill="#ffb89f"/><rect x="4" y="21" width="6" height="1" fill="#b86f50"/><rect x="10" y="21" width="2" height="1" fill="#3f2832"/><rect x="12" y="21" width="1" height="1" fill="#ffb89f"/><rect x="13" y="21" width="1" height="1" fill="#ffc8b5"/><rect x="14" y="21" width="1" height="1" fill="#3f2832"/><rect x="2" y="22" width="8" height="1" fill="#b86f50"/><rect x="10" y="22" width="5" height="1" fill="#3f2832"/><rect x="2" y="23" width="9" height="1" fill="#b86f50"/><rect x="11" y="23" width="3" height="1" fill="#3f2832"/><rect x="2" y="24" width="12" height="1" fill="#b86f50"/><rect x="2" y="25" width="4" height="1" fill="#b86f50"/><rect x="6" y="25" width="4" height="1" fill="#925237"/><rect x="10" y="25" width="4" height="1" fill="#b86f50"/><rect x="3" y="26" width="3" height="1" fill="#b86f50"/><rect x="10" y="26" width="3" height="1" fill="#b86f50"/><rect x="3" y="27" width="3" height="1" fill="#5a6988"/><rect x="10" y="27" width="3" height="1" fill="#5a6988"/>`,
@@ -65,10 +68,10 @@ function avatarSvg(name) {
   // 比對名字開頭（花🌼 → 花，猴🙉 → 猴，etc）
   for(const key of Object.keys(maps)){
     if(s.includes(key)){
-      return `<svg width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated;vertical-align:middle;">${maps[key]}</svg>`;
+      return (_avatarCache[s] = `<svg width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated;vertical-align:middle;">${maps[key]}</svg>`);
     }
   }
-  return `<span style="font-size:.75rem">${s}</span>`;
+  return (_avatarCache[s] = `<span style="font-size:.75rem">${s}</span>`);
 }
 function fmtPer(n){if(!n||isNaN(n))return'—';return'NT$ '+Math.round(n/3).toLocaleString('zh-TW')+'<span style="font-size:.6em;color:var(--muted)">/人</span>';}
 function fmtOrig(n,cur){
@@ -359,21 +362,45 @@ async function manualSync(){
 }
 
 async function init(){
-  renderAll();
-  setSyncState('local','載入本地資料中…');
-  await syncFromCloud();
+  // ── 快速首屏：優先用 localStorage 快取立刻渲染，不等網路
+  const cachedRaw = localStorage.getItem('cached_iceland_budget');
+  if (cachedRaw) {
+    try {
+      window.APP_DATA = JSON.parse(cachedRaw);
+      renderAll();
+      setSyncState('local', '⚡ 快取資料，背景同步中…');
+    } catch(e) {
+      window.APP_DATA = JSON.parse(JSON.stringify(window.STATIC));
+      renderAll();
+      setSyncState('local', '載入本地資料中…');
+    }
+  } else {
+    window.APP_DATA = JSON.parse(JSON.stringify(window.STATIC));
+    renderAll();
+    setSyncState('local', '載入本地資料中…');
+  }
 
+  // ── 事件監聽
   window.addEventListener('offline',()=>{
     document.getElementById('offlineBadge').classList.add('show');
     setSyncState('offline','離線模式');
   });
-
   window.addEventListener('online',()=>{
     document.getElementById('offlineBadge').classList.remove('show');
     syncFromCloud();
   });
-
   if(!navigator.onLine) {
     document.getElementById('offlineBadge').classList.add('show');
+    return;
   }
+
+  // ── 背景同步（不阻塞首屏）
+  syncFromCloud();
+}
+
+// ── defer 後 DOMContentLoaded 已過，直接執行
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
 }
