@@ -402,15 +402,17 @@
     }
   });
 
-  document.addEventListener('DOMContentLoaded', ()=>{
-    const _origRenderAll = window.renderAll;
-    window.renderAll = function(){
-      _origRenderAll && _origRenderAll();
-      setTimeout(window.updatePixelBudget, 100);
-      applyWeatherToDOM();
-      setTimeout(startBubbleLoop, 300);
-    };
-    // 天氣延遲到首屏後，避免搶主線程
+  // ── 立即包裝 renderAll（不等 DOMContentLoaded，確保在 init() 前生效）
+  const _origRenderAll = window.renderAll;
+  window.renderAll = function(){
+    _origRenderAll && _origRenderAll();
+    setTimeout(window.updatePixelBudget, 100);
+    applyWeatherToDOM();
+    setTimeout(startBubbleLoop, 300);
+  };
+
+  // ── 天氣、場景初始化：等 DOM ready
+  function _sceneOnReady() {
     const doWeather = () => setTimeout(initWeather, 1500);
     if ('requestIdleCallback' in window) {
       requestIdleCallback(doWeather, { timeout: 3000 });
@@ -419,7 +421,12 @@
     }
     setTimeout(window.updatePixelBudget, 500);
     setTimeout(startBubbleLoop, 1000);
-  });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _sceneOnReady);
+  } else {
+    _sceneOnReady();
+  }
 })();
 
 if('serviceWorker' in navigator) {

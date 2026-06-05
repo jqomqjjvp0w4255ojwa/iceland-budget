@@ -234,7 +234,7 @@ function renderInfo(d) {
       ${renderInfoFlights(d.flights)}
     </div>
     <div id="infoTab-car" class="section">
-      ${d.car ? renderCarDetail(d.car) : '<div class="empty">🚗 租車資料讀取中</div>'}
+      ${renderCarDetail(d.car)}
     </div>
     <div id="infoTab-schedule" class="section">
       <div class="empty">📅 日程 sheet 填入後顯示</div>

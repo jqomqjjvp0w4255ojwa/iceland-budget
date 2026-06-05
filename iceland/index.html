@@ -698,5 +698,7 @@
 <script src="sprites.js" defer></script>
 <script src="scene.js" defer></script>
 <script src="forms.js" defer></script>
+<!-- 所有模組載入完畢後才呼叫 init()，確保 scene.js 已包裝 renderAll -->
+<script defer>init();</script>
 </body>
 </html>

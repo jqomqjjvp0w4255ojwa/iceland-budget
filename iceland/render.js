@@ -398,9 +398,4 @@ async function init(){
   syncFromCloud();
 }
 
-// ── defer 後 DOMContentLoaded 已過，直接執行
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
+// ── init() 由 index.html 最後一個 defer script 呼叫，確保所有模組都已載入
