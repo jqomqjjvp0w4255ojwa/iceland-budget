@@ -127,6 +127,14 @@ window.openPxModal = function(type, prefill = null) {
     pxRenderPayerBtns();
     pxRenderSplitBtns();
     if (_editMode) pxCheckSubmit();
+
+    // reset tag + brand
+    window.pxResetTags?.();
+    window.pxResetBrand?.();
+    if (prefill?.tags) prefill.tags.forEach(t => window.pxGetSelectedTags && window.pxGetSelectedTags()); // prefill tags handled later
+    const tagField = document.getElementById('pxTagField');
+    if (tagField) tagField.style.display = prefill?.category === '雜支' ? 'block' : 'none';
+
     document.getElementById('pxModalExpense').classList.add('show');
 
   } else {
@@ -355,7 +363,8 @@ window.pxSubmitExpense = async function() {
   }
   const fuelMileage = cat === '加油' ? (parseFloat(document.getElementById('pxFuelMileage')?.value)||0) : 0;
   const fuelLiters  = cat === '加油' ? (parseFloat(document.getElementById('pxFuelLiters')?.value)||0)  : 0;
-  const fuelBrand   = cat === '加油' ? (document.getElementById('pxFuelBrand')?.value||'')              : '';
+  const fuelBrand   = cat === '加油' ? (window.pxGetSelectedBrand?.() || document.getElementById('pxFuelBrand')?.value||'') : '';
+  const tags        = cat === '雜支' ? (window.pxGetSelectedTags?.() || []).join(',') : '';
 
   try {
     // 修改模式：先刪舊的
@@ -367,7 +376,7 @@ window.pxSubmitExpense = async function() {
       action: 'addExpense', category: cat, amount: amt, currency: cur, payer: _pxPayer,
       split花: splits['花'], split猴: splits['猴'], split寧: splits['寧'],
       date, location: loc, note, isShared,
-      fuelMileage, fuelLiters, fuelBrand,
+      fuelMileage, fuelLiters, fuelBrand, tags,
     });
     window.cancelPxModal('pxModalExpense');
     alert(_editMode ? '[ ✓ 已修改！]' : '[ ✓ 已記錄！]');
@@ -465,4 +474,4 @@ window.pxCancelCalc = function() {
   const el = document.getElementById(_calcTarget);
   if (el) el.value = _calcPrev;
   document.getElementById('pxCalcOverlay').classList.remove('show');
-};
+};或
