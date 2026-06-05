@@ -1,5 +1,4 @@
-// 每次修改檔案內容後，把版本號往上加
-const CACHE_NAME = 'iceland-budget-v18.10';
+const CACHE_NAME = 'iceland-budget-v19.0';
 
 const ASSETS = [
   '/iceland-budget/iceland/',
@@ -8,6 +7,9 @@ const ASSETS = [
   '/iceland-budget/iceland/app.js',
   '/iceland-budget/iceland/sprites.js',
   '/iceland-budget/iceland/render.js',
+  '/iceland-budget/iceland/render-cards.js',
+  '/iceland-budget/iceland/render-info.js',
+  '/iceland-budget/iceland/render-ledger.js',
   '/iceland-budget/iceland/scene.js',
   '/iceland-budget/iceland/forms.js',
 ];
