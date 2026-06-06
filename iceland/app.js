@@ -168,6 +168,7 @@
         fuelLiters: num(pick(row, ['公升數 (L)'])),
         fuelTripKm: num(pick(row, ['單次行駛里程 (km)'])),
         fuelEfficiency: num(pick(row, ['平均油耗'])),
+        tags:       String(row['標籤'] ?? '').trim(),
       }));
 
     const flightRows = cellsToRows(flight);
