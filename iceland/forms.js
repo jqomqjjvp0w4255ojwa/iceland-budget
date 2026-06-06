@@ -15,7 +15,7 @@ function bgSync(label) {
     window.__syncIcelandBudgetFromSheets?.().catch(e => {
       setSyncState?.('local', '⚠ 同步失敗，下次開啟會重試');
     });
-  }, 1500);
+  }, 3000);
 }
 
 // 樂觀更新本地快取：把新資料立刻塞進 APP_DATA 並重繪
@@ -38,6 +38,23 @@ function optimisticDelete(type, rowIndex) {
     _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
   } else if (type === 'repay') {
     window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => Number(r._rowIndex) !== Number(rowIndex));
+    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
+  }
+  localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+}
+
+// 樂觀更新：修改模式用原地替換，不刪舊加新（避免 bgSync 後舊卡片重新出現）
+function optimisticEdit(type, rowIndex, newItem) {
+  if (!window.APP_DATA) return;
+  if (type === 'expense') {
+    window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).map(e =>
+      Number(e._rowIndex) === Number(rowIndex) ? { ...newItem } : e
+    );
+    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
+  } else if (type === 'repay') {
+    window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).map(r =>
+      Number(r._rowIndex) === Number(rowIndex) ? { ...newItem } : r
+    );
     _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
   }
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
@@ -67,7 +84,7 @@ let _editRowIndex = null;    // 要刪除的舊資料行號
 let _editSheet    = '';      // 'expense' | 'repay'
 
 // ══ GAS API ══
-const _GAS_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
+const _GAS_BASE = "https://script.google.com/macros/s/AKfycbyD8lE5o_ke0vGEeezw-w7U56MGSZy3vCA_mROlT5jV0QRAaVqGq1gil4LejMKqa1D0/exec";
 
 async function postToGAS(payload) {
   const base = window._GAS_BASE;
@@ -585,17 +602,19 @@ window.pxSubmitExpense = async function(nextMode = false) {
   } else {
     window.cancelPxModal('pxModalExpense');
   }
-  if (_editMode) {
-    optimisticDelete('expense', _editRowIndex);
-  }
-  optimisticAdd('expense', {
-    _rowIndex: _editMode ? _editRowIndex : -1, // 編輯模式用原行號，避免 bgSync 後重複
+  const optimisticItem = {
+    _rowIndex: _editMode ? _editRowIndex : -1,
     category: cat, amount: amt, currency: cur, twd, total,
     payer: _pxPayer, date, location: loc, note, isShared, title, qty,
     splitMode: [..._pxSplitSel].join(','),
     burden: { '花': splits['花'], '猴': splits['猴'], '寧': splits['寧'] },
     tags,
-  });
+  };
+  if (_editMode) {
+    optimisticEdit('expense', _editRowIndex, optimisticItem);
+  } else {
+    optimisticAdd('expense', optimisticItem);
+  }
 
   // 背景送 GAS，不等待
   _isSubmitting = false;
@@ -684,13 +703,15 @@ window.pxSubmitRepay = async function() {
 
   // 立刻關窗、樂觀更新
   window.cancelPxModal('pxModalRepay');
-  if (_editMode) {
-    optimisticDelete('repay', _editRowIndex);
-  }
-  optimisticAdd('repay', {
+  const optimisticRepayItem = {
     _rowIndex: _editMode ? _editRowIndex : -1,
     from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
-  });
+  };
+  if (_editMode) {
+    optimisticEdit('repay', _editRowIndex, optimisticRepayItem);
+  } else {
+    optimisticAdd('repay', optimisticRepayItem);
+  }
 
   _isSubmitting = false;
   postToGAS(payload)
