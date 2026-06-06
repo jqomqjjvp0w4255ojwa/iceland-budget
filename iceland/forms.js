@@ -134,10 +134,9 @@ window.openPxModal = function(type, prefill = null) {
     // reset tag + brand
     window.pxResetTags?.();
     window.pxResetBrand?.();
+    const titleEl = document.getElementById('pxExpTitle');
+    if (titleEl) titleEl.value = prefill?.title || '';
     if (prefill?.tags) prefill.tags.forEach(t => window.pxGetSelectedTags && window.pxGetSelectedTags()); // prefill tags handled later
-    const tagField = document.getElementById('pxTagField');
-
-
     document.getElementById('pxModalExpense').classList.add('show');
 
   } else {
@@ -385,7 +384,7 @@ window.pxSubmitExpense = async function() {
     const total = twd; // 海外手續費暫不計
 
     await postToGAS({
-      action: 'addExpense', category: cat, amount: amt, currency: cur,
+      action: 'addExpense', title: (document.getElementById('pxExpTitle')?.value||'').trim(), category: cat, amount: amt, currency: cur,
       twd, foreignFee: 0, total,
       payer: _pxPayer,
       splitMode: [..._pxSplitSel].join(','),

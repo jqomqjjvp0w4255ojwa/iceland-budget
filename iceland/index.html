@@ -344,13 +344,13 @@
     .px-delete-actions .cancel{background:#c8d8a8;color:#2a4a1a;}
 
     /* ── Tag chips ── */
-    .px-tag-chip{display:inline-flex;align-items:center;gap:4px;background:#2a4a1a;color:#c8d8a8;font-size:7px;padding:4px 8px;border-radius:999px;animation:chipIn .15s ease;cursor:default;user-select:none;}
+    .px-tag-chip{display:inline-flex;align-items:center;gap:4px;background:#2a4a1a;color:#c8d8a8;font-size:9px;padding:4px 8px;border-radius:999px;animation:chipIn .15s ease;cursor:default;user-select:none;}
     @keyframes chipIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
     .px-tag-chip-x{width:12px;height:12px;border-radius:50%;background:rgba(200,216,168,.25);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:8px;line-height:1;transition:background .12s;flex-shrink:0;}
     .px-tag-chip-x:hover{background:rgba(200,216,168,.55);}
-    .px-tag-add-pill{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1.5px dashed #5a7a3a;color:#5a7a3a;font-family:'Silkscreen',monospace;font-size:7px;padding:3px 9px;border-radius:999px;cursor:pointer;transition:border-color .12s,color .12s,background .12s;}
+    .px-tag-add-pill{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1.5px dashed #5a7a3a;color:#5a7a3a;font-family:'Silkscreen',monospace;font-size:9px;padding:3px 9px;border-radius:999px;cursor:pointer;transition:border-color .12s,color .12s,background .12s;}
     .px-tag-add-pill:hover{border-color:#2a4a1a;color:#2a4a1a;background:rgba(42,74,26,.07);}
-    .px-tag-suggest-pill{background:#dde8c0;border:1.5px solid #8aaa6a;color:#2a4a1a;font-family:'Silkscreen',monospace;font-size:7px;padding:3px 9px;border-radius:999px;cursor:pointer;transition:background .12s,border-color .12s;user-select:none;}
+    .px-tag-suggest-pill{background:#dde8c0;border:1.5px solid #8aaa6a;color:#2a4a1a;font-family:'Silkscreen',monospace;font-size:9px;padding:3px 9px;border-radius:999px;cursor:pointer;transition:background .12s,border-color .12s;user-select:none;}
     .px-tag-suggest-pill:hover:not(.used){background:#c8d8a8;border-color:#2a4a1a;}
     .px-tag-suggest-pill.used{opacity:.3;cursor:default;text-decoration:line-through;}
     /* ── Brand chips ── */
@@ -452,6 +452,10 @@
     </div>
     <div class="px-form">
       <div class="px-field">
+        <input class="px-input" type="text" id="pxExpTitle" placeholder="買了什麼？"
+          style="font-size:1rem;" autocomplete="off">
+      </div>
+      <div class="px-field">
         <label class="px-label">▸ 類別 *</label>
         <select class="px-select" id="pxExpCat" onchange="pxCheckSubmit()">
           <option value="">-- 選擇類別 --</option>
@@ -480,7 +484,7 @@
             <button id="pxTagConfirmBtn" onclick="pxConfirmTag()" disabled
               style="background:#2a4a1a;border:none;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:7px;padding:5px 10px;cursor:pointer;border-radius:3px;opacity:.35;">確認</button>
           </div>
-          <div style="font-size:6px;color:#7a9a5a;letter-spacing:1px;margin-bottom:5px;">常用標籤</div>
+          <div style="font-size:7px;color:#7a9a5a;letter-spacing:1px;margin-bottom:5px;">常用標籤</div>
           <div id="pxTagSuggestRow" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
         </div>
       </div>
