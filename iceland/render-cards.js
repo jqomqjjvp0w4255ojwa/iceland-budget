@@ -103,7 +103,7 @@ function renderDaily(expenses) {
 
     const editData = JSON.stringify({
       category: item.category, amount: item.amount, currency: item.currency,
-      location: item.location, note: item.note, date: item.date, payer: item.payer,
+      twd: item.twd, location: item.location, note: item.note, date: item.date, payer: item.payer,
       isShared: item.isShared, title: item.title, qty: item.qty,
       splitMode: item.splitMode,
       splitSel: Object.keys(item.burden||{}).filter(k=>(item.burden[k]||0)>0),

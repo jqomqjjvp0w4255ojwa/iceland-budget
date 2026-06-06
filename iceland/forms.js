@@ -115,6 +115,10 @@ window.openPxModal = function(type, prefill = null) {
 
     document.getElementById('pxExpAmt').value  = prefill?.amount || '';
     document.getElementById('pxExpCur').value  = prefill?.currency || 'NT';
+    // 台幣換算欄：編輯模式帶入已知 twd，新增模式清空
+    const twdEl = document.getElementById('pxExpTwd');
+    if (twdEl) twdEl.value = prefill?.twd ? String(prefill.twd) : '';
+    pxOnCurrencyChange(); // 根據幣別決定顯示/隱藏換算列
     document.getElementById('pxExpLoc').value  = prefill?.location || '';
     document.getElementById('pxExpNote').value = prefill?.note || '';
     document.getElementById('pxExpDate').value = prefill?.date || pxLocalNow();
@@ -248,6 +252,7 @@ window.pxToggleSplit = function(btn, name) {
 };
 
 window.pxUpdateSplit = function() {
+  pxAutoFillTwd(); // 金額確認後自動帶入換算台幣（空白時才填）
   pxUpdateSplitSummary();
   pxCheckSubmit();
 };
@@ -365,6 +370,44 @@ window.pxCloseCustomSplit = function() {
   document.getElementById('pxCustomSplitOverlay').classList.remove('show');
 };
 
+// ══ 幣別切換：顯示/隱藏換算列，並自動帶入估算值 ══
+window.pxOnCurrencyChange = function() {
+  const cur    = document.getElementById('pxExpCur')?.value || 'NT';
+  const twdRow = document.getElementById('pxTwdRow');
+  if (!twdRow) return;
+  if (cur === 'NT') {
+    twdRow.style.display = 'none';
+    const twdEl = document.getElementById('pxExpTwd');
+    if (twdEl) twdEl.value = '';
+  } else {
+    twdRow.style.display = 'flex';
+    pxAutoFillTwd();
+  }
+  pxUpdateSplit();
+};
+
+// 根據目前金額+幣別自動填入估算台幣（每次都覆蓋，讓使用者看到參考值再決定要不要改）
+window.pxAutoFillTwd = function() {
+  const twdEl = document.getElementById('pxExpTwd');
+  if (!twdEl) return;
+  const amt = parseFloat(document.getElementById('pxExpAmt')?.value) || 0;
+  const cur = document.getElementById('pxExpCur')?.value || 'NT';
+  if (cur === 'NT' || amt <= 0) return;
+  const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
+  const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
+  const est = cur === 'ISK' ? Math.round(amt * exISK)
+            : cur === 'EUR' ? Math.round(amt * exEUR)
+            : 0;
+  // 編輯模式且已有值（使用者手動填或從 prefill 帶入）→ 不覆蓋
+  if (est > 0 && !(_editMode && twdEl.value !== '')) twdEl.value = String(est);
+  pxUpdateSplit();
+};
+
+window.pxClearTwd = function() {
+  const twdEl = document.getElementById('pxExpTwd');
+  if (twdEl) { twdEl.value = ''; pxUpdateSplit(); }
+};
+
 // ══ 送出記帳（新增 or 修改） ══
 window.pxSubmitExpense = async function() {
   const amt  = parseFloat(document.getElementById('pxExpAmt').value) || 0;
@@ -376,10 +419,14 @@ window.pxSubmitExpense = async function() {
   const isShared = document.getElementById('pxExpShared').checked;
   const sel  = [..._pxSplitSel];
   const splits = {'花':0,'猴':0,'寧':0};
+  // 分攤基準：外幣用台幣換算值（手動填的優先），NT 直接用 amt
+  const _splitCur = document.getElementById('pxExpCur')?.value || 'NT';
+  const _twdForSplit = _splitCur === 'NT' ? amt
+    : (parseFloat(document.getElementById('pxExpTwd')?.value) || 0) || amt;
   if (_pxSplitMode === 'custom') {
     PX_MEMBERS.forEach(m => { splits[m] = _pxCustomAmt[m]||0; });
   } else {
-    const each = Math.round((amt/sel.length)*100)/100;
+    const each = Math.round((_twdForSplit/sel.length)*100)/100;
     sel.forEach(m => { splits[m] = each; });
   }
   const fuelMileage = cat === '加油' ? (parseFloat(document.getElementById('pxFuelMileage')?.value)||0) : 0;
@@ -393,12 +440,15 @@ window.pxSubmitExpense = async function() {
       await deleteRowFromGAS(_editSheet, _editRowIndex);
     }
     // 新增
-    // 換算台幣
+    // 換算台幣：優先用使用者手動填的值，否則用即時匯率估算
     const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
     const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
-    const twd = cur === 'NT'  ? amt :
-                cur === 'ISK' ? Math.round(amt * exISK) :
-                cur === 'EUR' ? Math.round(amt * exEUR) : amt;
+    const twdManual = parseFloat(document.getElementById('pxExpTwd')?.value);
+    const twd = cur === 'NT' ? amt
+              : (Number.isFinite(twdManual) && twdManual > 0) ? twdManual
+              : cur === 'ISK' ? Math.round(amt * exISK)
+              : cur === 'EUR' ? Math.round(amt * exEUR)
+              : amt;
     const total = twd; // 海外手續費暫不計
 
     // 先關窗讓使用者感覺快
