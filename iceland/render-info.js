@@ -84,7 +84,7 @@ function renderInfoFlights(flights) {
             <!-- 出發 -->
             <div style="text-align:center;min-width:58px;">
               <div style="font-family:'Cinzel',serif;font-size:1.1rem;color:var(--accent2);font-weight:600;line-height:1">${s.from}</div>
-              ${s.fromTerm?`<div style="font-size:.58rem;color:var(--muted)">T${s.fromTerm}</div>`:''}
+              ${s.fromTerm?`<div style="font-size:.58rem;color:var(--muted)">${s.fromTerm}</div>`:''}
               <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--text);font-weight:600;margin-top:4px;line-height:1">${dep.time||'—'}</div>
               <div style="font-size:.58rem;color:var(--muted);margin-top:1px">${dep.date}</div>
             </div>
@@ -100,7 +100,7 @@ function renderInfoFlights(flights) {
             <!-- 目的地 -->
             <div style="text-align:center;min-width:58px;">
               <div style="font-family:'Cinzel',serif;font-size:1.1rem;color:${s.isTransit?'var(--aurora3)':'var(--text)'};font-weight:600;line-height:1">${s.to}</div>
-              ${s.toTerm?`<div style="font-size:.58rem;color:var(--muted)">T${s.toTerm}</div>`:''}
+              ${s.toTerm?`<div style="font-size:.62rem;color:var(--muted)">${s.toTerm}</div>`:''}
               ${s.isTransit?`<div style="font-size:.55rem;color:var(--aurora3);margin-top:2px">轉機</div>`:''}
               <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--text);font-weight:600;margin-top:4px;line-height:1">${arr.time||'—'}</div>
               <div style="font-size:.58rem;color:var(--muted);margin-top:1px">${arr.date}</div>
@@ -162,7 +162,7 @@ function renderInfoFlights(flights) {
         const operators = [...new Set(f.segments.map(s=>s.operatedBy).filter(Boolean))].join(' · ');
         return `
           <!-- 機票摘要卡 -->
-          <div style="background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--border);
+          <div style="background:linear-gradient(135deg,#112a45,#0d2035);border:1px solid rgba(79,195,247,.25);
                       border-radius:10px;padding:12px 14px;margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
               <div>
@@ -183,18 +183,21 @@ function renderInfoFlights(flights) {
           </div>
           <!-- 去程段落 -->
           ${goSegs.length?`
-            <div style="font-size:.68rem;color:var(--accent);letter-spacing:.08em;margin:0 0 6px;
-                        display:flex;align-items:center;gap:6px;">
-              <span>去程</span>
-              <span style="font-size:.6rem;color:var(--muted)">${totalFlightTime(goSegs)||''}</span>
+            <div style="font-size:.82rem;font-weight:700;color:var(--accent);letter-spacing:.1em;margin:0 0 8px;
+                        display:flex;align-items:center;gap:8px;">
+              ✈️ 去程
+              <span style="font-size:.68rem;color:var(--muted);font-weight:400">${totalFlightTime(goSegs)||''}</span>
+              <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(79,195,247,.4),transparent)"></div>
             </div>
             ${segDetails(goSegs,'去程')}`:''}
           <!-- 回程段落 -->
           ${retSegs.length?`
-            <div style="font-size:.68rem;color:#a78bfa;letter-spacing:.08em;margin:12px 0 6px;
-                        display:flex;align-items:center;gap:6px;">
-              <span>回程</span>
-              <span style="font-size:.6rem;color:var(--muted)">${totalFlightTime(retSegs)||''}</span>
+            <div style="font-size:.82rem;font-weight:700;color:#a78bfa;letter-spacing:.1em;margin:18px 0 8px;
+                        padding-top:14px;border-top:1px dashed rgba(167,139,250,.3);
+                        display:flex;align-items:center;gap:8px;">
+              ✈️ 回程
+              <span style="font-size:.68rem;color:var(--muted);font-weight:400">${totalFlightTime(retSegs)||''}</span>
+              <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(167,139,250,.4),transparent)"></div>
             </div>
             ${segDetails(retSegs,'回程')}`:''}`;
       }).join('')}

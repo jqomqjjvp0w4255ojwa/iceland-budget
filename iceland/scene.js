@@ -370,7 +370,8 @@
     if (el) {
       const text = getBubbleText(name);
       if (text) {
-        el.textContent = text;
+        // 讓 NT$數字 顯示金色
+        el.innerHTML = text.replace(/(NT\\$[\d,]+)/g, '<span style="color:#f0c040;font-weight:700">$1</span>');
         requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
       }
     }

@@ -429,6 +429,7 @@
         </div>
         <div class="px-gb-msg safe" id="pxMsg">▶ 讀取中...</div>
       </div>
+  </div>
   <div id="mainContent">
     <div class="loading"><div class="spinner"></div><div>正在讀取資料…</div></div>
   </div>
@@ -886,6 +887,11 @@ window.pxResetQty = function() {
     const panel   = document.getElementById('pxTagPanel');
     if (panel) { panel.style.maxHeight='0'; panel.style.opacity='0'; panel.style.marginTop='0'; }
     _buildTagChips();
+  };
+  window.pxCloseTagPanel = function() {
+    _panelOpen = false;
+    const panel = document.getElementById('pxTagPanel');
+    if (panel) { panel.style.maxHeight='0'; panel.style.opacity='0'; panel.style.marginTop='0'; }
   };
   window.pxLoadTags = function(tagsStr) {
     _selectedTags = tagsStr ? tagsStr.split(',').map(t=>t.trim()).filter(Boolean) : [];

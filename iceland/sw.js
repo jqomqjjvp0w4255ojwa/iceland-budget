@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iceland-budget-v21.92';
+const CACHE_NAME = 'iceland-budget-v21.93';
 
 const ASSETS = [
   '/iceland-budget/iceland/',
