@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE = "https://script.google.com/macros/s/AKfycbw4hh0QMfW4cd4NBn6sfShPEwrtNKLXSaUmCFq62tioWlr0Uq9M0q47l_NGZGyhORRc/exec";
+  const API_BASE = "https://script.google.com/macros/s/AKfycbxVs5xLxwgYAQ1rURJUD5WwshlxkQvyTeR8esduG8XxKHwsgNsmo4Uw8975C9I6w2Bj/exec";
   window._GAS_BASE = API_BASE; // forms.js 寫入用
   const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
 
@@ -130,17 +130,17 @@
     // ── 還款記錄（複用已含 _rowIndex 的 splitRows）
     const repayHistory = splitRows
       .filter(row => {
-        const from = String(row['還款人'] ?? '').trim();
-        const to   = String(row['還給'] ?? '').trim();
+        const from = String(row['誰還錢'] ?? row['還款人'] ?? '').trim();
+        const to   = String(row['還給誰'] ?? row['還給'] ?? '').trim();
         return from && to;
       })
       .map(row => ({
         _rowIndex: row._rowIndex,
-        from:   String(row['還款人'] ?? '').trim(),
-        to:     String(row['還給'] ?? '').trim(),
-        amount: num(pick(row, ['還款金額', '金額'])),
+        from:   String(row['誰還錢']   ?? row['還款人'] ?? '').trim(),
+        to:     String(row['還給誰']   ?? row['還給']   ?? '').trim(),
+        amount: num(pick(row, ['金額', '還款金額'])),
         date:   String(row['還款日期'] ?? '').trim(),
-        note:   String(row['備註'] ?? '').trim(),
+        note:   String(row['備註']     ?? '').trim(),
       }))
       .filter(r => r.amount > 0);
 
@@ -163,6 +163,7 @@
         burden:     { '猴': num(row['猴負擔']), '花': num(row['花負擔']), '寧': num(row['寧負擔']) },
         note:       String(row['備註']   ?? '').trim(),
         title:      String(row['品項']   ?? '').trim(),
+        qty:        num(pick(row, ['數量'], 1)) || 1,
         isShared:   yes(pick(row, ['共同消費?'])),
         fuelBrand:  String(row['品牌(油)'] ?? '').trim(),
         fuelMileage:num(pick(row, ['目前里程 (km)'])),

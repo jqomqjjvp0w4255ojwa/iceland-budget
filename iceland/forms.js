@@ -367,7 +367,7 @@ window.pxSubmitExpense = async function() {
   const fuelMileage = cat === '加油' ? (parseFloat(document.getElementById('pxFuelMileage')?.value)||0) : 0;
   const fuelLiters  = cat === '加油' ? (parseFloat(document.getElementById('pxFuelLiters')?.value)||0)  : 0;
   const fuelBrand   = cat === '加油' ? (window.pxGetSelectedBrand?.() || document.getElementById('pxFuelBrand')?.value||'') : '';
-  const tags        = cat === '雜支' ? (window.pxGetSelectedTags?.() || []).join(',') : '';
+  const tags        = (window.pxGetSelectedTags?.() || []).join(',');
 
   try {
     // 修改模式：先刪舊的
@@ -383,8 +383,11 @@ window.pxSubmitExpense = async function() {
                 cur === 'EUR' ? Math.round(amt * exEUR) : amt;
     const total = twd; // 海外手續費暫不計
 
+    // 先關窗讓使用者感覺快
+    window.cancelPxModal('pxModalExpense');
+    setSyncState?.('syncing','記帳中…');
     await postToGAS({
-      action: 'addExpense', title: (document.getElementById('pxExpTitle')?.value||'').trim(), category: cat, amount: amt, currency: cur,
+      action: 'addExpense', title: (document.getElementById('pxExpTitle')?.value||'').trim(), qty: parseInt(document.getElementById('pxExpQty')?.textContent||'1')||1, category: cat, amount: amt, currency: cur,
       twd, foreignFee: 0, total,
       payer: _pxPayer,
       splitMode: [..._pxSplitSel].join(','),
@@ -392,8 +395,6 @@ window.pxSubmitExpense = async function() {
       date, location: loc, note, isShared,
       fuelMileage, fuelLiters, fuelBrand, tags,
     });
-    window.cancelPxModal('pxModalExpense');
-    alert(_editMode ? '[ ✓ 已修改！]' : '[ ✓ 已記錄！]');
     window.__syncIcelandBudgetFromSheets?.();
   } catch(e) {
     alert('送出失敗：' + e.message);
@@ -468,9 +469,9 @@ window.pxSubmitRepay = async function() {
     if (_editMode && _editRowIndex) {
       await deleteRowFromGAS(_editSheet, _editRowIndex);
     }
-    await postToGAS({ action: 'addRepay', from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note });
     window.cancelPxModal('pxModalRepay');
-    alert(_editMode ? '[ ✓ 已修改還款！]' : '[ ✓ 已記錄還款！]');
+    setSyncState?.('syncing','還款記錄中…');
+    await postToGAS({ action: 'addRepay', from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note });
     window.__syncIcelandBudgetFromSheets?.();
   } catch(e) {
     alert('送出失敗：' + e.message);
