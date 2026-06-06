@@ -197,7 +197,7 @@ window.pxExecuteDelete = async function() {
   overlay.classList.remove('show');
   try {
     await deleteRowFromGAS(sheet, rowIndex);
-    alert('[ ✓ 已刪除！]\nGAS 串接後會同步從 Sheet 移除。');
+    // 刪除成功，靜默重新同步
     window.__syncIcelandBudgetFromSheets?.();
   } catch(e) {
     alert('刪除失敗：' + e.message);

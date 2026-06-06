@@ -1,28 +1,33 @@
 (function () {
   const API_BASE = "https://script.google.com/macros/s/AKfycbxrisuVM_nVOY3blMe0mA9Gz56odhPdQukXU-kv_EVIAPcTHVkQzrpJWn3G0-ULGyzb/exec";
-  window._GAS_BASE = API_BASE; // forms.js 寫入用
+  window._GAS_BASE = API_BASE;
   const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
+
   function num(value) {
-    if (typeof value === 'number') return value;
-    const n = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
+    const s = String(value ?? '').trim();
+    // 會計格式負數：(1,234) 或 (1234) → -1234
+    if (/^\([\d,. ]+\)$/.test(s)) {
+      const n = Number(s.replace(/[^\d.]/g, ''));
+      return Number.isFinite(n) ? -n : 0;
+    }
+    const n = Number(s.replace(/[^\d.-]/g, ''));
     return Number.isFinite(n) ? n : 0;
   }
+
   function yes(value) {
     const s = String(value ?? '').trim().toLowerCase();
     return ['true', 'yes', 'y', '1', '✓', '勾選', '已付', '已付款'].includes(s);
   }
 
-  // cells 二維陣列 → [{欄位名: 值}] rows 格式
-  // withRowIndex: true 時每筆加上 _rowIndex（供刪除/修改用，只對寫入類 sheet 啟用）
   function cellsToRows(sheet, withRowIndex = false) {
     const cells = sheet?.cells;
     if (!Array.isArray(cells) || cells.length < 2) return [];
     const headers = cells[0].map(h => String(h ?? '').trim());
     return cells.slice(1).map((row, i) => {
       const obj = {};
-      if (withRowIndex) obj._rowIndex = i + 2; // +2：第1行是header，試算表從1起算
+      if (withRowIndex) obj._rowIndex = i + 2;
       headers.forEach((h, j) => { if (h) obj[h] = row[j] ?? ''; });
       return obj;
     });
@@ -35,7 +40,6 @@
 
   function transformData({ overview, accommodation, car, activity, split, lines, flight, expense }) {
 
-    // ── 匯率（總覽）
     const oCells = overview?.cells ?? [];
     const iskRow = oCells.find(r => r.includes('ISK')) || [];
     const eurRow = oCells.find(r => r.includes('EUR')) || [];
@@ -44,11 +48,9 @@
     const exchangeISK = iskIdx >= 0 ? num(iskRow[iskIdx + 1]) : (window.STATIC?.exchangeISK ?? 0);
     const exchangeEUR = eurIdx >= 0 ? num(eurRow[eurIdx + 1]) : (window.STATIC?.exchangeEUR ?? 0);
 
-    // ── 花銷類別清單（總覽 M 欄，由 GAS 回傳 expenseCategories）
     const expenseCategories = (overview?.expenseCategories || []).filter(Boolean);
-    const budgetPerPerson = num(oCells?.[1]?.[9]) || 100000; // 總覽 J2
+    const budgetPerPerson = num(oCells?.[1]?.[9]) || 100000;
 
-    // ── 住宿
     const accomRows = cellsToRows(accommodation);
     const accom = accomRows
       .filter(row => {
@@ -72,7 +74,6 @@
       }))
       .filter(item => item.name);
 
-    // ── 租車
     const carRows = cellsToRows(car);
     const carRow = carRows.find(row => Object.values(row).some(v => String(v ?? '').trim() !== '')) || {};
     const carData = {
@@ -98,8 +99,7 @@
     if (d1Row) carData.driver1 = String(d1Row[0]).replace(/主要駕駛[:：]?/, '').trim();
     if (d2Row) carData.driver2 = String(d2Row[0]).replace(/額外駕駛[:：]?/, '').trim();
 
-    // ── 分帳明細
-    const splitRows = cellsToRows(split, true);  // 需要 rowIndex 供還款刪除用
+    const splitRows = cellsToRows(split, true);
     const splitData = {};
     splitRows
       .filter(row => ['猴','花','寧'].some(m => String(row['成員'] ?? '').includes(m)))
@@ -114,7 +114,6 @@
         };
       });
 
-    // ── 台詞
     const linesRows = cellsToRows(lines);
     const dialogLines = {};
     linesRows.forEach(row => {
@@ -127,7 +126,6 @@
       dialogLines[char][state] = [line1, line2].filter(Boolean);
     });
 
-    // ── 還款記錄（複用已含 _rowIndex 的 splitRows）
     const repayHistory = splitRows
       .filter(row => {
         const from = String(row['誰還錢'] ?? row['還款人'] ?? '').trim();
@@ -144,7 +142,6 @@
       }))
       .filter(r => r.amount > 0);
 
-    // ── 一般開銷（含油費，類別=油費時油費欄位才有值）
     const expenseRows = cellsToRows(expense, true);
     const expenses = expenseRows
       .filter(row => num(pick(row, ['合計', '換算台幣'])) > 0)
@@ -172,7 +169,6 @@
         fuelEfficiency: num(pick(row, ['平均油耗'])),
       }));
 
-    // ── 航班（依機票編號分組）
     const flightRows = cellsToRows(flight);
     const flightByTicket = {};
     flightRows.forEach(row => {
@@ -181,8 +177,7 @@
       if (!ticketNo || !person) return;
       if (!flightByTicket[ticketNo]) {
         flightByTicket[ticketNo] = {
-          ticketNo,
-          person,
+          ticketNo, person,
           type:     String(row['票種']      ?? '').trim(),
           airline:  String(row['航空公司']   ?? '').trim(),
           from:     String(row['最初出發地'] ?? '').trim(),
@@ -221,77 +216,58 @@
 
     const flights = Object.values(flightByTicket);
     const totalFlightTWD = flights.reduce((s, f) => s + (f.totalTWD || 0), 0);
-
-    // tag 庫：從 expense sheet U 欄掃描
     const tagLibrary = (expense?.tagLibrary || []).filter(Boolean);
 
     return {
-      exchangeISK,
-      exchangeEUR,
-      expenseCategories,
-      budgetPerPerson,
-      tagLibrary,
+      exchangeISK, exchangeEUR, expenseCategories, budgetPerPerson, tagLibrary,
       car: carData,
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
       activity: cellsToRows(activity),
-      expenses,
-      split: splitData,
-      dialogLines,
-      flights,
-      totalFlightTWD,
-      repayHistory,
+      expenses, split: splitData, dialogLines, flights, totalFlightTWD, repayHistory,
     };
   }
 
-  async function fetchSheet(sheetKey) {
-    const sheetName = SHEET_MAP[sheetKey] || sheetKey;
-    const res = await fetch(API_BASE + '?sheet=' + encodeURIComponent(sheetName), { cache: 'no-store', redirect: 'follow' });
-    if (!res.ok) throw new Error(`${sheetKey} 讀取失敗：HTTP ${res.status}`);
-    return res.json();
-  }
-
   window.__syncIcelandBudgetFromSheets = async function () {
-  if (!navigator.onLine) {
-    const cachedData = localStorage.getItem('cached_iceland_budget');
-    if (cachedData) {
-      window.APP_DATA = JSON.parse(cachedData);
-      window.renderAll?.();
-      window.setSyncState?.('offline', '🔋 離線中，使用上次同步資料');
-    } else {
-      window.APP_DATA = clone(window.STATIC ?? {});
-      window.renderAll?.();
-      window.setSyncState?.('offline', '離線中，無暫存，使用預設資料');
+    if (!navigator.onLine) {
+      const cachedData = localStorage.getItem('cached_iceland_budget');
+      if (cachedData) {
+        window.APP_DATA = JSON.parse(cachedData);
+        window.renderAll?.();
+        window.setSyncState?.('offline', '🔋 離線中，使用上次同步資料');
+      } else {
+        window.APP_DATA = clone(window.STATIC ?? {});
+        window.renderAll?.();
+        window.setSyncState?.('offline', '離線中，無暫存，使用預設資料');
+      }
+      return;
     }
-    return;
-  }
 
-  const hasCached = !!localStorage.getItem('cached_iceland_budget');
-  if (!hasCached) window.setSyncState?.('syncing', '同步中…');
+    const hasCached = !!localStorage.getItem('cached_iceland_budget');
+    if (!hasCached) window.setSyncState?.('syncing', '同步中…');
 
-  try {
-    // ── 單一請求取得全部 sheets（GAS ?sheet=all）
-    const res = await fetch(API_BASE + '?sheet=all', { cache: 'no-store', redirect: 'follow' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const all = await res.json();
-    if (all.error) throw new Error(all.error);
-    const { overview, accommodation, car, activity, split, lines, flight, expense } = all;
+    try {
+      const res = await fetch(API_BASE + '?sheet=all', { cache: 'no-store', redirect: 'follow' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const all = await res.json();
+      if (all.error) throw new Error(all.error);
+      const { overview, accommodation, car, activity, split, lines, flight, expense } = all;
 
-    window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
-    localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
-    window.renderAll?.();
-    window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+      window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
+      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+      window.renderAll?.();
+      window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
 
-  } catch (error) {
-    console.error(error);
-    const cachedData = localStorage.getItem('cached_iceland_budget');
-    if (cachedData) {
-      window.APP_DATA = JSON.parse(cachedData);
-      window.setSyncState?.('local', '⚠ 雲端讀取失敗，使用上次同步資料');
-    } else {
-      window.APP_DATA = clone(window.STATIC ?? {});
-      window.setSyncState?.('local', '⚠ 雲端讀取失敗，使用預設初始資料');
+    } catch (error) {
+      console.error(error);
+      const cachedData = localStorage.getItem('cached_iceland_budget');
+      if (cachedData) {
+        window.APP_DATA = JSON.parse(cachedData);
+        window.setSyncState?.('local', '⚠ 雲端讀取失敗，使用上次同步資料');
+      } else {
+        window.APP_DATA = clone(window.STATIC ?? {});
+        window.setSyncState?.('local', '⚠ 雲端讀取失敗，使用預設初始資料');
+      }
+      window.renderAll?.();
     }
-    window.renderAll?.();
-  }
-};
+  };
 })();
