@@ -402,32 +402,58 @@ function renderTransport(d) {
     const isFuel = item.category === '加油';
     const burdenTags = ['猴','花','寧'].filter(m=>(item.burden?.[m]||0)>0)
       .map(m=>`<span style="display:inline-flex;align-items:center;gap:2px;font-size:.62rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted)">${avatarSvg(m)} NT$${Math.round(item.burden[m]).toLocaleString()}</span>`).join('');
+    const label = `${item.category||''} ${item.location||''} NT$${Math.round(item.total||item.twd||0).toLocaleString()}`;
+    const editData = JSON.stringify({
+      category: item.category, amount: item.amount, currency: item.currency,
+      twd: item.twd, location: item.location, note: item.note, date: item.date, payer: item.payer,
+      isShared: item.isShared, title: item.title, qty: item.qty,
+      splitMode: item.splitMode,
+      splitSel: Object.keys(item.burden||{}).filter(k=>(item.burden[k]||0)>0),
+      customAmt: item.burden||{},
+      tags: item.tags||'',
+      fuelBrand: item.fuelBrand||'', fuelMileage: item.fuelMileage||0,
+      fuelLiters: item.fuelLiters||0, fuelEfficiency: item.fuelEfficiency||0,
+    }).replace(/"/g,'&quot;');
     return `
-      <div class="card paid-card" style="margin-bottom:8px;">
-        <div style="padding:10px 14px 10px;">
-          <!-- 第一行：[類別] ---- NT金額 -->
-          <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
-            <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${icon}</span>
-            <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
-            <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);white-space:nowrap;">${fmt(item.total||item.twd)}</span>
-          </div>
-          <!-- 第二行：地點 | 品牌（加油才有品牌） -->
-          ${(item.location||item.fuelBrand)?`<div style="font-size:.75rem;color:var(--text);margin-bottom:${isFuel?'3px':'5px'}">
-            ${[item.location, item.fuelBrand].filter(Boolean).join(' | ')}
-          </div>`:''}
-          <!-- 加油專屬：公升 | 里程 -->
-          ${isFuel&&(item.fuelLiters||item.fuelMileage)?`<div style="font-size:.65rem;color:var(--muted);margin-bottom:5px;display:flex;gap:8px;">
-            ${item.fuelLiters?`<span>${item.fuelLiters} L</span>`:''}
-            ${item.fuelMileage?`<span>📍 ${Number(item.fuelMileage).toLocaleString()} km</span>`:''}
-            ${item.fuelEfficiency?`<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>`:''}
-          </div>`:''}
-          <!-- tag -->
-          ${item.tags?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${item.tags.split(',').filter(Boolean).map(t=>`<span style="background:rgba(42,74,26,.35);border:1px solid rgba(42,74,26,.5);color:#c8d8a8;font-size:.65rem;padding:2px 8px;border-radius:999px;font-family:'Silkscreen',monospace;">${t.trim()}</span>`).join('')}</div>`:''}
-          <!-- 底部：[付款人] [每人負擔...] 日期 -->
-          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px;">
-            ${item.payer?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(76,175,110,.12);border:1px solid rgba(76,175,110,.3);border-radius:4px;padding:1px 6px;font-size:.62rem;color:var(--green);">${avatarSvg(item.payer)} 付款</span>`:''}
-            ${burdenTags}
-            <span style="margin-left:auto;font-size:.62rem;color:var(--muted)">${date}</span>
+      <div class="swipe-card-wrap" style="margin-bottom:8px;">
+        <div class="swipe-card-actions">
+          <button class="swipe-action-btn edit"
+            onclick="openEditExpense(${item._rowIndex ?? -1}, JSON.parse(this.dataset.d))"
+            data-d="${editData}"${(item._rowIndex === -1 || item._rowIndex == null) ? ' disabled title="同步中，請稍候再修改"' : ''}>
+            <span>✏️</span>修改
+          </button>
+          <button class="swipe-action-btn delete"
+            onclick="pxConfirmDelete(${item._rowIndex ?? -1},'expense','${label.replace(/'/g,'')}')">
+            <span>🗑️</span>刪除
+          </button>
+        </div>
+        <div class="swipe-card-content card paid-card" style="position:relative;">
+          <span class="swipe-hint" title="點擊或滑動可修改/刪除" onclick="this.closest('.swipe-card-wrap').classList.toggle('open')">⋮</span>
+          <div style="padding:10px 14px 10px;">
+            <!-- 第一行：[類別] ---- NT金額 -->
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
+              <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${icon}</span>
+              <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
+              <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);white-space:nowrap;">${fmt(item.total||item.twd)}</span>
+            </div>
+            <!-- 第二行：地點 | 品牌（加油才有品牌） -->
+            ${(item.location||item.fuelBrand)?`<div style="font-size:.75rem;color:var(--text);margin-bottom:${isFuel?'3px':'5px'}">
+              ${[item.location, item.fuelBrand].filter(Boolean).join(' | ')}
+            </div>`:''}
+            <!-- 加油專屬：公升 | 里程 -->
+            ${isFuel&&(item.fuelLiters||item.fuelMileage)?`<div style="font-size:.65rem;color:var(--muted);margin-bottom:5px;display:flex;gap:8px;">
+              ${item.fuelLiters?`<span>${item.fuelLiters} L</span>`:''}
+              ${item.fuelMileage?`<span>📍 ${Number(item.fuelMileage).toLocaleString()} km</span>`:''}
+              ${item.fuelEfficiency?`<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>`:''}
+            </div>`:''}
+            <!-- tag -->
+            ${item.tags?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${item.tags.split(',').filter(Boolean).map(t=>`<span style="background:rgba(42,74,26,.35);border:1px solid rgba(42,74,26,.5);color:#c8d8a8;font-size:.65rem;padding:2px 8px;border-radius:999px;font-family:'Silkscreen',monospace;">${t.trim()}</span>`).join('')}</div>`:''}
+            <!-- 底部：[付款人] [每人負擔...] 日期 -->
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px;">
+              ${item.payer?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(76,175,110,.12);border:1px solid rgba(76,175,110,.3);border-radius:4px;padding:1px 6px;font-size:.62rem;color:var(--green);">${avatarSvg(item.payer)} 付款</span>`:''}
+              ${burdenTags}
+              <span style="margin-left:auto;font-size:.62rem;color:var(--muted)">${date}</span>
+            </div>
           </div>
         </div>
       </div>`;
@@ -438,13 +464,22 @@ function renderTransport(d) {
   const parkCard = (currentFilter === 'all' || currentFilter === 'parking') ?
     (parkItems.length ? parkItems.map(item => transportItemCard(item,'🅿 停車','')).join('')
     : `<div class="empty" style="padding:16px;margin-bottom:8px;">🅿 旅途中停車費記錄會顯示在這裡</div>`) : '';
-  return `<div class="filter-row">${filterBtns}</div>${carCard}${flightCards}${fuelCard}${parkCard}`;
+  const result = `<div class="filter-row">${filterBtns}</div>${carCard}${flightCards}${fuelCard}${parkCard}`;
+  setTimeout(() => {
+    const el = document.getElementById('carContent');
+    if (el) window.initSwipeCards(el);
+  }, 50);
+  return result;
 }
 
 window.setTransportFilter = function(f) {
   window._transportFilter = f;
   const d = window.APP_DATA || window.STATIC;
-  document.getElementById('carContent').innerHTML = renderTransport(d);
+  const el = document.getElementById('carContent');
+  if (el) {
+    el.innerHTML = renderTransport(d);
+    window.initSwipeCards(el);
+  }
 };
 
 function renderCar(car){
