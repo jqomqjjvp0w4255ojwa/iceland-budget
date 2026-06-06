@@ -6,6 +6,40 @@ let _pxSplitMode = 'equal';
 let _pxSplitSel  = new Set(['花','猴','寧']);
 let _pxCustomAmt = {'花':0,'猴':0,'寧':0};
 let _twdManualEdited = false; // 使用者手動改過換算台幣
+let _isSubmitting = false; // 防止重複送出
+
+// 背景送出 GAS，立刻更新畫面不等待
+function bgSync(label) {
+  setSyncState?.('syncing', label || '同步中…');
+  window.__syncIcelandBudgetFromSheets?.().then(() => {
+    // 同步成功後不需要特別提示，setSyncState 已更新
+  }).catch(e => {
+    setSyncState?.('local', '⚠ 同步失敗，下次開啟會重試');
+  });
+}
+
+// 樂觀更新本地快取：把新資料立刻塞進 APP_DATA 並重繪
+function optimisticAdd(type, item) {
+  if (!window.APP_DATA) return;
+  if (type === 'expense') {
+    window.APP_DATA.expenses = [item, ...(window.APP_DATA.expenses||[])];
+  } else if (type === 'repay') {
+    window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory||[]), item];
+  }
+  localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+  window.renderAll?.();
+}
+
+function optimisticDelete(type, rowIndex) {
+  if (!window.APP_DATA) return;
+  if (type === 'expense') {
+    window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e => e._rowIndex !== rowIndex);
+  } else if (type === 'repay') {
+    window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => r._rowIndex !== rowIndex);
+  }
+  localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+  window.renderAll?.();
+}
 let _pxRepayFrom = '';
 let _pxRepayTo   = '';
 const PX_MEMBERS = ['花','猴','寧'];
@@ -196,18 +230,20 @@ window.pxConfirmDelete = function(rowIndex, sheet, label) {
   overlay._sheet    = sheet;
 };
 
-window.pxExecuteDelete = async function() {
+window.pxExecuteDelete = function() {
   const overlay = document.getElementById('pxDeleteOverlay');
   const rowIndex = overlay._rowIndex;
   const sheet    = overlay._sheet;
   overlay.classList.remove('show');
-  try {
-    await deleteRowFromGAS(sheet, rowIndex);
-    // 刪除成功，靜默重新同步
-    window.__syncIcelandBudgetFromSheets?.();
-  } catch(e) {
-    alert('刪除失敗：' + e.message);
-  }
+
+  // 立刻樂觀更新畫面
+  const type = sheet === 'expense' ? 'expense' : 'repay';
+  optimisticDelete(type, rowIndex);
+
+  // 背景送 GAS
+  deleteRowFromGAS(sheet, rowIndex)
+    .then(() => bgSync('刪除同步中…'))
+    .catch(() => setSyncState?.('local', '⚠ 刪除失敗，請重新同步'));
 };
 
 window.pxCancelDelete = function() {
@@ -463,39 +499,53 @@ window.pxSubmitExpense = async function() {
   const fuelBrand   = cat === '加油' ? (window.pxGetSelectedBrand?.() || document.getElementById('pxFuelBrand')?.value||'') : '';
   const tags        = (window.pxGetSelectedTags?.() || []).join(',');
 
-  try {
-    // 修改模式：先刪舊的
-    if (_editMode && _editRowIndex) {
-      await deleteRowFromGAS(_editSheet, _editRowIndex);
-    }
-    // 新增
-    // 換算台幣：優先用使用者手動填的值，否則用即時匯率估算
-    const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
-    const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
-    const twdManual = parseFloat(document.getElementById('pxExpTwd')?.value);
-    const twd = cur === 'NT' ? amt
-              : (Number.isFinite(twdManual) && twdManual > 0) ? twdManual
-              : cur === 'ISK' ? Math.round(amt * exISK)
-              : cur === 'EUR' ? Math.round(amt * exEUR)
-              : amt;
-    const total = twd; // 海外手續費暫不計
+  if (_isSubmitting) return;
+  _isSubmitting = true;
 
-    // 先關窗讓使用者感覺快
-    window.cancelPxModal('pxModalExpense');
-    setSyncState?.('syncing','記帳中…');
-    await postToGAS({
-      action: 'addExpense', title: (document.getElementById('pxExpTitle')?.value||'').trim(), qty: parseInt(document.getElementById('pxExpQty')?.value||'1')||1, category: cat, amount: amt, currency: cur,
-      twd, foreignFee: 0, total,
-      payer: _pxPayer,
-      splitMode: [..._pxSplitSel].join(','),
-      'split花': splits['花'], 'split猴': splits['猴'], 'split寧': splits['寧'],
-      date, location: loc, note, isShared,
-      fuelMileage, fuelLiters, fuelBrand, tags,
-    });
-    window.__syncIcelandBudgetFromSheets?.();
-  } catch(e) {
-    alert('送出失敗：' + e.message);
+  // 換算台幣：優先用使用者手動填的值，否則用即時匯率估算
+  const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
+  const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
+  const twdManual = parseFloat(document.getElementById('pxExpTwd')?.value);
+  const twd = cur === 'NT' ? amt
+            : (Number.isFinite(twdManual) && twdManual > 0) ? twdManual
+            : cur === 'ISK' ? Math.round(amt * exISK)
+            : cur === 'EUR' ? Math.round(amt * exEUR)
+            : amt;
+  const total = twd;
+  const title = (document.getElementById('pxExpTitle')?.value||'').trim();
+  const qty   = parseInt(document.getElementById('pxExpQty')?.value||'1')||1;
+
+  const payload = {
+    action: _editMode ? 'editExpense' : 'addExpense',
+    rowIndex: _editMode ? _editRowIndex : undefined,
+    title, qty, category: cat, amount: amt, currency: cur,
+    twd, foreignFee: 0, total,
+    payer: _pxPayer,
+    splitMode: [..._pxSplitSel].join(','),
+    'split花': splits['花'], 'split猴': splits['猴'], 'split寧': splits['寧'],
+    date, location: loc, note, isShared,
+    fuelMileage, fuelLiters, fuelBrand, tags,
+  };
+
+  // 立刻關窗、樂觀更新畫面
+  window.cancelPxModal('pxModalExpense');
+  if (_editMode) {
+    optimisticDelete('expense', _editRowIndex);
   }
+  optimisticAdd('expense', {
+    _rowIndex: -1, // 暫時行號，背景同步後會更新
+    category: cat, amount: amt, currency: cur, twd, total,
+    payer: _pxPayer, date, location: loc, note, isShared, title, qty,
+    splitMode: [..._pxSplitSel].join(','),
+    burden: { '花': splits['花'], '猴': splits['猴'], '寧': splits['寧'] },
+    tags,
+  });
+
+  // 背景送 GAS，不等待
+  _isSubmitting = false;
+  postToGAS(payload)
+    .then(() => bgSync('記帳同步中…'))
+    .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'));
 };
 
 // ══ 還錢：卷軸選擇（同圓餅圖邏輯）══
@@ -567,17 +617,29 @@ window.pxSubmitRepay = async function() {
   const amt  = parseFloat(document.getElementById('pxRepayAmt').value) || 0;
   const date = document.getElementById('pxRepayDate').value || pxLocalNow();
   const note = document.getElementById('pxRepayNote').value;
-  try {
-    if (_editMode && _editRowIndex) {
-      await deleteRowFromGAS(_editSheet, _editRowIndex);
-    }
-    window.cancelPxModal('pxModalRepay');
-    setSyncState?.('syncing','還款記錄中…');
-    await postToGAS({ action: 'addRepay', from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note });
-    window.__syncIcelandBudgetFromSheets?.();
-  } catch(e) {
-    alert('送出失敗：' + e.message);
+  if (_isSubmitting) return;
+  _isSubmitting = true;
+
+  const payload = {
+    action: _editMode ? 'editRepay' : 'addRepay',
+    rowIndex: _editMode ? _editRowIndex : undefined,
+    from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
+  };
+
+  // 立刻關窗、樂觀更新
+  window.cancelPxModal('pxModalRepay');
+  if (_editMode) {
+    optimisticDelete('repay', _editRowIndex);
   }
+  optimisticAdd('repay', {
+    _rowIndex: -1,
+    from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
+  });
+
+  _isSubmitting = false;
+  postToGAS(payload)
+    .then(() => bgSync('還款同步中…'))
+    .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'));
 };
 
 // ══ 像素算盤 ══
