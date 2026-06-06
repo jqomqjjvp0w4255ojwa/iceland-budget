@@ -20,18 +20,6 @@ function bgSync(label) {
   }, 3000);
 }
 
-// 樂觀更新本地快取：把新資料立刻塞進 APP_DATA 並重繪
-function optimisticAdd(type, item) {
-  if (!window.APP_DATA) return;
-  if (type === 'expense') {
-    window.APP_DATA.expenses = [item, ...(window.APP_DATA.expenses||[])];
-    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
-  } else if (type === 'repay') {
-    window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory||[]), item];
-    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
-  }
-  localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
-}
 
 function optimisticDelete(type, rowIndex) {
   if (!window.APP_DATA) return;
@@ -45,32 +33,32 @@ function optimisticDelete(type, rowIndex) {
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
 }
 
-// 樂觀更新：修改模式原地替換；若找不到（例如首次新增後尚未拿到真實行號）則加到頂部
-function optimisticEdit(type, rowIndex, newItem) {
+// 樂觀更新：找到那筆換掉，找不到就加到頂部
+function optimisticUpdate(type, rowIndex, newItem) {
   if (!window.APP_DATA) return;
+  const isEdit = rowIndex != null && Number(rowIndex) > 0;
   if (type === 'expense') {
     const list = window.APP_DATA.expenses || [];
-    const idx = list.findIndex(e => Number(e._rowIndex) === Number(rowIndex));
-    if (idx !== -1) {
-      const next = [...list];
-      next[idx] = { ...newItem };
-      window.APP_DATA.expenses = next;
+    if (isEdit) {
+      const i = list.findIndex(e => Number(e._rowIndex) === Number(rowIndex));
+      if (i !== -1) { list[i] = newItem; }
+      else { list.unshift(newItem); }
+      window.APP_DATA.expenses = [...list];
     } else {
-      // 找不到就當新增（理論上不該發生，保險用）
       window.APP_DATA.expenses = [newItem, ...list];
     }
-    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
+    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses));
   } else if (type === 'repay') {
     const list = window.APP_DATA.repayHistory || [];
-    const idx = list.findIndex(r => Number(r._rowIndex) === Number(rowIndex));
-    if (idx !== -1) {
-      const next = [...list];
-      next[idx] = { ...newItem };
-      window.APP_DATA.repayHistory = next;
+    if (isEdit) {
+      const i = list.findIndex(r => Number(r._rowIndex) === Number(rowIndex));
+      if (i !== -1) { list[i] = newItem; }
+      else { list.push(newItem); }
+      window.APP_DATA.repayHistory = [...list];
     } else {
       window.APP_DATA.repayHistory = [...list, newItem];
     }
-    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
+    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory, window.APP_DATA.split || {}));
   }
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
 }
@@ -625,11 +613,7 @@ window.pxSubmitExpense = async function(nextMode = false) {
     burden: { '花': splits['花'], '猴': splits['猴'], '寧': splits['寧'] },
     tags,
   };
-  if (_editMode) {
-    optimisticEdit('expense', _editRowIndex, optimisticItem);
-  } else {
-    optimisticAdd('expense', optimisticItem);
-  }
+  optimisticUpdate('expense', _editMode ? _editRowIndex : null, optimisticItem);
 
   // 背景送 GAS，不等待
   _isSubmitting = false;
@@ -722,11 +706,7 @@ window.pxSubmitRepay = async function() {
     _rowIndex: _editMode ? _editRowIndex : -1,
     from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
   };
-  if (_editMode) {
-    optimisticEdit('repay', _editRowIndex, optimisticRepayItem);
-  } else {
-    optimisticAdd('repay', optimisticRepayItem);
-  }
+  optimisticUpdate('repay', _editMode ? _editRowIndex : null, optimisticRepayItem);
 
   _isSubmitting = false;
   postToGAS(payload)
