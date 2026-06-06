@@ -5,6 +5,7 @@ let _pxPayer     = '';
 let _pxSplitMode = 'equal';
 let _pxSplitSel  = new Set(['花','猴','寧']);
 let _pxCustomAmt = {'花':0,'猴':0,'寧':0};
+let _twdManualEdited = false; // 使用者手動改過換算台幣
 let _pxRepayFrom = '';
 let _pxRepayTo   = '';
 const PX_MEMBERS = ['花','猴','寧'];
@@ -118,6 +119,7 @@ window.openPxModal = function(type, prefill = null) {
     // 台幣換算欄：編輯模式帶入已知 twd，新增模式清空
     const twdEl = document.getElementById('pxExpTwd');
     if (twdEl) twdEl.value = prefill?.twd ? String(prefill.twd) : '';
+    _twdManualEdited = !!prefill?.twd; // 編輯模式帶入的值視為手動，不覆蓋
     pxOnCurrencyChange(); // 根據幣別決定顯示/隱藏換算列
     document.getElementById('pxExpLoc').value  = prefill?.location || '';
     document.getElementById('pxExpNote').value = prefill?.note || '';
@@ -398,16 +400,23 @@ window.pxAutoFillTwd = function() {
   const est = cur === 'ISK' ? Math.round(amt * exISK)
             : cur === 'EUR' ? Math.round(amt * exEUR)
             : 0;
-  // 編輯模式且已有值（使用者手動填或從 prefill 帶入）→ 不覆蓋
-  if (est > 0 && !(_editMode && twdEl.value !== '')) twdEl.value = String(est);
+  // 使用者手動改過就不覆蓋
+  if (est > 0 && !_twdManualEdited) twdEl.value = String(est);
   // 不呼叫 pxUpdateSplit，避免與 pxUpdateSplit→pxAutoFillTwd 無限遞迴
   pxUpdateSplitSummary();
   pxCheckSubmit();
 };
 
+window.pxOnTwdManualEdit = function() {
+  _twdManualEdited = true; // 使用者手動確認過，之後不再自動覆蓋
+  pxUpdateSplit();
+};
+
 window.pxClearTwd = function() {
   const twdEl = document.getElementById('pxExpTwd');
-  if (twdEl) { twdEl.value = ''; pxUpdateSplit(); }
+  _twdManualEdited = false; // 清除後允許重新自動換算
+  if (twdEl) twdEl.value = '';
+  pxAutoFillTwd(); // 立即重新帶入匯率估算值
 };
 
 // ══ 送出記帳（新增 or 修改） ══
