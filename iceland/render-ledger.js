@@ -97,7 +97,7 @@ function drawDonutCanvas(carPct, flightPct, accomPct, actPct, expPct){
     {pct:flightPct,    color:'#4fc3f7'},
     {pct:accomPct,     color:'#7c4dff'},
     {pct:actPct,       color:'#4caf6e'},
-    {pct:expPct||0,    color:'#ff9f40'},
+    {pct:expPct||0,    color:'#f06292'},
   ];
   // 最後一個有值的 slice 顏色（浮點誤差補救用）
   const lastColor = [...slices].reverse().find(s=>s.pct>0)?.color || '#1e3a5f';
@@ -277,7 +277,7 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
       label: '🛒 雜支',
       total: expTotal,
       perLabel: isMember ? fmt(expTotal) : fmt(expTotal/3),
-      color:'#ff9f40',
+      color:'#f06292',
       pct: expTotal/gt,
       noPerPerson: isMember,
     },
@@ -285,7 +285,7 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
       label:'🛡 保險',
       total: 0,
       perLabel:'—',
-      color:'#e07040',
+      color:'#26c6da',
       pct: 0,
     },
   ];
@@ -311,8 +311,8 @@ function buildLegend(carPct, flightPct, accomPct, actPct, expPct){
     {color:'#4fc3f7', label:'機票', pct:flightPct, hideOnNone:true},
     {color:'#7c4dff', label:'住宿', pct:accomPct},
     {color:'#4caf6e', label:'活動', pct:actPct},
-    {color:'#ff9f40', label:'雜支', pct:expPct||0},
-    {color:'#e07040', label:'保險', pct:0},
+    {color:'#f06292', label:'雜支', pct:expPct||0},
+    {color:'#26c6da', label:'保險', pct:0},
   ];
   const visible = items.filter(l => !(l.hideOnNone && mode==='none'));
   return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 8px;width:100%">
