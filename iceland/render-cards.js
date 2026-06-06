@@ -203,9 +203,31 @@ window.initSwipeCards = function(container) {
   });
 };
 
-function renderRepay(items) {
+function renderRepay(items, splitData) {
   if (!items.length) return `<div class="empty">💸 還款記錄會顯示在這裡</div>`;
+  // 逐筆累計還款對每人結算的影響（從第一筆開始算）
+  // 債務人（from）每還一筆：結算 +amount（欠債減少）
+  // 債主（to）每還一筆：結算 -amount（應收減少）
+  const runningBalance = {};
+  ['猴','花','寧'].forEach(m => {
+    runningBalance[m] = splitData?.[m]?.balance ?? 0;
+  });
+  // 先把所有還款的影響倒回去，算出「還款前」的初始結算
+  items.forEach(r => {
+    runningBalance[r.from] -= r.amount;
+    runningBalance[r.to]   += r.amount;
+  });
   const html = items.map(r => {
+    // 這筆還款前的結算
+    const fromBefore = runningBalance[r.from];
+    const toBefore   = runningBalance[r.to];
+    // 套用這筆還款
+    runningBalance[r.from] += r.amount;
+    runningBalance[r.to]   -= r.amount;
+    const fromAfter = runningBalance[r.from];
+    const toAfter   = runningBalance[r.to];
+    const fromColor = fromAfter >= 0 ? 'var(--green)' : 'var(--red)';
+    const toColor   = toAfter   >= 0 ? 'var(--green)' : 'var(--red)';
     const date  = r.date ? r.date.split('T')[0] : '—';
     const label = `${r.from}→${r.to} NT$${Math.round(r.amount).toLocaleString('zh-TW')}`;
     const editData = JSON.stringify({from:r.from, to:r.to, amount:r.amount, date:r.date||'', note:r.note||''}).replace(/"/g,'&quot;');
@@ -235,6 +257,16 @@ function renderRepay(items) {
             </div>
             <div class="card-price">
               <div class="price-per" style="font-size:1.1rem">NT$ ${Math.round(r.amount).toLocaleString('zh-TW')}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid var(--bg3);">
+            <div style="flex:1;text-align:center;">
+              ${avatarSvg(r.from)}
+              <div style="font-size:.6rem;color:var(--muted);margin-top:2px;">${fmt(fromBefore)} → <span style="color:${fromColor}">${fmt(fromAfter)}</span></div>
+            </div>
+            <div style="flex:1;text-align:center;">
+              ${avatarSvg(r.to)}
+              <div style="font-size:.6rem;color:var(--muted);margin-top:2px;">${fmt(toBefore)} → <span style="color:${toColor}">${fmt(toAfter)}</span></div>
             </div>
           </div>
           ${r.note ? `<div class="card-note">📌 ${r.note}</div>` : ''}

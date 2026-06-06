@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE = "https://script.google.com/macros/s/AKfycbxrisuVM_nVOY3blMe0mA9Gz56odhPdQukXU-kv_EVIAPcTHVkQzrpJWn3G0-ULGyzb/exec";
+  const API_BASE = "https://script.google.com/macros/s/AKfycbxRQVvPQz6E_TP2j1uAfXqB_4fbP23fOo8oI4TP1Y2iPEw69EvR2gHoLdX1_-sZS11Z/exec";
   window._GAS_BASE = API_BASE;
   const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
 
@@ -128,14 +128,14 @@
 
     const repayHistory = splitRows
       .filter(row => {
-        const from = String(row['誰還錢'] ?? row['還款人'] ?? '').trim();
-        const to   = String(row['還給誰'] ?? row['還給'] ?? '').trim();
+        const from = String(row['債務人'] ?? row['誰還錢'] ?? row['還款人'] ?? '').trim();
+        const to   = String(row['債主']   ?? row['還給誰'] ?? row['還給']   ?? '').trim();
         return from && to;
       })
       .map(row => ({
         _rowIndex: row._rowIndex,
-        from:   String(row['誰還錢']   ?? row['還款人'] ?? '').trim(),
-        to:     String(row['還給誰']   ?? row['還給']   ?? '').trim(),
+        from:   String(row['債務人'] ?? row['誰還錢'] ?? row['還款人'] ?? '').trim(),
+        to:     String(row['債主']   ?? row['還給誰'] ?? row['還給']   ?? '').trim(),
         amount: num(pick(row, ['金額', '還款金額'])),
         date:   String(row['還款日期'] ?? '').trim(),
         note:   String(row['備註']     ?? '').trim(),
