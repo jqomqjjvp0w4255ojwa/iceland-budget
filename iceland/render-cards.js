@@ -133,6 +133,7 @@ function renderDaily(expenses) {
               </div>
               ${fuelExtra}
               ${item.note ? `<div class="card-note" style="margin-top:4px">📌 ${item.note}</div>` : ''}
+              ${item.tags ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${item.tags.split(',').filter(Boolean).map(t=>`<span style="background:rgba(42,74,26,.15);border:1px solid rgba(42,74,26,.3);color:var(--text);font-size:.58rem;padding:1px 6px;border-radius:999px;">${t.trim()}</span>`).join('')}</div>` : ''}
             </div>
             <div class="card-price" style="flex-shrink:0;text-align:right">
               <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">
@@ -337,6 +338,10 @@ function renderTransport(d) {
           ${item.fuelMileage ? `<span>📍 ${Number(item.fuelMileage).toLocaleString()} km</span>` : ''}
           ${item.fuelEfficiency ? `<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>` : ''}
         </div>
+        <div class="card-body" style="padding:0 16px 10px;gap:4px">
+          ${item.payer ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:.62rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted)">付 ${avatarSvg(item.payer)}</span>` : ''}
+          ${['猴','花','寧'].filter(m=>(item.burden?.[m]||0)>0).map(m=>`<span style="display:inline-flex;align-items:center;gap:2px;font-size:.62rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted)">${avatarSvg(m)} NT$${Math.round(item.burden[m]).toLocaleString()}</span>`).join('')}
+        </div>
       </div>`).join('') : `<div class="empty" style="padding:16px;margin-bottom:8px;">⛽ 旅途中加油記錄會顯示在這裡</div>`)
     : '';
   const parkCard = (currentFilter === 'all' || currentFilter === 'parking') ?
@@ -366,37 +371,30 @@ window.setTransportFilter = function(f) {
 };
 
 function renderCar(car){
-  // 取車/還車日期簡化顯示
   const pickup  = car.pickup  || '—';
   const dropoff = car.dropoff || '—';
+  const companyRaw = car.company || '';
+  const modelRaw   = car.model   || '';
+  const isUsed     = /used/i.test(modelRaw);
+  const modelClean = modelRaw.replace(/\(.*?\)/g,'').replace(/\n.*/,'').trim();
   return `
     <div class="car-card">
-      <div class="car-header" style="position:relative">
-        <div style="position:absolute;top:10px;left:12px;font-size:.6rem;color:var(--muted);
-                    background:var(--bg3);border:1px solid var(--border);border-radius:4px;
-                    padding:1px 6px;letter-spacing:.08em">🚗 租車</div>
-        <div style="margin-top:22px">
-          <div class="car-title">${car.company}</div>
-          <div class="car-model">${car.model}</div>
+      <div class="car-header" style="padding:10px 16px 14px">
+        <div style="font-size:.6rem;color:var(--muted);background:var(--bg3);
+                    border:1px solid var(--border);border-radius:4px;
+                    padding:1px 6px;letter-spacing:.08em;display:inline-block;margin-bottom:8px">🚗 租車</div>
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <div class="car-title" style="font-size:1.05rem">${companyRaw}</div>
+          <div class="car-model" style="font-size:.75rem;color:var(--muted)">${modelClean}</div>
         </div>
       </div>
-      <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
-        <!-- 取還車日期 -->
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <div style="flex:1">
-            <div style="font-size:.63rem;color:var(--muted);margin-bottom:2px">取車</div>
-            <div style="font-size:.82rem;color:var(--text)">${pickup}</div>
-          </div>
-          <div style="color:var(--muted);font-size:.9rem">→</div>
-          <div style="flex:1;text-align:right">
-            <div style="font-size:.63rem;color:var(--muted);margin-bottom:2px">還車</div>
-            <div style="font-size:.82rem;color:var(--text)">${dropoff}</div>
-          </div>
-        </div>
-        <!-- 取車地點 -->
+      <div style="padding:0 16px 14px;border-bottom:1px solid var(--border)">
+        <div style="font-size:.78rem;color:var(--text);margin-bottom:4px">${pickup}</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:4px">↓</div>
+        <div style="font-size:.78rem;color:var(--text);margin-bottom:10px">${dropoff}</div>
         <div style="font-size:.72rem;color:var(--muted);display:flex;align-items:flex-start;gap:4px">
           <span>📍</span>
-          <span>${car.location}</span>
+          <span style="line-height:1.4">${car.location}</span>
         </div>
       </div>
       <!-- Tags -->
@@ -405,8 +403,8 @@ function renderCar(car){
           付款 ${avatarSvg(car.payer)}
         </span>
         <span class="tag tag-cancel">${car.days} 天</span>
-        ${car.model ? `<span class="tag" style="background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border)">${car.model.split('\n')[0]}</span>` : ''}
-        ${car.code  ? `<span class="tag tag-fee">#{car.code}</span>` : ''}
+        ${isUsed ? `<span class="tag" style="background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border)">Used Model</span>` : ''}
+        ${car.code ? `<span class="tag tag-fee">${car.code}</span>` : ''}
       </div>
       <!-- 金額 -->
       <div class="car-price-row">

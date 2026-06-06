@@ -283,6 +283,12 @@ function pxCheckSubmit() {
   // 品項欄：加油/停車不顯示
   const titleField = document.getElementById('pxTitleField');
   if (titleField) titleField.style.display = (cat === '加油' || cat === '停車費') ? 'none' : 'block';
+  // 數量欄：加油/停車不顯示（標籤列和輸入列都隱藏）
+  const hideQty = cat === '加油' || cat === '停車費';
+  const qtyField = document.getElementById('pxQtyField');
+  if (qtyField) qtyField.style.display = hideQty ? 'none' : 'block';
+  const qtyInput = document.getElementById('pxQtyInput');
+  if (qtyInput) qtyInput.style.display = hideQty ? 'none' : 'flex';
 
   document.getElementById('pxBtnExpense').disabled =
     !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
@@ -429,8 +435,11 @@ function pxRenderScrollPicker(listId, selectedName, side) {
   const idx = PX_MEMBERS.indexOf(selectedName);
   el.scrollTop = (idx + 1) * PICKER_ITEM_H;
 
-  // 點擊：換下一個（同圓餅圖）
-  el.addEventListener('click', e => {
+  // 點擊：移除舊事件再加新的，避免堆疊
+  el.replaceWith(el.cloneNode(true));
+  const el2 = document.getElementById(listId);
+  el2.scrollTop = (idx + 1) * PICKER_ITEM_H;
+  el2.addEventListener('click', e => {
     const item = e.target.closest('.px-repay-picker-item');
     if (!item) return;
     const cur     = side === 'from' ? _pxRepayFrom : _pxRepayTo;
@@ -438,14 +447,14 @@ function pxRenderScrollPicker(listId, selectedName, side) {
     const nextIdx = (curIdx + 1) % PX_MEMBERS.length;
     const nextKey = PX_MEMBERS[nextIdx];
     if (side === 'from') _pxRepayFrom = nextKey; else _pxRepayTo = nextKey;
-    el.scrollTo({ top: (nextIdx + 1) * PICKER_ITEM_H, behavior: 'smooth' });
-    el.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === nextKey));
+    el2.scrollTo({ top: (nextIdx + 1) * PICKER_ITEM_H, behavior: 'smooth' });
+    el2.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === nextKey));
     pxValidateRepay();
   });
 
   // 滾動結束後更新（同圓餅圖）
   let _t;
-  el.addEventListener('scroll', () => {
+  el2.addEventListener('scroll', () => {
     clearTimeout(_t);
     _t = setTimeout(() => {
       const i       = Math.round(el.scrollTop / PICKER_ITEM_H) - 1;
@@ -454,7 +463,7 @@ function pxRenderScrollPicker(listId, selectedName, side) {
       const cur     = side === 'from' ? _pxRepayFrom : _pxRepayTo;
       if (newKey !== cur) {
         if (side === 'from') _pxRepayFrom = newKey; else _pxRepayTo = newKey;
-        el.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === newKey));
+        el2.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === newKey));
         pxValidateRepay();
       }
     }, 80);

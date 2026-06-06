@@ -194,7 +194,7 @@ function renderAll(){
 
   // ── 各類別進度條
   // 實際內容由模組級 buildCatRows() 產生，依 _flightMode 決定機票欄位
-  const catRows = buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandDisplay);
+  const catRows = buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandDisplay, totalExpenseShared);
 
   // ── 分帳明細（從 寫入_分帳 Sheet 讀取，若無則 fallback 自算）
   const maxPaid = Math.max(...MEMBERS.map(m => splitData[m]?.paid || paid[m] || 0), 1);

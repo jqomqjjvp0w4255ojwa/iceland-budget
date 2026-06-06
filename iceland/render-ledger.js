@@ -188,14 +188,15 @@ function refreshDonut(){
 // ── 各類別進度條（模組級函式，refreshDonut 和 renderAll 都可呼叫）
 // flightForDisplay：已依 mode 算好的機票金額（0/個人/三人總）
 // flightLabel：已算好的 /人 顯示文字
-function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandTotal){
+function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandTotal, totalExpense){
   const gt = grandTotal||1;
+  const expTotal = totalExpense||0;
   const cats=[
     {label:'🚗 租車', total:carTotal,          perLabel:fmt(carTotal/3),      color:'#f0c040', pct:carTotal/gt},
     {label:'✈️ 機票', total:flightForDisplay,  perLabel:flightLabel,          color:'#4fc3f7', pct:flightForDisplay/gt},
     {label:'🏕 住宿', total:totalAccom,        perLabel:fmt(totalAccom/3),    color:'#7c4dff', pct:totalAccom/gt},
     {label:'🎯 活動', total:totalActivity,     perLabel:fmt(totalActivity/3), color:'#4caf6e', pct:totalActivity/gt},
-    {label:'🛒 雜支',  total:0,                 perLabel:'—',                  color:'#4fc3f7', pct:0},
+    {label:'🛒 雜支',  total:expTotal,          perLabel:fmt(expTotal/3),      color:'#ff9f40', pct:expTotal/gt},
     {label:'🛡 保險',  total:0,                 perLabel:'—',                  color:'#e07040', pct:0},
   ];
   return cats.map(c=>`
