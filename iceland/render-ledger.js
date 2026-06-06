@@ -210,7 +210,7 @@ function refreshDonut(){
 
   // Legend
   const elLegend = document.getElementById('donutLegend');
-  if(elLegend) elLegend.innerHTML = buildLegend(carTotal/pt, flightForDisplay/pt, totalAccom/pt, totalActivity/pt);
+  if(elLegend) elLegend.innerHTML = buildLegend(carTotal/pt, flightForDisplay/pt, totalAccom/pt, totalActivity/pt, expForDisplay/pt);
 
   // 小計進度條
   const elCat = document.getElementById('catRowsContent');
@@ -292,19 +292,22 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
     </div>`).join('');
 }
 
-// ── 圓餅 Legend（只顯示圓餅上有的四項：租車、機票、住宿、活動）
-function buildLegend(carPct, flightPct, accomPct, actPct){
+// ── 圓餅 Legend（六項，兩排各三個）
+function buildLegend(carPct, flightPct, accomPct, actPct, expPct){
   const mode = window._flightMode||'equal';
   const items = [
     {color:'#f0c040', label:'租車', pct:carPct},
     {color:'#4fc3f7', label:'機票', pct:flightPct, hideOnNone:true},
     {color:'#7c4dff', label:'住宿', pct:accomPct},
     {color:'#4caf6e', label:'活動', pct:actPct},
+    {color:'#ff9f40', label:'雜支', pct:expPct||0},
+    {color:'#e07040', label:'保險', pct:0},
   ];
-  return items
-    .filter(l => !(l.hideOnNone && mode==='none'))
-    .map(l=>`<span style="font-size:.62rem;display:flex;align-items:center;gap:3px">
-      <span style="width:7px;height:7px;background:${l.color};display:inline-block;border-radius:1px"></span>
+  const visible = items.filter(l => !(l.hideOnNone && mode==='none'));
+  return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 8px;width:100%">
+    ${visible.map(l=>`<span style="font-size:.62rem;display:flex;align-items:center;gap:3px;white-space:nowrap;">
+      <span style="width:7px;height:7px;flex-shrink:0;background:${l.color};display:inline-block;border-radius:1px"></span>
       ${l.label} ${l.pct>0?(l.pct*100).toFixed(0)+'%':'—'}
-    </span>`).join('');
+    </span>`).join('')}
+  </div>`;
 }

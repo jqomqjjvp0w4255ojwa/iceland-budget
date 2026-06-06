@@ -267,8 +267,8 @@ function renderAll(){
               </div>
               <div style="font-size:.65rem;color:var(--accent);margin-top:1px;min-height:14px;line-height:1.6" id="donutWhoLabel">${whoLabel}</div>
               <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="donutGrandTotal">合計 ${fmt(grandDisplay)}</div>
-              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap" id="donutLegend">
-                ${buildLegend(carPct, flightPct, accomPct, actPct)}
+              <div style="margin-top:8px;width:100%" id="donutLegend">
+                ${buildLegend(carPct, flightPct, accomPct, actPct, expForDisplay/pieTotal)}
               </div>
             </div>
           </div>
