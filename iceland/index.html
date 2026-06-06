@@ -464,29 +464,23 @@
       </div>
       <div class="px-field">
         <!-- 標籤列 -->
-        <div style="display:flex;gap:6px;margin-bottom:4px;">
-          <div style="width:52px;flex-shrink:0;" id="pxQtyField">
-            <div class="px-label">▸ 數量</div>
-          </div>
-          <div style="flex:1;">
-            <div class="px-label">▸ 總金額 *</div>
-          </div>
-          <div style="width:72px;flex-shrink:0;">
-            <div class="px-label">▸ 幣別</div>
-          </div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <div class="px-label" style="width:60px;flex-shrink:0;" id="pxQtyField">▸ 數量</div>
+          <div class="px-label" style="flex:1;">▸ 總金額 *</div>
+          <div class="px-label" style="width:52px;flex-shrink:0;">▸ 幣別</div>
         </div>
-        <!-- 輸入列：同高 -->
-        <div style="display:flex;gap:6px;align-items:stretch;">
-          <!-- 數量滾輪 -->
-          <div style="width:52px;flex-shrink:0;display:flex;flex-direction:column;border:2px solid #2a4a1a;background:#f8fce8;" id="pxQtyInput">
-            <button onclick="pxQtyStep(1)"  style="background:none;border:none;border-bottom:1px solid #2a4a1a;width:100%;padding:3px 0;font-size:13px;color:#2a4a1a;cursor:pointer;line-height:1;flex:1;">▲</button>
-            <div id="pxExpQty" style="font-family:'Silkscreen',monospace;font-size:12px;color:#2a4a1a;text-align:center;flex:1;display:flex;align-items:center;justify-content:center;">1</div>
-            <button onclick="pxQtyStep(-1)" style="background:none;border:none;border-top:1px solid #2a4a1a;width:100%;padding:3px 0;font-size:13px;color:#2a4a1a;cursor:pointer;line-height:1;flex:1;">▼</button>
+        <!-- 輸入列 -->
+        <div style="display:flex;gap:4px;align-items:center;" id="pxQtyRow">
+          <!-- 數量：裸三角上下 -->
+          <div style="width:60px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;">
+            <button onclick="pxQtyStep(1)"  style="background:none;border:none;padding:0;font-size:13px;color:#2a4a1a;cursor:pointer;line-height:1;">▲</button>
+            <input class="px-input" id="pxExpQty" value="1" style="width:44px;text-align:center;" readonly>
+            <button onclick="pxQtyStep(-1)" style="background:none;border:none;padding:0;font-size:13px;color:#2a4a1a;cursor:pointer;line-height:1;">▼</button>
           </div>
-          <!-- 金額 -->
+          <!-- 總金額 -->
           <input class="px-input" id="pxExpAmt" placeholder="點此輸入" style="flex:1;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpAmt','pxUpdateSplit')">
           <!-- 幣別 -->
-          <select class="px-select" id="pxExpCur" style="width:72px;flex-shrink:0;">
+          <select class="px-select" id="pxExpCur" style="width:52px;flex-shrink:0;padding:0 4px;">
             <option value="NT">NT$</option>
             <option value="ISK">ISK</option>
             <option value="EUR">EUR</option>
@@ -774,12 +768,12 @@ window._pxQty = 1;
 window.pxQtyStep = function(dir) {
   window._pxQty = Math.max(1, (window._pxQty || 1) + dir);
   const el = document.getElementById('pxExpQty');
-  if (el) el.textContent = window._pxQty;
+  if (el) el.value = window._pxQty;
 };
 window.pxResetQty = function() {
   window._pxQty = 1;
   const el = document.getElementById('pxExpQty');
-  if (el) el.textContent = '1';
+  if (el) el.value = '1';
 };
 
 // ════ Tag 選擇器 ════

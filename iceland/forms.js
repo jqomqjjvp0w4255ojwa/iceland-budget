@@ -283,12 +283,15 @@ function pxCheckSubmit() {
   // 品項欄：加油/停車不顯示
   const titleField = document.getElementById('pxTitleField');
   if (titleField) titleField.style.display = (cat === '加油' || cat === '停車費') ? 'none' : 'block';
-  // 數量欄：加油/停車不顯示（標籤列和輸入列都隱藏）
+  // 數量欄：加油/停車不顯示
   const hideQty = cat === '加油' || cat === '停車費';
   const qtyField = document.getElementById('pxQtyField');
   if (qtyField) qtyField.style.display = hideQty ? 'none' : 'block';
-  const qtyInput = document.getElementById('pxQtyInput');
-  if (qtyInput) qtyInput.style.display = hideQty ? 'none' : 'flex';
+  const qtyRow = document.getElementById('pxQtyRow');
+  if (qtyRow) {
+    const qtyDiv = qtyRow.querySelector('div');
+    if (qtyDiv) qtyDiv.style.display = hideQty ? 'none' : 'flex';
+  }
 
   document.getElementById('pxBtnExpense').disabled =
     !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
@@ -402,7 +405,7 @@ window.pxSubmitExpense = async function() {
     window.cancelPxModal('pxModalExpense');
     setSyncState?.('syncing','記帳中…');
     await postToGAS({
-      action: 'addExpense', title: (document.getElementById('pxExpTitle')?.value||'').trim(), qty: parseInt(document.getElementById('pxExpQty')?.textContent||'1')||1, category: cat, amount: amt, currency: cur,
+      action: 'addExpense', title: (document.getElementById('pxExpTitle')?.value||'').trim(), qty: parseInt(document.getElementById('pxExpQty')?.value||'1')||1, category: cat, amount: amt, currency: cur,
       twd, foreignFee: 0, total,
       payer: _pxPayer,
       splitMode: [..._pxSplitSel].join(','),
