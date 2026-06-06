@@ -241,6 +241,8 @@ function renderRepay(items) {
 function renderTransport(d) {
   const car = d.car;
   const flights = d.flights || [];
+  const fuelItems   = (d.expenses||[]).filter(e => e.category === '加油');
+  const parkItems   = (d.expenses||[]).filter(e => e.category === '停車費');
   const currentFilter = window._transportFilter || 'all';
   const filterBtns = ['all','car','flight','fuel','parking'].map(f => {
     const labels = {all:'全部', car:'🚗 租車', flight:'✈️ 機票', fuel:'⛽ 油費', parking:'🅿 停車'};
@@ -315,9 +317,44 @@ function renderTransport(d) {
       </div>`;
     }).join('') : '';
   const fuelCard = (currentFilter === 'all' || currentFilter === 'fuel') ?
-    `<div class="empty" style="padding:16px;margin-bottom:8px;">⛽ 旅途中加油記錄會顯示在這裡</div>` : '';
+    (fuelItems.length ? fuelItems.map(item => `
+      <div class="card paid-card" style="margin-bottom:8px;">
+        <div class="card-header">
+          <div>
+            <div class="card-date">${String(item.date).split('T')[0]||'—'}</div>
+            <div class="card-name-row" style="margin-top:4px">
+              <span style="font-size:.85rem">⛽</span>
+              <span style="font-size:.85rem">${item.fuelBrand||'加油'}</span>
+            </div>
+          </div>
+          <div class="card-price">
+            <div class="price-per" style="font-size:1.1rem">${fmt(item.total||item.twd)}</div>
+          </div>
+        </div>
+        <div class="card-body" style="padding:6px 16px 10px;gap:6px;font-size:.63rem;color:var(--muted)">
+          ${item.fuelLiters ? `<span>${item.fuelLiters}L</span>` : ''}
+          ${item.fuelMileage ? `<span>📍 ${Number(item.fuelMileage).toLocaleString()} km</span>` : ''}
+          ${item.fuelEfficiency ? `<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>` : ''}
+        </div>
+      </div>`).join('') : `<div class="empty" style="padding:16px;margin-bottom:8px;">⛽ 旅途中加油記錄會顯示在這裡</div>`)
+    : '';
   const parkCard = (currentFilter === 'all' || currentFilter === 'parking') ?
-    `<div class="empty" style="padding:16px;margin-bottom:8px;">🅿 旅途中停車費記錄會顯示在這裡</div>` : '';
+    (parkItems.length ? parkItems.map(item => `
+      <div class="card paid-card" style="margin-bottom:8px;">
+        <div class="card-header">
+          <div>
+            <div class="card-date">${String(item.date).split('T')[0]||'—'}</div>
+            <div class="card-name-row" style="margin-top:4px">
+              <span>🅿</span>
+              <span style="font-size:.85rem">${item.location||item.title||'停車費'}</span>
+            </div>
+          </div>
+          <div class="card-price">
+            <div class="price-per" style="font-size:1.1rem">${fmt(item.total||item.twd)}</div>
+          </div>
+        </div>
+      </div>`).join('') : `<div class="empty" style="padding:16px;margin-bottom:8px;">🅿 旅途中停車費記錄會顯示在這裡</div>`)
+    : '';
   return `<div class="filter-row">${filterBtns}</div>${carCard}${flightCards}${fuelCard}${parkCard}`;
 }
 
@@ -328,37 +365,37 @@ window.setTransportFilter = function(f) {
 };
 
 function renderCar(car){
+  // 取車/還車日期簡化顯示
   const pickup  = car.pickup  || '—';
   const dropoff = car.dropoff || '—';
-  // 公司名和車款分開（格式：Zero Car\nToyota RAV4 或純字串）
-  const companyRaw = car.company || '';
-  const modelRaw   = car.model   || '';
-  // 從 model 判斷是否 used
-  const isUsed = /used/i.test(modelRaw);
-  const modelClean = modelRaw.replace(/\(.*?\)/g,'').replace(/\n.*/,'').trim();
-
   return `
     <div class="car-card">
-      <div class="car-header" style="position:relative;padding:10px 16px 14px">
-        <!-- 小標 -->
-        <div style="font-size:.6rem;color:var(--muted);background:var(--bg3);
-                    border:1px solid var(--border);border-radius:4px;
-                    padding:1px 6px;letter-spacing:.08em;display:inline-block;margin-bottom:8px">🚗 租車</div>
-        <!-- 公司名大 + 車款小 -->
-        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-          <div class="car-title" style="font-size:1.05rem">${companyRaw}</div>
-          <div class="car-model" style="font-size:.75rem;color:var(--muted)">${modelClean}</div>
+      <div class="car-header" style="position:relative">
+        <div style="position:absolute;top:10px;left:12px;font-size:.6rem;color:var(--muted);
+                    background:var(--bg3);border:1px solid var(--border);border-radius:4px;
+                    padding:1px 6px;letter-spacing:.08em">🚗 租車</div>
+        <div style="margin-top:22px">
+          <div class="car-title">${car.company}</div>
+          <div class="car-model">${car.model}</div>
         </div>
       </div>
-      <div style="padding:0 16px 14px;border-bottom:1px solid var(--border)">
-        <!-- 取車日 → 還車日（換行） -->
-        <div style="font-size:.78rem;color:var(--text);margin-bottom:6px">${pickup}</div>
-        <div style="font-size:.72rem;color:var(--muted);margin-bottom:4px">↓</div>
-        <div style="font-size:.78rem;color:var(--text);margin-bottom:10px">${dropoff}</div>
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+        <!-- 取還車日期 -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:.63rem;color:var(--muted);margin-bottom:2px">取車</div>
+            <div style="font-size:.82rem;color:var(--text)">${pickup}</div>
+          </div>
+          <div style="color:var(--muted);font-size:.9rem">→</div>
+          <div style="flex:1;text-align:right">
+            <div style="font-size:.63rem;color:var(--muted);margin-bottom:2px">還車</div>
+            <div style="font-size:.82rem;color:var(--text)">${dropoff}</div>
+          </div>
+        </div>
         <!-- 取車地點 -->
         <div style="font-size:.72rem;color:var(--muted);display:flex;align-items:flex-start;gap:4px">
           <span>📍</span>
-          <span style="line-height:1.4">${car.location}</span>
+          <span>${car.location}</span>
         </div>
       </div>
       <!-- Tags -->
@@ -367,8 +404,8 @@ function renderCar(car){
           付款 ${avatarSvg(car.payer)}
         </span>
         <span class="tag tag-cancel">${car.days} 天</span>
-        ${isUsed ? `<span class="tag" style="background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border)">Used Model</span>` : ''}
-        ${car.code ? `<span class="tag tag-fee">${car.code}</span>` : ''}
+        ${car.model ? `<span class="tag" style="background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border)">${car.model.split('\n')[0]}</span>` : ''}
+        ${car.code  ? `<span class="tag tag-fee">#{car.code}</span>` : ''}
       </div>
       <!-- 金額 -->
       <div class="car-price-row">

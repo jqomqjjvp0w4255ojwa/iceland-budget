@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE = "https://script.google.com/macros/s/AKfycbxVs5xLxwgYAQ1rURJUD5WwshlxkQvyTeR8esduG8XxKHwsgNsmo4Uw8975C9I6w2Bj/exec";
+  const API_BASE = "https://script.google.com/macros/s/AKfycbwYFPxSDp7znpq3sHZUgXPOoMmdtG752Xtg9czttR0IpO8aHUPKmw4cwyMKBDdyU1VH/exec";
   window._GAS_BASE = API_BASE; // forms.js 寫入用
   const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
 
@@ -164,7 +164,7 @@
         note:       String(row['備註']   ?? '').trim(),
         title:      String(row['品項']   ?? '').trim(),
         qty:        num(pick(row, ['數量'], 1)) || 1,
-        isShared:   yes(pick(row, ['共同消費?'])),
+        isShared:   yes(pick(row, ["共同消費?'", '共同消費?'])),
         fuelBrand:  String(row['品牌(油)'] ?? '').trim(),
         fuelMileage:num(pick(row, ['目前里程 (km)'])),
         fuelLiters: num(pick(row, ['公升數 (L)'])),
