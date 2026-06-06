@@ -120,12 +120,12 @@ function renderDaily(expenses) {
       <div class="swipe-card-wrap">
         <div class="swipe-card-actions">
           <button class="swipe-action-btn edit"
-            onclick="openEditExpense(${item._rowIndex||0}, JSON.parse(this.dataset.d))"
-            data-d="${editData}">
+            onclick="openEditExpense(${item._rowIndex ?? -1}, JSON.parse(this.dataset.d))"
+            data-d="${editData}"${(item._rowIndex === -1 || item._rowIndex == null) ? ' disabled title="同步中，請稍候再修改"' : ''}>
             <span>✏️</span>修改
           </button>
           <button class="swipe-action-btn delete"
-            onclick="pxConfirmDelete(${item._rowIndex||0},'${sheet}','${label.replace(/'/g,'')}')">
+            onclick="pxConfirmDelete(${item._rowIndex ?? -1},'${sheet}','${label.replace(/'/g,'')}')">
             <span>🗑️</span>刪除
           </button>
         </div>
@@ -137,10 +137,8 @@ function renderDaily(expenses) {
               <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${item.category||'雜支'}</span>
               <span style="font-size:.6rem;padding:1px 6px;border-radius:4px;white-space:nowrap;${item.isShared?'background:rgba(78,195,121,.18);color:var(--green);border:1px solid rgba(78,195,121,.4);':'background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border);'}">${item.isShared?'共同':'個人'}</span>
               <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
-              <div style="display:flex;flex-direction:column;align-items:flex-end;">
-                <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);white-space:nowrap;">NT$ ${Math.round(item.total||item.twd||0).toLocaleString()}</span>
-                ${item.currency&&item.currency!=='NT'?`<span style="font-size:.6rem;color:var(--muted);">${item.amount} ${item.currency}</span>`:''}
-              </div>
+              <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);white-space:nowrap;">NT$ ${Math.round(item.total||item.twd||0).toLocaleString()}</span>
+              ${item.currency&&item.currency!=='NT'?`<div style="font-size:.6rem;color:var(--muted);margin-top:1px">${item.amount} ${item.currency}</div>`:''} 
             </div>
             <!-- 第二行：品項 -->
             ${item.title?`<div style="font-size:.9rem;color:var(--text);font-weight:600;margin-bottom:4px">${item.title}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>`:''}
