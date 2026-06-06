@@ -34,43 +34,21 @@ function optimisticDelete(type, rowIndex) {
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
 }
 
-
-// 修改模式：用新資料更新卡片，並在右上角加小轉轉表示同步中
-function markCardLoading(type, rowIndex) {
+// 修改模式：原卡原地半透明 + 像素風轉圈，不重建區塊
+function mutateCardInPlace(type, rowIndex) {
+  console.log('[mutate] type='+type+' rowIndex='+rowIndex);
   const containers = type === 'repay'
     ? [document.getElementById('repayContent')]
     : [document.getElementById('dailyContent'), document.getElementById('carContent')];
+
   for (const container of containers) {
     if (!container) continue;
     const btns = container.querySelectorAll('.swipe-action-btn.edit');
+    console.log('[mutate] scanning '+btns.length+' btns in #'+(container.id||'?'));
     for (const btn of btns) {
-      if (btn.getAttribute('onclick')?.includes(`(${rowIndex},`)) {
-        const content = btn.closest('.swipe-card-wrap')?.querySelector('.swipe-card-content');
-        if (content && !content.querySelector('.card-sync-badge')) {
-          const badge = document.createElement('span');
-          badge.className = 'card-sync-badge';
-          badge.style.cssText = 'position:absolute;top:6px;right:28px;font-size:.85rem;animation:spin .8s linear infinite;display:inline-block;z-index:10;pointer-events:none;line-height:1;';
-          badge.textContent = '⟳';
-          content.style.position = 'relative';
-          content.appendChild(badge);
-        }
-        break;
-      }
-    }
-  }
-}
-
-// 修改模式：直接抓 DOM 把卡片內容換成新資料 + 半透明鎖定狀態，不重建整個區塊
-// 修改模式：原卡半透明 + 像素風方塊繞圈，不重建區塊
-function mutateCardInPlace(type, rowIndex) {
-  const containers = type === 'repay'
-    ? [document.getElementById('repayContent')]
-    : [document.getElementById('dailyContent'), document.getElementById('carContent')];
-
-  for (const container of containers) {
-    if (!container) continue;
-    for (const btn of container.querySelectorAll('.swipe-action-btn.edit')) {
-      if (!btn.getAttribute('onclick')?.includes(`(${rowIndex},`)) continue;
+      const oc = btn.getAttribute('onclick') || '';
+      if (!oc.includes('(' + rowIndex + ',')) continue;
+      console.log('[mutate] FOUND card');
       const wrap = btn.closest('.swipe-card-wrap');
       if (!wrap) continue;
       const content = wrap.querySelector('.swipe-card-content');
@@ -85,27 +63,21 @@ function mutateCardInPlace(type, rowIndex) {
         overlay.className = 'card-sync-overlay';
         overlay.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;'
           + 'align-items:center;justify-content:center;gap:8px;z-index:10;pointer-events:none;'
-          + 'background:rgba(7,17,31,.55);';
-
-        // 像素方塊繞圈 spinner
+          + 'background:rgba(7,17,31,.6);';
         const spinner = document.createElement('div');
         spinner.style.cssText = 'width:38px;height:38px;position:relative;'
           + 'animation:px-spin 1s steps(8,end) infinite;';
-        for (let i = 0; i < 8; i++) {
+        [1,.85,.65,.5,.35,.22,.12,.05].forEach((op, i) => {
           const dot = document.createElement('span');
-          const opacities = [1, .85, .65, .5, .35, .22, .12, .05];
-          dot.style.cssText = `position:absolute;width:5px;height:5px;background:#4fc3f7;`
-            + `top:50%;left:50%;margin:-2.5px 0 0 -2.5px;`
-            + `transform:rotate(${i*45}deg) translateY(-16px);`
-            + `opacity:${opacities[i]};`;
+          dot.style.cssText = 'position:absolute;width:5px;height:5px;background:#4fc3f7;'
+            + 'top:50%;left:50%;margin:-2.5px 0 0 -2.5px;'
+            + 'transform:rotate('+i*45+'deg) translateY(-16px);opacity:'+op+';';
           spinner.appendChild(dot);
-        }
-
+        });
         const lbl = document.createElement('span');
         lbl.style.cssText = "font-family:'Silkscreen',monospace;font-size:.5rem;color:#4fc3f7;"
           + 'animation:px-blink 1s steps(1,end) infinite;letter-spacing:.08em;';
         lbl.textContent = 'SAVING...';
-
         overlay.appendChild(spinner);
         overlay.appendChild(lbl);
         wrap.appendChild(overlay);
@@ -113,18 +85,18 @@ function mutateCardInPlace(type, rowIndex) {
       return;
     }
   }
+  console.log('[mutate] no card found');
 }
 
-// 樂觀更新：新增用插入頂部重建，修改只做 DOM 原地標記
+// 樂觀更新：新增插頂部重建，修改只做 DOM 原地標記
 function optimisticUpdate(type, rowIndex, newItem) {
   if (!window.APP_DATA) return;
   const isEdit = rowIndex != null && Number(rowIndex) > 0;
   if (type === 'expense') {
     if (isEdit) {
-      // 修改：只標記卡片，不動 APP_DATA，等重拉
       mutateCardInPlace('expense', rowIndex);
     } else {
-      window.APP_DATA.expenses = [newItem, ...(window.APP_DATA.expenses || [])];
+      window.APP_DATA.expenses = [newItem, ...(window.APP_DATA.expenses||[])];
       _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses));
       _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
       localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
@@ -133,22 +105,18 @@ function optimisticUpdate(type, rowIndex, newItem) {
     if (isEdit) {
       mutateCardInPlace('repay', rowIndex);
     } else {
-      window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory || []), newItem];
-      _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory, window.APP_DATA.split || {}));
+      window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory||[]), newItem];
+      _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory, window.APP_DATA.split||{}));
       localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
     }
   }
 }
-
-
-
 
 // 只更新指定區塊，不重建整頁
 function _refreshSection(elId, renderFn) {
   const el = document.getElementById(elId);
   if (!el) { window.renderAll?.(); return; }
   el.innerHTML = renderFn();
-  // 重新初始化滑動
   if (window.initSwipeCards) window.initSwipeCards(el);
 }
 let _pxRepayFrom = '';
@@ -161,9 +129,9 @@ let _calcTarget = '';
 let _calcCb    = '';
 let _calcPrev  = '';
 
-// 修改模式（直接覆蓋原行）
+// 修改模式（刪舊＋新增）
 let _editMode     = false;   // 是否為修改模式
-let _editRowIndex = null;    // 要覆蓋的行號
+let _editRowIndex = null;    // 要刪除的舊資料行號
 let _editSheet    = '';      // 'expense' | 'repay'
 
 // ══ GAS API ══
@@ -658,20 +626,19 @@ window.pxSubmitExpense = async function(nextMode = false) {
     fuelMileage, fuelLiters, fuelBrand, tags,
   };
 
+  // cancelPxModal 會 reset _editMode，先存起來
+  const wasEdit    = _editMode;
+  const editRowIdx = _editRowIndex;
+
   // nextMode：留窗清空；否則關窗
   if (nextMode) {
-    // 按鈕短暫顯示成功
     const btnNext = document.getElementById('pxBtnExpenseNext');
     if (btnNext) {
       const orig = btnNext.textContent;
       btnNext.textContent = '✓ 已記錄！';
       btnNext.disabled = true;
-      setTimeout(() => {
-        btnNext.textContent = orig;
-        pxCheckSubmit();
-      }, 1200);
+      setTimeout(() => { btnNext.textContent = orig; pxCheckSubmit(); }, 1200);
     }
-    // 清空金額/品項/備註/標籤，保留類別/付款人/分攤/地點
     document.getElementById('pxExpAmt').value  = '';
     document.getElementById('pxExpTwd').value  = '';
     _twdManualEdited = false;
@@ -685,32 +652,33 @@ window.pxSubmitExpense = async function(nextMode = false) {
   } else {
     window.cancelPxModal('pxModalExpense');
   }
-  const wasEdit = _editMode;
-  const editRowIdx = _editRowIndex;
 
-  const optimisticItem = {
-    _rowIndex: wasEdit ? editRowIdx : -1,
-    _syncing: true,
-    category: cat, amount: amt, currency: cur, twd, total,
-    payer: _pxPayer, date, location: loc, note, isShared, title, qty,
-    splitMode: [..._pxSplitSel].join(','),
-    burden: { '花': splits['花'], '猴': splits['猴'], '寧': splits['寧'] },
-    tags,
-  };
-  optimisticUpdate('expense', wasEdit ? editRowIdx : null, optimisticItem);
-
-  postToGAS(payload)
-    .then(() => {
-      if (wasEdit) {
-        // 修改：cache 已清，立刻重拉換掉帶 badge 的樂觀資料
+  if (wasEdit) {
+    // 修改：原卡原地轉轉，GAS 成功後立刻重拉（editExpense 有 clearCache）
+    optimisticUpdate('expense', editRowIdx, null);
+    postToGAS(payload)
+      .then(() => {
         setSyncState?.('syncing', '更新中…');
         window.__syncIcelandBudgetFromSheets?.();
-      } else {
-        bgSync('記帳同步中…');
-      }
-    })
-    .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'))
-    .finally(() => { _isSubmitting = false; });
+      })
+      .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'))
+      .finally(() => { _isSubmitting = false; });
+  } else {
+    // 新增：樂觀插入頂部
+    const optimisticItem = {
+      _rowIndex: -1,
+      category: cat, amount: amt, currency: cur, twd, total,
+      payer: _pxPayer, date, location: loc, note, isShared, title, qty,
+      splitMode: [..._pxSplitSel].join(','),
+      burden: { '花': splits['花'], '猴': splits['猴'], '寧': splits['寧'] },
+      tags,
+    };
+    optimisticUpdate('expense', null, optimisticItem);
+    postToGAS(payload)
+      .then(() => bgSync('記帳同步中…'))
+      .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'))
+      .finally(() => { _isSubmitting = false; });
+  }
 };
 
 // ══ 還錢：卷軸選擇（同圓餅圖邏輯）══
@@ -785,36 +753,37 @@ window.pxSubmitRepay = async function() {
   if (_isSubmitting) return;
   _isSubmitting = true;
 
-  const payload = {
-    action: _editMode ? 'editRepay' : 'addRepay',
-    rowIndex: _editMode ? _editRowIndex : undefined,
-    from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
-  };
-
-  // 立刻關窗
-  window.cancelPxModal('pxModalRepay');
-
   const wasEditRepay = _editMode;
   const editRepayIdx = _editRowIndex;
 
-  const optimisticRepayItem = {
-    _rowIndex: wasEditRepay ? editRepayIdx : -1,
-    _syncing: true,
+  const payload = {
+    action: wasEditRepay ? 'editRepay' : 'addRepay',
+    rowIndex: wasEditRepay ? editRepayIdx : undefined,
     from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
   };
-  optimisticUpdate('repay', wasEditRepay ? editRepayIdx : null, optimisticRepayItem);
 
-  postToGAS(payload)
-    .then(() => {
-      if (wasEditRepay) {
+  window.cancelPxModal('pxModalRepay');
+
+  if (wasEditRepay) {
+    optimisticUpdate('repay', editRepayIdx, null);
+    postToGAS(payload)
+      .then(() => {
         setSyncState?.('syncing', '更新中…');
         window.__syncIcelandBudgetFromSheets?.();
-      } else {
-        bgSync('還款同步中…');
-      }
-    })
-    .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'))
-    .finally(() => { _isSubmitting = false; });
+      })
+      .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'))
+      .finally(() => { _isSubmitting = false; });
+  } else {
+    const optimisticRepayItem = {
+      _rowIndex: -1,
+      from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
+    };
+    optimisticUpdate('repay', null, optimisticRepayItem);
+    postToGAS(payload)
+      .then(() => bgSync('還款同步中…'))
+      .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'))
+      .finally(() => { _isSubmitting = false; });
+  }
 };
 
 // ══ 像素算盤 ══
