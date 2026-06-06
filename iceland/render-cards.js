@@ -131,6 +131,7 @@ function renderDaily(expenses) {
         </div>
         <div class="swipe-card-content card" style="position:relative;${item.isShared?'border:1.5px solid rgba(78,195,121,.35);':''}">
           <span class="swipe-hint" title="點擊或滑動可修改/刪除" onclick="this.closest('.swipe-card-wrap').classList.toggle('open')">⋮</span>
+          ${item._syncing?'<span style="position:absolute;top:7px;right:28px;font-size:.85rem;animation:spin .8s linear infinite;display:inline-block;z-index:10;pointer-events:none;line-height:1;opacity:.8;">⟳</span>':''}
           <div style="padding:10px 14px 10px;">
             <!-- 第一行：[類別][共同/個人] ---- NT金額 -->
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
@@ -273,6 +274,7 @@ function renderRepay(items, splitData) {
         </div>
         <div class="swipe-card-content card" style="position:relative;">
           <span class="swipe-hint" title="點擊或滑動可修改/刪除" onclick="this.closest('.swipe-card-wrap').classList.toggle('open')">⋮</span>
+          ${r._syncing?'<span style="position:absolute;top:7px;right:28px;font-size:.85rem;animation:spin .8s linear infinite;display:inline-block;z-index:10;pointer-events:none;line-height:1;opacity:.8;">⟳</span>':''}
           <div class="card-header">
             <div>
               <div class="card-date" style="font-size:.85rem">${date}</div>
@@ -429,6 +431,7 @@ function renderTransport(d) {
         </div>
         <div class="swipe-card-content card paid-card" style="position:relative;">
           <span class="swipe-hint" title="點擊或滑動可修改/刪除" onclick="this.closest('.swipe-card-wrap').classList.toggle('open')">⋮</span>
+          ${item._syncing?'<span style="position:absolute;top:7px;right:28px;font-size:.85rem;animation:spin .8s linear infinite;display:inline-block;z-index:10;pointer-events:none;line-height:1;opacity:.8;">⟳</span>':''}
           <div style="padding:10px 14px 10px;">
             <!-- 第一行：[類別] ---- NT金額 -->
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
