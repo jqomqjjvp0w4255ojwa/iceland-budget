@@ -1,5 +1,10 @@
 // render-cards.js — 卡片渲染：住宿、日常開銷、還款、交通
 
+// 日期字串排序用：補零後轉成可比較的字串（e.g. "2026-06-06 9:44" → "2026-06-06 09:44"）
+function parseDateForSort(d) {
+  return String(d||'').replace(/(\d{4}-\d{2}-\d{2}) (\d):/, '$1 0$2:');
+}
+
 function renderAccom(items){
   const show=currentFilter==='all'?items:currentFilter==='paid'?items.filter(a=>a.paid):items.filter(a=>!a.paid);
   const total=items.reduce((s,a)=>s+(a.twd||0),0);
@@ -76,7 +81,7 @@ function catLabel(c){ return CAT_LABEL[c] || c || '📦 其他'; }
 
 function renderDaily(expenses) {
   const TRANSPORT_CATS = ['加油','停車費'];
-  const items = (expenses||[]).filter(e => !TRANSPORT_CATS.includes(e.category)).slice().sort((a,b)=>Number(b.date)-Number(a.date));
+  const items = (expenses||[]).filter(e => !TRANSPORT_CATS.includes(e.category)).slice().sort((a,b)=>parseDateForSort(b.date).localeCompare(parseDateForSort(a.date)));
   if (!items.length) return `<div class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div>`;
 
   const html = items.map(item => {
@@ -282,7 +287,7 @@ function renderRepay(items, splitData) {
 function renderTransport(d) {
   const car = d.car;
   const flights = d.flights || [];
-  const sortByDate = arr => arr.slice().sort((a,b)=>Number(b.date)-Number(a.date));
+  const sortByDate = arr => arr.slice().sort((a,b)=>parseDateForSort(b.date).localeCompare(parseDateForSort(a.date)));
   const fuelItems   = sortByDate((d.expenses||[]).filter(e => e.category === '加油'));
   const parkItems   = sortByDate((d.expenses||[]).filter(e => e.category === '停車費'));
   const currentFilter = window._transportFilter || 'all';
