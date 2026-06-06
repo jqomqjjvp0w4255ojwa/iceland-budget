@@ -131,28 +131,26 @@ function renderDaily(expenses) {
         </div>
         <div class="swipe-card-content card" style="position:relative;${item.isShared?'border:1.5px solid rgba(78,195,121,.35);':''}">
           <span class="swipe-hint" title="滑動可修改/刪除">⋯</span>
-          <!-- 頂部：類別標籤 + 金額 -->
-          <div class="card-header">
-            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+          <div style="padding:10px 14px 10px;">
+            <!-- 第一行：[類別][共同/個人] ---- NT金額 -->
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
               <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${item.category||'雜支'}</span>
               <span style="font-size:.6rem;padding:1px 6px;border-radius:4px;white-space:nowrap;${item.isShared?'background:rgba(78,195,121,.18);color:var(--green);border:1px solid rgba(78,195,121,.4);':'background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border);'}">${item.isShared?'共同':'個人'}</span>
+              <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
+              <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);white-space:nowrap;">NT$ ${Math.round(item.total||item.twd||0).toLocaleString()}</span>
+              ${item.currency&&item.currency!=='NT'?`<span style="font-size:.6rem;color:var(--muted)">${item.amount} ${item.currency}</span>`:''}
             </div>
-            <div style="flex-shrink:0;text-align:right">
-              <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">NT$ ${Math.round(item.total||item.twd||0).toLocaleString()}</div>
-              ${item.currency&&item.currency!=='NT'?`<div style="font-size:.62rem;color:var(--muted)">${item.amount} ${item.currency}</div>`:''}
-            </div>
-          </div>
-          <!-- 主內容 -->
-          <div style="padding:0 16px 10px;">
-            ${item.title?`<div style="font-size:.9rem;color:var(--text);font-weight:600;margin-bottom:3px">${item.title}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>`:''}
-            ${item.location?`<div style="font-size:.72rem;color:var(--muted);margin-bottom:5px">📍 ${item.location}</div>`:''}
+            <!-- 第二行：品項 -->
+            ${item.title?`<div style="font-size:.9rem;color:var(--text);font-weight:600;margin-bottom:4px">${item.title}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>`:''}
+            <!-- 第三行：tag -->
             ${item.tags?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${item.tags.split(',').filter(Boolean).map(t=>`<span style="background:rgba(42,74,26,.35);border:1px solid rgba(42,74,26,.5);color:#c8d8a8;font-size:.65rem;padding:2px 8px;border-radius:999px;font-family:'Silkscreen',monospace;">${t.trim()}</span>`).join('')}</div>`:''}
-            ${burdenTags?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${burdenTags}</div>`:''}
-            ${item.note?`<div class="card-note" style="margin-bottom:5px">📌 ${item.note}</div>`:''}
-            <!-- 底部一行：日期左、付款人右 -->
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-              <span style="font-size:.63rem;color:var(--muted)">${date}</span>
-              ${item.payer?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.62rem;color:var(--muted)">${avatarSvg(item.payer)}</span>`:''}
+            <!-- 備註 -->
+            ${item.note?`<div class="card-note" style="margin-bottom:6px">📌 ${item.note}</div>`:''}
+            <!-- 底部：[付款人] [每人負擔...] 日期 -->
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px;">
+              ${item.payer?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(76,175,110,.12);border:1px solid rgba(76,175,110,.3);border-radius:4px;padding:1px 6px;font-size:.62rem;color:var(--green);">${avatarSvg(item.payer)} 付款</span>`:''}
+              ${burdenTags}
+              <span style="margin-left:auto;font-size:.62rem;color:var(--muted)">${date}</span>
             </div>
           </div>
         </div>
@@ -401,32 +399,36 @@ function renderTransport(d) {
     }).join('') : '';
   function transportItemCard(item, icon, emptyMsg) {
     const date = String(item.date||'').split('T')[0] || '—';
-    const name = item.title || item.location || item.fuelBrand || icon;
+    const isFuel = item.category === '加油';
     const burdenTags = ['猴','花','寧'].filter(m=>(item.burden?.[m]||0)>0)
       .map(m=>`<span style="display:inline-flex;align-items:center;gap:2px;font-size:.62rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted)">${avatarSvg(m)} NT$${Math.round(item.burden[m]).toLocaleString()}</span>`).join('');
-    const fuelMeta = item.category==='加油' ? `
-      <div style="font-size:.63rem;color:var(--muted);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
-        ${item.fuelLiters?`<span>${item.fuelLiters}L</span>`:''}
-        ${item.fuelMileage?`<span>📍 ${Number(item.fuelMileage).toLocaleString()} km</span>`:''}
-        ${item.fuelEfficiency?`<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>`:''}
-      </div>` : '';
     return `
       <div class="card paid-card" style="margin-bottom:8px;">
-        <div class="card-header">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
-                         border-radius:4px;padding:1px 6px;white-space:nowrap;">${icon}</span>
-            ${item.payer?`<span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;">付款 ${avatarSvg(item.payer)}</span>`:''}
+        <div style="padding:10px 14px 10px;">
+          <!-- 第一行：[類別] ---- NT金額 -->
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
+            <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${icon}</span>
+            <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
+            <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);white-space:nowrap;">${fmt(item.total||item.twd)}</span>
           </div>
-          <div class="card-price">
-            <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${fmt(item.total||item.twd)}</div>
-            <div style="font-size:.65rem;color:var(--muted);">${date}</div>
+          <!-- 第二行：地點 | 品牌（加油才有品牌） -->
+          ${(item.location||item.fuelBrand)?`<div style="font-size:.75rem;color:var(--text);margin-bottom:${isFuel?'3px':'5px'}">
+            ${[item.location, item.fuelBrand].filter(Boolean).join(' | ')}
+          </div>`:''}
+          <!-- 加油專屬：公升 | 里程 -->
+          ${isFuel&&(item.fuelLiters||item.fuelMileage)?`<div style="font-size:.65rem;color:var(--muted);margin-bottom:5px;display:flex;gap:8px;">
+            ${item.fuelLiters?`<span>${item.fuelLiters} L</span>`:''}
+            ${item.fuelMileage?`<span>📍 ${Number(item.fuelMileage).toLocaleString()} km</span>`:''}
+            ${item.fuelEfficiency?`<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>`:''}
+          </div>`:''}
+          <!-- tag -->
+          ${item.tags?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${item.tags.split(',').filter(Boolean).map(t=>`<span style="background:rgba(42,74,26,.35);border:1px solid rgba(42,74,26,.5);color:#c8d8a8;font-size:.65rem;padding:2px 8px;border-radius:999px;font-family:'Silkscreen',monospace;">${t.trim()}</span>`).join('')}</div>`:''}
+          <!-- 底部：[付款人] [每人負擔...] 日期 -->
+          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px;">
+            ${item.payer?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(76,175,110,.12);border:1px solid rgba(76,175,110,.3);border-radius:4px;padding:1px 6px;font-size:.62rem;color:var(--green);">${avatarSvg(item.payer)} 付款</span>`:''}
+            ${burdenTags}
+            <span style="margin-left:auto;font-size:.62rem;color:var(--muted)">${date}</span>
           </div>
-        </div>
-        <div style="padding:0 16px 12px;">
-          ${name?`<div style="font-size:.85rem;color:var(--text);margin-bottom:4px">${name}</div>`:''}
-          ${fuelMeta}
-          <div class="card-body" style="padding:${name||fuelMeta?'6px':'0'} 0 0;gap:4px">${burdenTags}</div>
         </div>
       </div>`;
   }
