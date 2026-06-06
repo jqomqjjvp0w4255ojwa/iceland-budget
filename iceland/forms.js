@@ -85,8 +85,6 @@ function optimisticUpdate(type, rowIndex, newItem) {
     _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory, window.APP_DATA.split || {}));
   }
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
-  // 修改模式：資料已更新，加轉轉 badge 表示還在同步
-  if (isEdit) markCardLoading(type, rowIndex);
 }
 
 
@@ -638,6 +636,7 @@ window.pxSubmitExpense = async function(nextMode = false) {
 
   const optimisticItem = {
     _rowIndex: wasEdit ? editRowIdx : -1,
+    _syncing: true,
     category: cat, amount: amt, currency: cur, twd, total,
     payer: _pxPayer, date, location: loc, note, isShared, title, qty,
     splitMode: [..._pxSplitSel].join(','),
@@ -746,6 +745,7 @@ window.pxSubmitRepay = async function() {
 
   const optimisticRepayItem = {
     _rowIndex: wasEditRepay ? editRepayIdx : -1,
+    _syncing: true,
     from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
   };
   optimisticUpdate('repay', wasEditRepay ? editRepayIdx : null, optimisticRepayItem);
@@ -805,4 +805,3 @@ window.pxCancelCalc = function() {
   if (el) el.value = _calcPrev;
   document.getElementById('pxCalcOverlay').classList.remove('show');
 };
-支
