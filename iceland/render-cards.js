@@ -129,7 +129,8 @@ function renderDaily(expenses) {
             <span>🗑️</span>刪除
           </button>
         </div>
-        <div class="swipe-card-content card">
+        <div class="swipe-card-content card" style="position:relative;">
+          <span class="swipe-hint" title="滑動可修改/刪除">⋯</span>
           <div class="card-header">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
@@ -179,6 +180,7 @@ window.initSwipeCards = function(container) {
     function openCard()  { wraps.forEach(w => w.classList.remove('open')); wrap.classList.add('open'); }
     function closeCard() { wrap.classList.remove('open'); }
 
+    // ── 觸控
     content.addEventListener('touchstart', e => {
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
@@ -202,10 +204,36 @@ window.initSwipeCards = function(container) {
       isDragging = false;
     }, {passive:true});
 
+    // ── 滑鼠（電腦版）
+    content.addEventListener('mousedown', e => {
+      startX = e.clientX; startY = e.clientY;
+      isDragging = false; isHoriz = null;
+      content._mouseDown = true;
+    });
+    document.addEventListener('mousemove', e => {
+      if (!content._mouseDown) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (isHoriz === null) isHoriz = Math.abs(dx) > Math.abs(dy);
+      if (isHoriz && Math.abs(dx) > 5) isDragging = true;
+    });
+    document.addEventListener('mouseup', e => {
+      if (!content._mouseDown) return;
+      content._mouseDown = false;
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      if (dx < -40) openCard();
+      else if (dx > 20) closeCard();
+      isDragging = false;
+    });
+
     // 點擊其他卡片時關閉
     document.addEventListener('touchstart', e => {
       if (!wrap.contains(e.target)) closeCard();
     }, {passive:true});
+    document.addEventListener('mousedown', e => {
+      if (!wrap.contains(e.target)) closeCard();
+    });
   });
 };
 
@@ -248,7 +276,8 @@ function renderRepay(items, splitData) {
             <span>🗑️</span>刪除
           </button>
         </div>
-        <div class="swipe-card-content card">
+        <div class="swipe-card-content card" style="position:relative;">
+          <span class="swipe-hint" title="滑動可修改/刪除">⋯</span>
           <div class="card-header">
             <div>
               <div class="card-date" style="font-size:.85rem">${date}</div>

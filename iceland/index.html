@@ -324,6 +324,18 @@
     }
     /* ══ 滑動卡片 ══ */
     .swipe-card-wrap{position:relative;overflow:hidden;border-radius:8px;margin-bottom:8px;}
+    /* 電腦版滑動提示（觸控裝置隱藏） */
+    .swipe-hint{
+      display:none;
+      position:absolute;top:50%;right:10px;transform:translateY(-50%);
+      font-size:1.1rem;color:var(--muted);opacity:.5;pointer-events:none;
+      line-height:1;letter-spacing:-2px;
+    }
+    @media(hover:hover){
+      .swipe-hint{ display:block; }
+      .swipe-card-wrap:hover .swipe-hint{ opacity:.8; }
+      .swipe-card-wrap.open .swipe-hint{ display:none; }
+    }
     .swipe-card-actions{position:absolute;right:0;top:0;bottom:0;display:flex;align-items:stretch;transform:translateX(100%);transition:transform .25s ease;z-index:1;}
     .swipe-card-wrap.open .swipe-card-actions{transform:translateX(0);}
     .swipe-action-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:60px;cursor:pointer;border:none;font-family:'Silkscreen',monospace;font-size:6px;}
