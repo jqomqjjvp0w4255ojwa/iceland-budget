@@ -88,10 +88,12 @@ function drawDonutCanvas(carPct, flightPct, accomPct, actPct, expPct){
     {pct:actPct,       color:'#4caf6e'},
     {pct:expPct||0,    color:'#ff9f40'},
   ];
+  // 最後一個有值的 slice 顏色（浮點誤差補救用）
+  const lastColor = [...slices].reverse().find(s=>s.pct>0)?.color || '#1e3a5f';
   function ac(a){
     let c=0;
     for(const s of slices){if(s.pct<=0)continue;c+=s.pct*2*Math.PI;if(a<=c)return s.color;}
-    return '#1e3a5f';
+    return lastColor; // 浮點誤差造成的殘餘像素，用最後一個 slice 的顏色填
   }
   for(let r=0;r<G;r++) for(let c=0;c<G;c++){
     const dx=c-cx, dy=r-cy, d=Math.sqrt(dx*dx+dy*dy);
@@ -205,13 +207,19 @@ function refreshDonut(){
   if(elAll)    elAll.textContent  = '合計 '+fmt(grandDisplay);
   if(elApprox) elApprox.textContent = (window._flightMode==='equal')?'約':'';
 
-  // 圓餅：分母統一用 grandDisplay
+  // 圓餅：分母統一用 grandDisplay，成員模式共同費用只取 1/3
   const pt = grandDisplay||1;
-  drawDonutCanvas(carTotal/pt, flightForDisplay/pt, totalAccom/pt, totalActivity/pt, expForDisplay/pt);
+  const _isMember = !['none','equal'].includes(window._flightMode||'equal');
+  const _carP   = (_isMember ? carTotal/3    : carTotal)    / pt;
+  const _accomP = (_isMember ? totalAccom/3  : totalAccom)  / pt;
+  const _actP   = (_isMember ? totalActivity/3 : totalActivity) / pt;
+  const _fltP   = flightForDisplay / pt;
+  const _expP   = expForDisplay / pt;
+  drawDonutCanvas(_carP, _fltP, _accomP, _actP, _expP);
 
   // Legend
   const elLegend = document.getElementById('donutLegend');
-  if(elLegend) elLegend.innerHTML = buildLegend(carTotal/pt, flightForDisplay/pt, totalAccom/pt, totalActivity/pt, expForDisplay/pt);
+  if(elLegend) elLegend.innerHTML = buildLegend(_carP, _fltP, _accomP, _actP, _expP);
 
   // 小計進度條
   const elCat = document.getElementById('catRowsContent');

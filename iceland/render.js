@@ -169,10 +169,12 @@ function renderAll(){
   const { perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel, expForDisplay } =
     calcFlightDisplay(sharedTotal, totalFlight, d.flights||[], d.expenses||[]);
   const pieTotal   = grandDisplay || 1;
-  const carPct     = carTotal/pieTotal;
+  // 成員模式下共同費用只算該人的 1/3，避免三人總額把比例撐爆
+  const isMemberMode = !['none','equal'].includes(window._flightMode||'equal');
+  const carPct   = (isMemberMode ? carTotal/3    : carTotal)   / pieTotal;
+  const accomPct = (isMemberMode ? totalAccom/3  : totalAccom) / pieTotal;
+  const actPct   = (isMemberMode ? totalActivity/3 : totalActivity) / pieTotal;
   const flightPct  = flightForDisplay/pieTotal;
-  const accomPct   = totalAccom/pieTotal;
-  const actPct     = totalActivity/pieTotal;
 
   // ── 圓餅 HTML（canvas + 中心卷軸選擇器，無圓框，圓餅本身即邊界）
   const donutHtml = `
