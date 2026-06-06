@@ -282,8 +282,9 @@ function renderRepay(items, splitData) {
 function renderTransport(d) {
   const car = d.car;
   const flights = d.flights || [];
-  const fuelItems   = (d.expenses||[]).filter(e => e.category === '加油');
-  const parkItems   = (d.expenses||[]).filter(e => e.category === '停車費');
+  const sortByDate = arr => arr.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const fuelItems   = sortByDate((d.expenses||[]).filter(e => e.category === '加油'));
+  const parkItems   = sortByDate((d.expenses||[]).filter(e => e.category === '停車費'));
   const currentFilter = window._transportFilter || 'all';
   const filterBtns = ['all','car','flight','fuel','parking'].map(f => {
     const labels = {all:'全部', car:'🚗 租車', flight:'✈️ 機票', fuel:'⛽ 油費', parking:'🅿 停車'};

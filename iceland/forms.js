@@ -514,7 +514,8 @@ function pxRenderScrollPicker(listId, selectedName, side) {
   ).join('') + pad;
 
   const idx = PX_MEMBERS.indexOf(selectedName);
-  el.scrollTop = (idx + 1) * PICKER_ITEM_H;
+  // 用 setTimeout 確保 modal 已顯示再設 scrollTop
+  setTimeout(() => { el.scrollTop = (idx + 1) * PICKER_ITEM_H; }, 30);
 
   // 移除舊事件
   if (el._pickerClick)  el.removeEventListener('click',  el._pickerClick);
