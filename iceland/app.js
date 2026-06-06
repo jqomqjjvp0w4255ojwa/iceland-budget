@@ -254,7 +254,17 @@
       if (all.error) throw new Error(all.error);
       const { overview, accommodation, car, activity, split, lines, flight, expense } = all;
 
-      window.APP_DATA = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
+      const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
+      // 保留本地樂觀新增（_rowIndex === -1）不被雲端舊快取蓋掉
+      if (window.APP_DATA?.expenses) {
+        const localOnly = window.APP_DATA.expenses.filter(e => Number(e._rowIndex) === -1);
+        if (localOnly.length) newData.expenses = [...localOnly, ...newData.expenses];
+      }
+      if (window.APP_DATA?.repayHistory) {
+        const localOnly = window.APP_DATA.repayHistory.filter(r => Number(r._rowIndex) === -1);
+        if (localOnly.length) newData.repayHistory = [...localOnly, ...newData.repayHistory];
+      }
+      window.APP_DATA = newData;
       localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
       window.renderAll?.();
       window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
