@@ -133,16 +133,13 @@ function renderAll(){
     for(const m of MEMBERS){ if(d.car.payer.includes(m)){ paidLocal[m]+=d.car.totalTWD; break; } }
   }
 
+  // hasSheetData：GAS 寫入_分帳 是否有資料
+  const hasSheetData = MEMBERS.some(m => splitData[m]?.paid);
+
   const paid = {};
   MEMBERS.forEach(m=>{
-    paid[m] = splitData[m]?.paid || paidLocal[m] || 0;
+    paid[m] = hasSheetData ? (splitData[m]?.paid ?? 0) : (paidLocal[m] ?? 0);
   });
-  const shouldPay = {};
-  MEMBERS.forEach(m=>{
-    shouldPay[m] = splitData[m]?.burden || sharedTotal/3;
-  });
-  const debt = {};
-  MEMBERS.forEach(m=>{ debt[m]=Math.round(paid[m]-shouldPay[m]); });
 
   // ── 倒數計時
   const DEPART = new Date('2026-09-14T00:00:00+08:00');
@@ -197,16 +194,18 @@ function renderAll(){
   const catRows = buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandDisplay, expForDisplay);
 
   // ── 分帳明細（從 寫入_分帳 Sheet 讀取，若無則 fallback 自算）
-  const maxPaid = Math.max(...MEMBERS.map(m => splitData[m]?.paid || paid[m] || 0), 1);
+  const maxPaid = Math.max(...MEMBERS.map(m => paid[m] || 0), 1);
   const debtRows = MEMBERS.map(m => {
-    const paidAmt  = splitData[m]?.paid    ?? paid[m] ?? 0;
-    const balance  = splitData[m]?.balance ?? debt[m] ?? 0;
+    const paidAmt = paid[m] ?? 0;
+    // balance：GAS 已含還款的最終結算；無 GAS 資料時顯示 null（不估算）
+    const balance = hasSheetData ? (splitData[m]?.balance ?? null) : null;
     const barPct   = (paidAmt / maxPaid * 100).toFixed(1);
-    const barColor = balance >= 0 ? 'var(--green)' : '#e8c020';
-    const debtLabel = balance > 0 ? `→ 要收回 ${fmt(balance)}`
+    const barColor = balance === null ? 'var(--muted)' : balance >= 0 ? 'var(--green)' : '#e8c020';
+    const debtLabel = balance === null ? '→ 同步後顯示'
+                    : balance > 0 ? `→ 要收回 ${fmt(balance)}`
                     : balance < 0 ? `→ 要給出 ${fmt(-balance)}`
                     : `→ 剛好平`;
-    const debtColor = balance > 0 ? 'var(--green)' : balance < 0 ? 'var(--red)' : 'var(--muted)';
+    const debtColor = balance === null ? 'var(--muted)' : balance > 0 ? 'var(--green)' : balance < 0 ? 'var(--red)' : 'var(--muted)';
     return `
     <div style="margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
