@@ -76,7 +76,7 @@ function catLabel(c){ return CAT_LABEL[c] || c || '📦 其他'; }
 
 function renderDaily(expenses) {
   const TRANSPORT_CATS = ['加油','停車費'];
-  const items = (expenses||[]).filter(e => !TRANSPORT_CATS.includes(e.category)).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const items = (expenses||[]).filter(e => !TRANSPORT_CATS.includes(e.category)).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   if (!items.length) return `<div class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div>`;
 
   const html = items.map(item => {
@@ -208,14 +208,12 @@ function renderRepay(items, splitData) {
   // 逐筆累計還款對每人結算的影響（從第一筆開始算）
   // 債務人（from）每還一筆：結算 +amount（欠債減少）
   // 債主（to）每還一筆：結算 -amount（應收減少）
+  // 初始值用「還款前結算」= 總付出 - 總負擔，不用 balance（balance 已含還款，會重複計算）
   const runningBalance = {};
   ['猴','花','寧'].forEach(m => {
-    runningBalance[m] = splitData?.[m]?.balance ?? 0;
-  });
-  // 先把所有還款的影響倒回去，算出「還款前」的初始結算
-  items.forEach(r => {
-    runningBalance[r.from] -= r.amount;
-    runningBalance[r.to]   += r.amount;
+    const paid   = splitData?.[m]?.paid   ?? 0;
+    const burden = splitData?.[m]?.burden ?? 0;
+    runningBalance[m] = paid - burden;
   });
   const html = items.map(r => {
     // 這筆還款前的結算

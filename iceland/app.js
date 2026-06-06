@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE = "https://script.google.com/macros/s/AKfycbycH91EvNyKvxRRVy7BlhO8EIVy9N6Zku63nmdU8itBkMh3OYe9ySeCowypcN-8Dn6v/exec";
+  const API_BASE = "https://script.google.com/macros/s/AKfycbx90Otm2sYc9bEGRH9SdPQSBqTpsLFlKQjsPZDbxWBDhHdz7T21w7pZ-7xv1lFtAeBK/exec";
   window._GAS_BASE = API_BASE;
   const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
 
@@ -27,8 +27,9 @@
     const headers = cells[0].map(h => String(h ?? '').trim());
     return cells.slice(1).map((row, i) => {
       const obj = {};
-      if (withRowIndex) obj._rowIndex = i + 2;
       headers.forEach((h, j) => { if (h) obj[h] = row[j] ?? ''; });
+      // 優先用 GAS 回傳的真實行號，fallback 才用 i+2
+      if (withRowIndex) obj._rowIndex = obj['_rowIndex'] ? Number(obj['_rowIndex']) : i + 2;
       return obj;
     });
   }
