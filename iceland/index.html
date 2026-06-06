@@ -229,20 +229,20 @@
     .px-add-menu{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:150;align-items:flex-end;justify-content:center;}
     .px-add-menu.show{display:flex;}
     .px-add-box{background:#e8f0d0;border-top:3px solid #000;border-left:3px solid #000;border-right:3px solid #000;width:100%;max-width:680px;font-family:'Silkscreen',monospace;}
-    .px-add-title{background:#2a4a1a;color:#c8d8a8;font-size:8px;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px;}
-    .px-add-title button{background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:8px;padding:2px 8px;cursor:pointer;}
+    .px-add-title{background:#2a4a1a;color:#c8d8a8;font-size:11px;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px;}
+    .px-add-title button{background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:10px;padding:2px 8px;cursor:pointer;}
     .px-add-choices{display:flex;border-top:2px solid #2a4a1a;}
-    .px-add-choice{flex:1;background:#c8d8a8;border:none;border-right:2px solid #2a4a1a;padding:16px 8px;font-family:'Silkscreen',monospace;font-size:9px;color:#2a4a1a;cursor:pointer;text-align:center;line-height:1.8;transition:background .15s;}
+    .px-add-choice{flex:1;background:#c8d8a8;border:none;border-right:2px solid #2a4a1a;padding:16px 8px;font-family:'Silkscreen',monospace;font-size:12px;color:#2a4a1a;cursor:pointer;text-align:center;line-height:1.8;transition:background .15s;}
     .px-add-choice:last-child{border-right:none;}
     .px-add-choice:hover{background:#a8c888;}
     .px-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:160;align-items:flex-end;justify-content:center;padding-bottom:28px;}
     .px-modal-overlay.show{display:flex;}
     .px-modal-box{background:#e8f0d0;border:3px solid #000;width:100%;max-width:680px;max-height:82vh;overflow-y:auto;font-family:'Silkscreen',monospace;border-radius:4px 4px 0 0;}
-    .px-modal-header{background:#2a4a1a;color:#c8d8a8;font-size:8px;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px;position:sticky;top:0;}
-    .px-modal-header button{background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:8px;padding:2px 8px;cursor:pointer;}
+    .px-modal-header{background:#2a4a1a;color:#c8d8a8;font-size:11px;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px;position:sticky;top:0;}
+    .px-modal-header button{background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:10px;padding:2px 8px;cursor:pointer;}
     .px-form{padding:12px;}
     .px-field{margin-bottom:12px;}
-    .px-label{font-size:7px;color:#2a4a1a;letter-spacing:1px;display:block;margin-bottom:5px;}
+    .px-label{font-size:11px;color:#2a4a1a;letter-spacing:1px;display:block;margin-bottom:5px;}
     .px-input{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;box-sizing:border-box;}
     .px-input:focus{outline:none;background:#fff;}
     .px-select{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;}
@@ -251,9 +251,9 @@
     .px-member-btn.sel{background:#2a4a1a;color:#c8d8a8;}
     .px-member-btn:hover:not(.sel){background:#a8c888;}
     .px-split-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
-    .px-split-name{font-size:8px;color:#2a4a1a;width:28px;}
-    .px-split-input{flex:1;background:#f8fce8;border:2px solid #2a4a1a;padding:5px 8px;font-family:'Silkscreen',monospace;font-size:9px;color:#2a4a1a;}
-    .px-split-total{display:flex;justify-content:space-between;font-size:7px;padding:5px 0;border-top:1px solid #2a4a1a;margin-top:3px;}
+    .px-split-name{font-size:11px;color:#2a4a1a;width:28px;}
+    .px-split-input{flex:1;background:#f8fce8;border:2px solid #2a4a1a;padding:5px 8px;font-family:'Silkscreen',monospace;font-size:12px;color:#2a4a1a;}
+    .px-split-total{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-top:1px solid #2a4a1a;margin-top:3px;}
     .px-total-ok{color:#1a5a1a;} .px-total-err{color:#8a1010;}
     .px-form-actions{display:flex;border-top:2px solid #2a4a1a;margin-top:4px;}
     .px-btn-cancel{flex:1;background:#c8d8a8;border:none;border-right:2px solid #2a4a1a;padding:12px;font-family:'Silkscreen',monospace;font-size:8px;color:#2a4a1a;cursor:pointer;}
@@ -505,7 +505,7 @@
             <input class="px-input" id="pxExpTwd" placeholder="點此修改" style="flex:1;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpTwd','pxOnTwdManualEdit')">
             <button onclick="pxClearTwd()" style="background:none;border:none;font-size:10px;color:#aaa;cursor:pointer;padding:2px 4px;" title="回復自動換算">↺</button>
           </div>
-          <div id="pxTwdRateHint" style="font-size:7px;color:#7a9a5a;padding-left:2px;"></div>
+          <div id="pxTwdRateHint" style="font-size:9px;color:#7a9a5a;text-align:right;padding-right:2px;"></div>
         </div>
       </div>
       <!-- ── 標籤（常駐）── -->
