@@ -794,6 +794,11 @@ window.pxQtyStep = function(dir) {
   const el = document.getElementById('pxExpQty');
   if (el) el.value = window._pxQty;
 };
+window.pxLoadQty = function(qty) {
+  window._pxQty = qty || 1;
+  const el = document.getElementById('pxExpQty');
+  if (el) el.value = window._pxQty;
+};
 window.pxResetQty = function() {
   window._pxQty = 1;
   const el = document.getElementById('pxExpQty');

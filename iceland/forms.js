@@ -201,7 +201,9 @@ window.openPxModal = function(type, prefill = null) {
     if (prefill?.tags) window.pxLoadTags?.(prefill.tags);
     else window.pxResetTags?.();
     window.pxResetBrand?.();
-    window.pxResetQty?.();
+    // 數量：編輯模式帶入原數量
+    if (prefill?.qty) window.pxLoadQty?.(prefill.qty);
+    else window.pxResetQty?.();
     // 清標籤輸入欄
     const tagInput = document.getElementById('pxTagInput');
     if (tagInput) { tagInput.value = ''; }

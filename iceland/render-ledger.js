@@ -27,7 +27,7 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses, carTotal
     .filter(e=>e.isShared)
     .reduce((s,e)=>s+(e.total||0),0);
 
-  const mode = window._flightMode;
+  const mode = window._flightMode || 'equal';
   let perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel, expForDisplay;
 
   if(mode==='none'){
