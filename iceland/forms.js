@@ -8,11 +8,13 @@ let _pxCustomAmt = {'花':0,'猴':0,'寧':0};
 let _twdManualEdited = false; // 使用者手動改過換算台幣
 let _isSubmitting = false; // 防止重複送出
 
-// 背景送出 GAS，稍等確保 GAS clearCache 完成再 sync
+// 背景送出 GAS，debounce 確保多次操作只觸發一次 sync
+let _bgSyncTimer = null;
 function bgSync(label) {
   setSyncState?.('syncing', label || '同步中…');
-  setTimeout(() => {
-    window.__syncIcelandBudgetFromSheets?.().catch(e => {
+  clearTimeout(_bgSyncTimer);
+  _bgSyncTimer = setTimeout(() => {
+    window.__syncIcelandBudgetFromSheets?.().catch(() => {
       setSyncState?.('local', '⚠ 同步失敗，下次開啟會重試');
     });
   }, 3000);
@@ -43,18 +45,31 @@ function optimisticDelete(type, rowIndex) {
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
 }
 
-// 樂觀更新：修改模式原地替換（保留 _rowIndex，bgSync 才能用雲端正確資料覆蓋）
+// 樂觀更新：修改模式原地替換；若找不到（例如首次新增後尚未拿到真實行號）則加到頂部
 function optimisticEdit(type, rowIndex, newItem) {
   if (!window.APP_DATA) return;
   if (type === 'expense') {
-    window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).map(e =>
-      Number(e._rowIndex) === Number(rowIndex) ? { ...newItem } : e
-    );
+    const list = window.APP_DATA.expenses || [];
+    const idx = list.findIndex(e => Number(e._rowIndex) === Number(rowIndex));
+    if (idx !== -1) {
+      const next = [...list];
+      next[idx] = { ...newItem };
+      window.APP_DATA.expenses = next;
+    } else {
+      // 找不到就當新增（理論上不該發生，保險用）
+      window.APP_DATA.expenses = [newItem, ...list];
+    }
     _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
   } else if (type === 'repay') {
-    window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).map(r =>
-      Number(r._rowIndex) === Number(rowIndex) ? { ...newItem } : r
-    );
+    const list = window.APP_DATA.repayHistory || [];
+    const idx = list.findIndex(r => Number(r._rowIndex) === Number(rowIndex));
+    if (idx !== -1) {
+      const next = [...list];
+      next[idx] = { ...newItem };
+      window.APP_DATA.repayHistory = next;
+    } else {
+      window.APP_DATA.repayHistory = [...list, newItem];
+    }
     _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
   }
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
