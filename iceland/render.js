@@ -100,9 +100,9 @@ function setSyncState(state,msg){
 function renderAll(){
   // ── 記住目前分頁，renderAll 後恢復
   const _activeTab = window._activeMainTab || 'ledger';
+  const d=window.APP_DATA || window.STATIC;
   // ── 同步 tag 庫
   if (d.tagLibrary?.length) window.pxUpdateTagLibrary?.(d.tagLibrary);
-  const d=window.APP_DATA || window.STATIC;
   const totalAccom    = d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
   const totalActivity = (d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
   const totalFlight   = d.totalFlightTWD||0;
