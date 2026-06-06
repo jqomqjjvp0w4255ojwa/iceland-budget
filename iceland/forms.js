@@ -587,7 +587,7 @@ window.pxSubmitExpense = async function(nextMode = false) {
     optimisticDelete('expense', _editRowIndex);
   }
   optimisticAdd('expense', {
-    _rowIndex: -1, // 暫時行號，背景同步後會更新
+    _rowIndex: _editMode ? _editRowIndex : -1, // 編輯模式用原行號，避免 bgSync 後重複
     category: cat, amount: amt, currency: cur, twd, total,
     payer: _pxPayer, date, location: loc, note, isShared, title, qty,
     splitMode: [..._pxSplitSel].join(','),
@@ -686,7 +686,7 @@ window.pxSubmitRepay = async function() {
     optimisticDelete('repay', _editRowIndex);
   }
   optimisticAdd('repay', {
-    _rowIndex: -1,
+    _rowIndex: _editMode ? _editRowIndex : -1,
     from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
   });
 
