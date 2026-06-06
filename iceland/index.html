@@ -574,13 +574,15 @@
       <div class="px-field">
         <label class="px-label">▸ 地點（選填）</label>
         <input class="px-input" type="text" id="pxExpLoc" placeholder="">
+        <div id="pxLocSuggests" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;"></div>
       </div>
       <div class="px-field">
         <label class="px-label">▸ 備註（選填）</label>
         <input class="px-input" type="text" id="pxExpNote" placeholder="">
       </div>
       <div class="px-form-actions" style="margin-bottom:12px;">
-        <button class="px-btn-submit" id="pxBtnExpense" onclick="pxSubmitExpense()" disabled style="flex:1;">[ 確認送出 ]</button>
+        <button class="px-btn-submit" id="pxBtnExpense" onclick="pxSubmitExpense(false)" disabled style="flex:1;">[ 確認送出 ]</button>
+        <button class="px-btn-submit" id="pxBtnExpenseNext" onclick="pxSubmitExpense(true)" disabled style="flex:1;background:#1a3a0a;">[ 下一筆 ]</button>
       </div>
     </div>
   </div>

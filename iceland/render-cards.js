@@ -129,34 +129,31 @@ function renderDaily(expenses) {
             <span>🗑️</span>刪除
           </button>
         </div>
-        <div class="swipe-card-content card" style="position:relative;">
+        <div class="swipe-card-content card" style="position:relative;${item.isShared?'border:1.5px solid rgba(78,195,121,.35);':''}">
           <span class="swipe-hint" title="滑動可修改/刪除">⋯</span>
+          <!-- 頂部：類別標籤 + 金額 -->
           <div class="card-header">
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
-                           border-radius:4px;padding:1px 6px;white-space:nowrap;">${item.category||'雜支'}</span>
-              <span style="font-size:.6rem;padding:1px 6px;border-radius:4px;white-space:nowrap;
-                ${item.isShared
-                  ? 'background:rgba(78,195,121,.12);color:var(--green);border:1px solid rgba(78,195,121,.3);'
-                  : 'background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border);'}">
-                ${item.isShared ? '共同' : '個人'}
-              </span>
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+              <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${item.category||'雜支'}</span>
+              <span style="font-size:.6rem;padding:1px 6px;border-radius:4px;white-space:nowrap;${item.isShared?'background:rgba(78,195,121,.18);color:var(--green);border:1px solid rgba(78,195,121,.4);':'background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border);'}">${item.isShared?'共同':'個人'}</span>
             </div>
-            <div class="card-price" style="flex-shrink:0;text-align:right">
-              <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">
-                NT$ ${Math.round(item.total||item.twd||0).toLocaleString()}
-              </div>
+            <div style="flex-shrink:0;text-align:right">
+              <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">NT$ ${Math.round(item.total||item.twd||0).toLocaleString()}</div>
               ${item.currency&&item.currency!=='NT'?`<div style="font-size:.62rem;color:var(--muted)">${item.amount} ${item.currency}</div>`:''}
             </div>
           </div>
-          <div style="padding:0 16px 12px;">
-            ${item.title ? `<div style="font-size:.88rem;color:var(--text);font-weight:600;margin-bottom:2px">${item.title}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>` : ''}
-            ${item.location ? `<div style="font-size:.72rem;color:var(--muted);margin-bottom:4px">📍 ${item.location}</div>` : ''}
-            ${item.tags ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${item.tags.split(',').filter(Boolean).map(t=>`<span style="background:rgba(42,74,26,.15);border:1px solid rgba(42,74,26,.3);color:var(--text);font-size:.62rem;padding:1px 7px;border-radius:999px;">${t.trim()}</span>`).join('')}</div>` : ''}
-            <div class="card-body" style="padding:0 0 4px;gap:4px">${burdenTags}</div>
-            ${item.payer ? `<div style="display:flex;align-items:center;gap:4px;margin-top:4px"><span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;">付款 ${avatarSvg(item.payer)}</span></div>` : ''}
-            ${item.note ? `<div class="card-note" style="margin-top:4px">📌 ${item.note}</div>` : ''}
-            <div style="font-size:.63rem;color:var(--muted);margin-top:4px">${date}</div>
+          <!-- 主內容 -->
+          <div style="padding:0 16px 10px;">
+            ${item.title?`<div style="font-size:.9rem;color:var(--text);font-weight:600;margin-bottom:3px">${item.title}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>`:''}
+            ${item.location?`<div style="font-size:.72rem;color:var(--muted);margin-bottom:5px">📍 ${item.location}</div>`:''}
+            ${item.tags?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${item.tags.split(',').filter(Boolean).map(t=>`<span style="background:rgba(42,74,26,.35);border:1px solid rgba(42,74,26,.5);color:#c8d8a8;font-size:.65rem;padding:2px 8px;border-radius:999px;font-family:'Silkscreen',monospace;">${t.trim()}</span>`).join('')}</div>`:''}
+            ${burdenTags?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${burdenTags}</div>`:''}
+            ${item.note?`<div class="card-note" style="margin-bottom:5px">📌 ${item.note}</div>`:''}
+            <!-- 底部一行：日期左、付款人右 -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+              <span style="font-size:.63rem;color:var(--muted)">${date}</span>
+              ${item.payer?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.62rem;color:var(--muted)">${avatarSvg(item.payer)}</span>`:''}
+            </div>
           </div>
         </div>
       </div>`;

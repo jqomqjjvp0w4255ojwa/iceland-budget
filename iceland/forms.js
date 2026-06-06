@@ -167,6 +167,20 @@ window.openPxModal = function(type, prefill = null) {
     _twdManualEdited = !!prefill?.twd; // 編輯模式帶入的值視為手動，不覆蓋
     pxOnCurrencyChange(); // 根據幣別決定顯示/隱藏換算列
     document.getElementById('pxExpLoc').value  = prefill?.location || '';
+    // 地點建議：從已有記錄取最近三個不重複地點
+    const locSuggests = document.getElementById('pxLocSuggests');
+    if (locSuggests) {
+      const recentLocs = [...new Set(
+        (window.APP_DATA?.expenses || window.STATIC?.expenses || [])
+          .slice().reverse()
+          .map(e => e.location).filter(Boolean)
+      )].slice(0, 3);
+      locSuggests.innerHTML = recentLocs.map(loc =>
+        `<button type="button" onclick="document.getElementById('pxExpLoc').value='${loc.replace(/'/g,'\'')}';"
+          style="background:#c8d8a8;border:1px solid #2a4a1a;color:#1a3a0a;font-family:'Silkscreen',monospace;
+                 font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;">${loc}</button>`
+      ).join('');
+    }
     document.getElementById('pxExpNote').value = prefill?.note || '';
     document.getElementById('pxExpDate').value = prefill?.date || pxLocalNow();
     document.getElementById('pxExpShared').checked = prefill?.isShared !== false; // 預設勾選
@@ -349,8 +363,10 @@ function pxCheckSubmit() {
     if (qtyDiv) qtyDiv.style.display = hideQty ? 'none' : 'flex';
   }
 
-  document.getElementById('pxBtnExpense').disabled =
-    !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
+  const disabled = !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
+  document.getElementById('pxBtnExpense').disabled = disabled;
+  const btnNext = document.getElementById('pxBtnExpenseNext');
+  if (btnNext) btnNext.disabled = disabled || _editMode; // 下一筆不支援修改模式
 }
 window.pxCheckSubmit = pxCheckSubmit;
 
@@ -487,7 +503,7 @@ window.pxClearTwd = function() {
 };
 
 // ══ 送出記帳（新增 or 修改） ══
-window.pxSubmitExpense = async function() {
+window.pxSubmitExpense = async function(nextMode = false) {
   const amt  = parseFloat(document.getElementById('pxExpAmt').value) || 0;
   const cat  = document.getElementById('pxExpCat').value;
   const cur  = document.getElementById('pxExpCur').value;
@@ -540,8 +556,33 @@ window.pxSubmitExpense = async function() {
     fuelMileage, fuelLiters, fuelBrand, tags,
   };
 
-  // 立刻關窗、樂觀更新畫面
-  window.cancelPxModal('pxModalExpense');
+  // nextMode：留窗清空；否則關窗
+  if (nextMode) {
+    // 按鈕短暫顯示成功
+    const btnNext = document.getElementById('pxBtnExpenseNext');
+    if (btnNext) {
+      const orig = btnNext.textContent;
+      btnNext.textContent = '✓ 已記錄！';
+      btnNext.disabled = true;
+      setTimeout(() => {
+        btnNext.textContent = orig;
+        pxCheckSubmit();
+      }, 1200);
+    }
+    // 清空金額/品項/備註/標籤，保留類別/付款人/分攤/地點
+    document.getElementById('pxExpAmt').value  = '';
+    document.getElementById('pxExpTwd').value  = '';
+    _twdManualEdited = false;
+    pxOnCurrencyChange();
+    const titleEl = document.getElementById('pxExpTitle');
+    if (titleEl) titleEl.value = '';
+    document.getElementById('pxExpNote').value = '';
+    window.pxResetTags?.();
+    window.pxResetQty?.();
+    pxCheckSubmit();
+  } else {
+    window.cancelPxModal('pxModalExpense');
+  }
   if (_editMode) {
     optimisticDelete('expense', _editRowIndex);
   }
