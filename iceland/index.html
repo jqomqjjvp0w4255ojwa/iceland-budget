@@ -207,9 +207,9 @@
     /* ── 卷軸選擇器 */
     .px-repay-picker-col{width:100px;display:flex;flex-direction:column;align-items:center;gap:0;position:relative;}
     .px-repay-picker-indicator{position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:10px;color:#2a4a1a;pointer-events:none;z-index:10;line-height:1;}
-    .px-repay-picker-list{width:100%;height:88px;overflow-y:scroll;border:2px solid #2a4a1a;background:#f8fce8;scrollbar-width:none;overscroll-behavior:contain;}
+    .px-repay-picker-list{width:100%;height:88px;overflow-y:scroll;border:2px solid #2a4a1a;background:#f8fce8;scrollbar-width:none;overscroll-behavior:contain;scroll-snap-type:y mandatory;}
     .px-repay-picker-list::-webkit-scrollbar{display:none;}
-    .px-repay-picker-item{height:88px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;scroll-snap-align:center;transition:background .15s;}
+    .px-repay-picker-item{height:88px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;scroll-snap-align:start;transition:background .15s;}
     .px-repay-picker-item span{font-size:9px;color:#2a4a1a;letter-spacing:1px;}
     /* ── 算盤 */
     .px-calc-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:180;align-items:flex-end;justify-content:center;padding-bottom:32px;}
@@ -468,6 +468,22 @@
           </select>
         </div>
       </div>
+      <!-- ── 標籤（常駐）── -->
+      <div class="px-field" id="pxTagField">
+        <div class="px-label">▸ 標籤（選填）</div>
+        <div id="pxTagRow" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:26px;"></div>
+        <div id="pxTagPanel" style="overflow:hidden;max-height:0;opacity:0;transition:max-height .22s ease,opacity .18s ease;margin-top:0;">
+          <div style="display:flex;gap:5px;margin-bottom:8px;margin-top:8px;">
+            <input id="pxTagInput" style="flex:1;background:#f8fce8;border:2px solid #2a4a1a;padding:5px 9px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;outline:none;border-radius:3px;" placeholder="輸入新標籤…" maxlength="10"
+              oninput="pxOnTagInput()"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();pxConfirmTag();}if(event.key==='Escape')pxCloseTagPanel();">
+            <button id="pxTagConfirmBtn" onclick="pxConfirmTag()" disabled
+              style="background:#2a4a1a;border:none;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:7px;padding:5px 10px;cursor:pointer;border-radius:3px;opacity:.35;">確認</button>
+          </div>
+          <div style="font-size:6px;color:#7a9a5a;letter-spacing:1px;margin-bottom:5px;">常用標籤</div>
+          <div id="pxTagSuggestRow" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+        </div>
+      </div>
       <!-- 油費特殊欄位 -->
       <div id="pxFuelFields" style="display:none;background:#f0f8e8;border:1px solid #b8c8a0;border-radius:4px;padding:8px;margin-bottom:8px;">
         <div style="font-size:7px;color:#2a4a1a;margin-bottom:6px;letter-spacing:1px;">▸ 加油紀錄（選填）</div>
@@ -519,23 +535,6 @@
         <label class="px-label">▸ 地點（選填）</label>
         <input class="px-input" type="text" id="pxExpLoc" placeholder="">
       </div>
-      <!-- ── Tag 欄位（類別為雜支時顯示）── -->
-      <div class="px-field" id="pxTagField" style="display:none;">
-        <div class="px-label">▸ 標籤（選填）</div>
-        <div id="pxTagRow" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:26px;"></div>
-        <div id="pxTagPanel" style="overflow:hidden;max-height:0;opacity:0;transition:max-height .22s ease,opacity .18s ease;margin-top:0;">
-          <div style="display:flex;gap:5px;margin-bottom:8px;margin-top:8px;">
-            <input id="pxTagInput" style="flex:1;background:#f8fce8;border:2px solid #2a4a1a;padding:5px 9px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;outline:none;border-radius:3px;" placeholder="輸入新標籤…" maxlength="10"
-              oninput="pxOnTagInput()"
-              onkeydown="if(event.key==='Enter'){event.preventDefault();pxConfirmTag();}if(event.key==='Escape')pxCloseTagPanel();">
-            <button id="pxTagConfirmBtn" onclick="pxConfirmTag()" disabled
-              style="background:#2a4a1a;border:none;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:7px;padding:5px 10px;cursor:pointer;border-radius:3px;opacity:.35;">確認</button>
-          </div>
-          <div style="font-size:6px;color:#7a9a5a;letter-spacing:1px;margin-bottom:5px;">常用標籤</div>
-          <div id="pxTagSuggestRow" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-        </div>
-      </div>
-
       <div class="px-field">
         <label class="px-label">▸ 備註（選填）</label>
         <input class="px-input" type="text" id="pxExpNote" placeholder="">
@@ -748,7 +747,8 @@
 // ════ Tag 選擇器 ════
 (function(){
   let _selectedTags = [];
-  let _tagLibrary   = ['食物','飲料','紀念品','景點門票','交通','藥局','超市'];
+  const _DEFAULT_TAGS = ['食物','飲料','紀念品','藥局','超市'];
+  let _tagLibrary   = [..._DEFAULT_TAGS];
   let _panelOpen    = false;
 
   function _buildTagChips() {
@@ -831,7 +831,7 @@
     if (panel) { panel.style.maxHeight='0'; panel.style.opacity='0'; panel.style.marginTop='0'; }
     _buildTagChips();
   };
-  window.pxUpdateTagLibrary = function(lib) { if (Array.isArray(lib)) _tagLibrary = [...new Set([..._tagLibrary, ...lib])]; };
+  window.pxUpdateTagLibrary = function(lib) { if (Array.isArray(lib)) _tagLibrary = [...new Set([..._DEFAULT_TAGS, ...lib])]; };
 
   // 類別切換時顯示/隱藏 tag 欄
   document.addEventListener('DOMContentLoaded', () => {

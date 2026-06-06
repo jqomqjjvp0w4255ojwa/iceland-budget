@@ -24,22 +24,24 @@ let _editSheet    = '';      // 'expense' | 'repay'
 const _GAS_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
 
 async function postToGAS(payload) {
-  // GAS 串接後取消下面的註解，刪掉 mock return
-  console.log('[GAS mock] postToGAS:', payload);
-  return { success: true };
-
-  // const res = await fetch(_GAS_BASE, {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(payload),
-  //   redirect: 'follow',
-  // });
-  // if (!res.ok) throw new Error('GAS 回應錯誤：' + res.status);
-  // return res.json();
+  const base = window._GAS_BASE;
+  if (!base) throw new Error('找不到 GAS URL，請確認 app.js 已載入');
+  const res = await fetch(base, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    redirect: 'follow',
+  });
+  if (!res.ok) throw new Error('GAS 回應錯誤：' + res.status);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || '寫入失敗');
+  return data;
 }
 
 async function deleteRowFromGAS(sheet, rowIndex) {
-  return postToGAS({ action: 'deleteRow', sheet, rowIndex });
+  if (sheet === 'expense') return postToGAS({ action: 'deleteExpense', rowIndex });
+  if (sheet === 'repay')   return postToGAS({ action: 'deleteRepay',   rowIndex });
+  throw new Error('未知的 sheet：' + sheet);
 }
 
 function pxLocalNow() {
@@ -133,7 +135,7 @@ window.openPxModal = function(type, prefill = null) {
     window.pxResetBrand?.();
     if (prefill?.tags) prefill.tags.forEach(t => window.pxGetSelectedTags && window.pxGetSelectedTags()); // prefill tags handled later
     const tagField = document.getElementById('pxTagField');
-    if (tagField) tagField.style.display = prefill?.category ? 'block' : 'none';
+
 
     document.getElementById('pxModalExpense').classList.add('show');
 
@@ -272,9 +274,7 @@ function pxCheckSubmit() {
   const cat = document.getElementById('pxExpCat').value;
   const fuelFields = document.getElementById('pxFuelFields');
   if (fuelFields) fuelFields.style.display = cat === '加油' ? 'block' : 'none';
-  // tag 欄位顯示/隱藏
-  const tagField = document.getElementById('pxTagField');
-  if (tagField) tagField.style.display = cat ? 'block' : 'none';
+
   document.getElementById('pxBtnExpense').disabled =
     !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
 }
@@ -375,9 +375,20 @@ window.pxSubmitExpense = async function() {
       await deleteRowFromGAS(_editSheet, _editRowIndex);
     }
     // 新增
+    // 換算台幣
+    const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
+    const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
+    const twd = cur === 'NT'  ? amt :
+                cur === 'ISK' ? Math.round(amt * exISK) :
+                cur === 'EUR' ? Math.round(amt * exEUR) : amt;
+    const total = twd; // 海外手續費暫不計
+
     await postToGAS({
-      action: 'addExpense', category: cat, amount: amt, currency: cur, payer: _pxPayer,
-      split花: splits['花'], split猴: splits['猴'], split寧: splits['寧'],
+      action: 'addExpense', category: cat, amount: amt, currency: cur,
+      twd, foreignFee: 0, total,
+      payer: _pxPayer,
+      splitMode: [..._pxSplitSel].join(','),
+      'split花': splits['花'], 'split猴': splits['猴'], 'split寧': splits['寧'],
       date, location: loc, note, isShared,
       fuelMileage, fuelLiters, fuelBrand, tags,
     });

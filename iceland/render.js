@@ -100,6 +100,8 @@ function setSyncState(state,msg){
 function renderAll(){
   // ── 記住目前分頁，renderAll 後恢復
   const _activeTab = window._activeMainTab || 'ledger';
+  // ── 同步 tag 庫
+  if (d.tagLibrary?.length) window.pxUpdateTagLibrary?.(d.tagLibrary);
   const d=window.APP_DATA || window.STATIC;
   const totalAccom    = d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
   const totalActivity = (d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
@@ -407,4 +409,4 @@ async function init(){
   syncFromCloud();
 }
 
-// ── init() 由 index.html 最後一個 defer script 呼叫，確保所有模組都已載入好
+// ── init() 由 index.html 最後一個 defer script 呼叫，確保所有模組都已載入
