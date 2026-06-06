@@ -121,10 +121,15 @@ function renderDaily(expenses) {
         </div>
         <div class="swipe-card-content card">
           <div class="card-header">
-            <div style="display:flex;align-items:center;gap:8px;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
                            border-radius:4px;padding:1px 6px;white-space:nowrap;">${item.category||'雜支'}</span>
-              ${item.payer ? `<span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;">付款 ${avatarSvg(item.payer)}</span>` : ''}
+              <span style="font-size:.6rem;padding:1px 6px;border-radius:4px;white-space:nowrap;
+                ${item.isShared
+                  ? 'background:rgba(78,195,121,.12);color:var(--green);border:1px solid rgba(78,195,121,.3);'
+                  : 'background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border);'}">
+                ${item.isShared ? '共同' : '個人'}
+              </span>
             </div>
             <div class="card-price" style="flex-shrink:0;text-align:right">
               <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">
@@ -136,9 +141,10 @@ function renderDaily(expenses) {
           <div style="padding:0 16px 12px;">
             ${item.title ? `<div style="font-size:.88rem;color:var(--text);font-weight:600;margin-bottom:2px">${item.title}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>` : ''}
             ${item.location ? `<div style="font-size:.72rem;color:var(--muted);margin-bottom:4px">📍 ${item.location}</div>` : ''}
-            <div class="card-body" style="padding:0 0 6px;gap:4px">${burdenTags}</div>
             ${item.tags ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${item.tags.split(',').filter(Boolean).map(t=>`<span style="background:rgba(42,74,26,.15);border:1px solid rgba(42,74,26,.3);color:var(--text);font-size:.62rem;padding:1px 7px;border-radius:999px;">${t.trim()}</span>`).join('')}</div>` : ''}
-            ${item.note ? `<div class="card-note">📌 ${item.note}</div>` : ''}
+            <div class="card-body" style="padding:0 0 4px;gap:4px">${burdenTags}</div>
+            ${item.payer ? `<div style="display:flex;align-items:center;gap:4px;margin-top:4px"><span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;">付款 ${avatarSvg(item.payer)}</span></div>` : ''}
+            ${item.note ? `<div class="card-note" style="margin-top:4px">📌 ${item.note}</div>` : ''}
             <div style="font-size:.63rem;color:var(--muted);margin-top:4px">${date}</div>
           </div>
         </div>
@@ -438,4 +444,4 @@ function renderCar(car){
 // '花'/'猴'/'寧' → 顯示該人自己的機票
 if(window._flightMode === undefined) window._flightMode = 'equal';
 
-// ── 依 flightMode 算「/人顯示金額」和「合計顯示金額」
+// ── 依 flightMode 算「/人顯示金額」和「合計顯示金額」再
