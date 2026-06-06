@@ -75,17 +75,18 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses){
 }
 
 // ── 畫圓餅（canvas，在 renderAll 之後由 initDonutCanvas 呼叫）
-function drawDonutCanvas(carPct, flightPct, accomPct, actPct){
+function drawDonutCanvas(carPct, flightPct, accomPct, actPct, expPct){
   const cv = document.getElementById('donutCanvas');
   if(!cv) return;
   const ctx = cv.getContext('2d');
   const G=32, S=4.375, cx=15.5, cy=15.5, rO=13.5, rI=8.5;
   ctx.clearRect(0,0,cv.width,cv.height);
   const slices=[
-    {pct:carPct,    color:'#f0c040'},
-    {pct:flightPct, color:'#4fc3f7'},
-    {pct:accomPct,  color:'#7c4dff'},
-    {pct:actPct,    color:'#4caf6e'},
+    {pct:carPct,       color:'#f0c040'},
+    {pct:flightPct,    color:'#4fc3f7'},
+    {pct:accomPct,     color:'#7c4dff'},
+    {pct:actPct,       color:'#4caf6e'},
+    {pct:expPct||0,    color:'#ff9f40'},
   ];
   function ac(a){
     let c=0;
@@ -206,7 +207,7 @@ function refreshDonut(){
 
   // 圓餅：分母統一用 grandDisplay
   const pt = grandDisplay||1;
-  drawDonutCanvas(carTotal/pt, flightForDisplay/pt, totalAccom/pt, totalActivity/pt);
+  drawDonutCanvas(carTotal/pt, flightForDisplay/pt, totalAccom/pt, totalActivity/pt, expForDisplay/pt);
 
   // Legend
   const elLegend = document.getElementById('donutLegend');

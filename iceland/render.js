@@ -317,7 +317,7 @@ function renderAll(){
 
   // ── DOM 建立完後初始化圓餅 canvas 和卷軸選擇器，並恢復分頁
   requestAnimationFrame(()=>{
-    drawDonutCanvas(carPct, flightPct, accomPct, actPct);
+    drawDonutCanvas(carPct, flightPct, accomPct, actPct, expForDisplay/pieTotal);
     initDonutPicker();
     refreshDonut(); // 確保個人消費等數字在 renderAll 後也更新
     if (_activeTab !== 'ledger') {
