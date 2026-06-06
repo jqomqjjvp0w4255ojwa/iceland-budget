@@ -262,12 +262,12 @@ function renderRepay(items, splitData) {
       <div class="swipe-card-wrap">
         <div class="swipe-card-actions">
           <button class="swipe-action-btn edit"
-            onclick="openEditRepay(${r._rowIndex||0}, JSON.parse(this.dataset.d))"
+            onclick="openEditRepay(${r._rowIndex ?? -1}, JSON.parse(this.dataset.d))"
             data-d="${editData}">
             <span>✏️</span>修改
           </button>
           <button class="swipe-action-btn delete"
-            onclick="pxConfirmDelete(${r._rowIndex||0},'repay','${label.replace(/'/g,'')}')">
+            onclick="pxConfirmDelete(${r._rowIndex ?? -1},'repay','${label.replace(/'/g,'')}')">
             <span>🗑️</span>刪除
           </button>
         </div>
