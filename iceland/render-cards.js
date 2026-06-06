@@ -121,26 +121,25 @@ function renderDaily(expenses) {
         </div>
         <div class="swipe-card-content card">
           <div class="card-header">
-            <div style="flex:1;min-width:0">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-                <span style="font-size:.72rem;color:var(--text)">${item.category||'—'}</span>
-                <span style="font-size:.65rem;color:var(--muted)">${date}</span>
-                ${item.location ? `<span style="font-size:.65rem;color:var(--muted)">📍 ${item.location}</span>` : ''}
-              </div>
-              <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-                ${item.payer ? avatarSvg(item.payer) : ''}
-                ${burdenTags}
-              </div>
-              ${fuelExtra}
-              ${item.note ? `<div class="card-note" style="margin-top:4px">📌 ${item.note}</div>` : ''}
-              ${item.tags ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${item.tags.split(',').filter(Boolean).map(t=>`<span style="background:rgba(42,74,26,.15);border:1px solid rgba(42,74,26,.3);color:var(--text);font-size:.58rem;padding:1px 6px;border-radius:999px;">${t.trim()}</span>`).join('')}</div>` : ''}
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
+                           border-radius:4px;padding:1px 6px;white-space:nowrap;">${item.category||'雜支'}</span>
+              ${item.payer ? `<span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;">付款 ${avatarSvg(item.payer)}</span>` : ''}
             </div>
             <div class="card-price" style="flex-shrink:0;text-align:right">
               <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">
                 NT$ ${Math.round(item.total||item.twd||0).toLocaleString()}
               </div>
-              ${item.currency&&item.currency!=='NT' ? `<div style="font-size:.62rem;color:var(--muted)">${item.amount} ${item.currency}</div>` : ''}
+              ${item.currency&&item.currency!=='NT'?`<div style="font-size:.62rem;color:var(--muted)">${item.amount} ${item.currency}</div>`:''}
             </div>
+          </div>
+          <div style="padding:0 16px 12px;">
+            ${item.title ? `<div style="font-size:.88rem;color:var(--text);font-weight:600;margin-bottom:2px">${item.title}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>` : ''}
+            ${item.location ? `<div style="font-size:.72rem;color:var(--muted);margin-bottom:4px">📍 ${item.location}</div>` : ''}
+            <div class="card-body" style="padding:0 0 6px;gap:4px">${burdenTags}</div>
+            ${item.tags ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${item.tags.split(',').filter(Boolean).map(t=>`<span style="background:rgba(42,74,26,.15);border:1px solid rgba(42,74,26,.3);color:var(--text);font-size:.62rem;padding:1px 7px;border-radius:999px;">${t.trim()}</span>`).join('')}</div>` : ''}
+            ${item.note ? `<div class="card-note">📌 ${item.note}</div>` : ''}
+            <div style="font-size:.63rem;color:var(--muted);margin-top:4px">${date}</div>
           </div>
         </div>
       </div>`;
