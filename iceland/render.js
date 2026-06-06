@@ -320,10 +320,18 @@ function renderAll(){
       const btn = document.getElementById('mainTab-' + _activeTab);
       if (btn) switchMainTab(_activeTab, btn);
     }
+    // 恢復次分頁狀態
+    const _subTab = window._activeSubTab;
+    if (_subTab && _subTab !== 'accommodation') {
+      const subEl  = document.getElementById(_subTab);
+      const subBtn = document.querySelector(`.tab[onclick="showTab('${_subTab}',this)"]`);
+      if (subEl && subBtn) showTab(_subTab, subBtn);
+    }
   });
 }
 
 function showTab(id,btn){
+  window._activeSubTab = id; // 記住目前次分頁
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id).classList.add('active');
