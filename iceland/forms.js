@@ -26,6 +26,7 @@ function optimisticDelete(type, rowIndex) {
   if (type === 'expense') {
     window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e => Number(e._rowIndex) !== Number(rowIndex));
     _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
+    _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
   } else if (type === 'repay') {
     window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => Number(r._rowIndex) !== Number(rowIndex));
     _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
@@ -33,7 +34,7 @@ function optimisticDelete(type, rowIndex) {
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
 }
 
-// 樂觀更新：找到那筆換掉，找不到就加到頂部
+// 樂觀更新：找到那筆換掉（修改模式），或插入頂部（新增模式）
 function optimisticUpdate(type, rowIndex, newItem) {
   if (!window.APP_DATA) return;
   const isEdit = rowIndex != null && Number(rowIndex) > 0;
@@ -41,20 +42,19 @@ function optimisticUpdate(type, rowIndex, newItem) {
     const list = window.APP_DATA.expenses || [];
     if (isEdit) {
       const i = list.findIndex(e => Number(e._rowIndex) === Number(rowIndex));
-      if (i !== -1) { list[i] = newItem; }
-      else { list.unshift(newItem); }
-      window.APP_DATA.expenses = [...list];
+      // 修改模式：直接覆蓋，找不到就不動（避免幽靈卡片）
+      if (i !== -1) { list[i] = newItem; window.APP_DATA.expenses = [...list]; }
     } else {
       window.APP_DATA.expenses = [newItem, ...list];
     }
     _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses));
+    _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
   } else if (type === 'repay') {
     const list = window.APP_DATA.repayHistory || [];
     if (isEdit) {
       const i = list.findIndex(r => Number(r._rowIndex) === Number(rowIndex));
-      if (i !== -1) { list[i] = newItem; }
-      else { list.push(newItem); }
-      window.APP_DATA.repayHistory = [...list];
+      // 修改模式：直接覆蓋，找不到就不動
+      if (i !== -1) { list[i] = newItem; window.APP_DATA.repayHistory = [...list]; }
     } else {
       window.APP_DATA.repayHistory = [...list, newItem];
     }
@@ -81,9 +81,9 @@ let _calcTarget = '';
 let _calcCb    = '';
 let _calcPrev  = '';
 
-// 修改模式（刪舊＋新增）
+// 修改模式（直接覆蓋原行）
 let _editMode     = false;   // 是否為修改模式
-let _editRowIndex = null;    // 要刪除的舊資料行號
+let _editRowIndex = null;    // 要覆蓋的行號
 let _editSheet    = '';      // 'expense' | 'repay'
 
 // ══ GAS API ══
@@ -616,8 +616,17 @@ window.pxSubmitExpense = async function(nextMode = false) {
   optimisticUpdate('expense', _editMode ? _editRowIndex : null, optimisticItem);
 
   // 背景送 GAS，不等待
+  // 修改模式：GAS 成功後不觸發 bgSync（GAS 有 60 秒 cache，重拉會拉到舊資料蓋掉樂觀更新）
+  // 改為只更新 syncState 提示，讓使用者知道已寫入
+  const wasEdit = _editMode;
   postToGAS(payload)
-    .then(() => bgSync('記帳同步中…'))
+    .then(() => {
+      if (wasEdit) {
+        setSyncState?.('cloud', '✓ 已修改');
+      } else {
+        bgSync('記帳同步中…');
+      }
+    })
     .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'))
     .finally(() => { _isSubmitting = false; });
 };
@@ -708,8 +717,15 @@ window.pxSubmitRepay = async function() {
   };
   optimisticUpdate('repay', _editMode ? _editRowIndex : null, optimisticRepayItem);
 
+  const wasEditRepay = _editMode;
   postToGAS(payload)
-    .then(() => bgSync('還款同步中…'))
+    .then(() => {
+      if (wasEditRepay) {
+        setSyncState?.('cloud', '✓ 已修改');
+      } else {
+        bgSync('還款同步中…');
+      }
+    })
     .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'))
     .finally(() => { _isSubmitting = false; });
 };
