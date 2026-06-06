@@ -263,11 +263,12 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
       pct: totalActivity/gt,
     },
     {
-      label: isMember ? '🛒 雜支（我的負擔）' : '🛒 雜支（共同）',
+      label: '🛒 雜支',
       total: expTotal,
-      perLabel: isMember ? fmt(expTotal)           : fmt(expTotal/3),
+      perLabel: isMember ? fmt(expTotal) : fmt(expTotal/3),
       color:'#ff9f40',
       pct: expTotal/gt,
+      noPerPerson: isMember,
     },
     {
       label:'🛡 保險',
@@ -282,7 +283,7 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
     <div style="margin-bottom:9px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
         <span style="font-size:.72rem;color:var(--text)">${c.label}</span>
-        <span style="font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold)">${c.total?c.perLabel:'—'}<span style="font-size:.6em;color:var(--muted)">${isMember&&c.label.includes('雜支')?'':'/人'}</span></span>
+        <span style="font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold)">${c.total?c.perLabel:'—'}<span style="font-size:.6em;color:var(--muted)">${c.noPerPerson?'':'/人'}</span></span>
       </div>
       <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
         <div style="height:100%;width:${(c.pct*100).toFixed(1)}%;background:${c.color};border-radius:3px;transition:width .6s"></div>
@@ -291,20 +292,19 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
     </div>`).join('');
 }
 
-// ── 圓餅 Legend
+// ── 圓餅 Legend（只顯示圓餅上有的四項：租車、機票、住宿、活動）
 function buildLegend(carPct, flightPct, accomPct, actPct){
   const mode = window._flightMode||'equal';
   const items = [
-    {color:'#f0c040', label:'租車', pct:carPct,    always:true},
-    {color:'#4fc3f7', label:'機票', pct:flightPct, always:false},
-    {color:'#7c4dff', label:'住宿', pct:accomPct,  always:true},
-    {color:'#4caf6e', label:'活動', pct:actPct,    always:true},
+    {color:'#f0c040', label:'租車', pct:carPct},
+    {color:'#4fc3f7', label:'機票', pct:flightPct, hideOnNone:true},
+    {color:'#7c4dff', label:'住宿', pct:accomPct},
+    {color:'#4caf6e', label:'活動', pct:actPct},
   ];
   return items
-    .filter(l => l.always || mode!=='none')
+    .filter(l => !(l.hideOnNone && mode==='none'))
     .map(l=>`<span style="font-size:.62rem;display:flex;align-items:center;gap:3px">
       <span style="width:7px;height:7px;background:${l.color};display:inline-block;border-radius:1px"></span>
       ${l.label} ${l.pct>0?(l.pct*100).toFixed(0)+'%':'—'}
     </span>`).join('');
 }
-算
