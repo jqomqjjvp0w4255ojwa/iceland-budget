@@ -1,862 +1,975 @@
-// forms.js — 像素風新增消費 & 還錢表單
-
-// ══ 狀態 ══
-let _pxPayer     = '';
-let _pxSplitMode = 'equal';
-let _pxSplitSel  = new Set(['花','猴','寧']);
-let _pxCustomAmt = {'花':0,'猴':0,'寧':0};
-let _twdManualEdited = false; // 使用者手動改過換算台幣
-let _isSubmitting = false; // 防止重複送出
-
-// 背景送出 GAS，debounce 確保多次操作只觸發一次 sync
-let _bgSyncTimer = null;
-function bgSync(label) {
-  setSyncState?.('syncing', label || '同步中…');
-  clearTimeout(_bgSyncTimer);
-  _bgSyncTimer = setTimeout(() => {
-    window.__syncIcelandBudgetFromSheets?.().catch(() => {
-      setSyncState?.('local', '⚠ 同步失敗，下次開啟會重試');
-    });
-  }, 3000);
-}
-
-
-function optimisticDelete(type, rowIndex) {
-  if (!window.APP_DATA) return;
-  if (type === 'expense') {
-    window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e => Number(e._rowIndex) !== Number(rowIndex));
-    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
-    _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
-  } else if (type === 'repay') {
-    window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => Number(r._rowIndex) !== Number(rowIndex));
-    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
-  }
-  localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
-}
-
-
-// 修改模式：用新資料更新卡片，並在右上角加小轉轉表示同步中
-function markCardLoading(type, rowIndex) {
-  const containers = type === 'repay'
-    ? [document.getElementById('repayContent')]
-    : [document.getElementById('dailyContent'), document.getElementById('carContent')];
-  for (const container of containers) {
-    if (!container) continue;
-    const btns = container.querySelectorAll('.swipe-action-btn.edit');
-    for (const btn of btns) {
-      if (btn.getAttribute('onclick')?.includes(`(${rowIndex},`)) {
-        const content = btn.closest('.swipe-card-wrap')?.querySelector('.swipe-card-content');
-        if (content && !content.querySelector('.card-sync-badge')) {
-          const badge = document.createElement('span');
-          badge.className = 'card-sync-badge';
-          badge.style.cssText = 'position:absolute;top:6px;right:28px;font-size:.85rem;animation:spin .8s linear infinite;display:inline-block;z-index:10;pointer-events:none;line-height:1;';
-          badge.textContent = '⟳';
-          content.style.position = 'relative';
-          content.appendChild(badge);
-        }
-        break;
-      }
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="robots" content="noindex, nofollow" /> <meta name="description" content="冰島旅行小帳" />
+  <title>🇮🇸 冰島旅行小帳</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" rel="stylesheet" /></noscript>
+  <style>
+    :root {
+      --bg:#07111f; --bg2:#0d1f35; --bg3:#112540; --card:#0f2240;
+      --border:#1e3a5f; --accent:#4fc3f7; --accent2:#81d4fa;
+      --gold:#f0c040; --green:#4caf6e; --red:#e05555;
+      --text:#e8f4fd; --muted:#7eb3d4;
+      --aurora1:#00e5cc; --aurora2:#7c4dff; --aurora3:#ff6e40;
     }
-  }
-}
-
-// 修改模式：直接抓 DOM 把卡片內容換成新資料 + 半透明鎖定狀態，不重建整個區塊
-// 修改模式：原卡半透明 + 像素風方塊繞圈，不重建區塊
-function mutateCardInPlace(type, rowIndex) {
-  const containers = type === 'repay'
-    ? [document.getElementById('repayContent')]
-    : [document.getElementById('dailyContent'), document.getElementById('carContent')];
-
-  for (const container of containers) {
-    if (!container) continue;
-    for (const btn of container.querySelectorAll('.swipe-action-btn.edit')) {
-      if (!btn.getAttribute('onclick')?.includes(`(${rowIndex},`)) continue;
-      const wrap = btn.closest('.swipe-card-wrap');
-      if (!wrap) continue;
-      const content = wrap.querySelector('.swipe-card-content');
-      if (!content) continue;
-
-      content.style.opacity = '0.4';
-      content.style.pointerEvents = 'none';
-      content.style.position = 'relative';
-
-      if (!wrap.querySelector('.card-sync-overlay')) {
-        const overlay = document.createElement('div');
-        overlay.className = 'card-sync-overlay';
-        overlay.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;'
-          + 'align-items:center;justify-content:center;gap:8px;z-index:10;pointer-events:none;'
-          + 'background:rgba(7,17,31,.55);';
-
-        // 像素方塊繞圈 spinner
-        const spinner = document.createElement('div');
-        spinner.style.cssText = 'width:38px;height:38px;position:relative;'
-          + 'animation:px-spin 1s steps(8,end) infinite;';
-        for (let i = 0; i < 8; i++) {
-          const dot = document.createElement('span');
-          const opacities = [1, .85, .65, .5, .35, .22, .12, .05];
-          dot.style.cssText = `position:absolute;width:5px;height:5px;background:#4fc3f7;`
-            + `top:50%;left:50%;margin:-2.5px 0 0 -2.5px;`
-            + `transform:rotate(${i*45}deg) translateY(-16px);`
-            + `opacity:${opacities[i]};`;
-          spinner.appendChild(dot);
-        }
-
-        const lbl = document.createElement('span');
-        lbl.style.cssText = "font-family:'Silkscreen',monospace;font-size:.5rem;color:#4fc3f7;"
-          + 'animation:px-blink 1s steps(1,end) infinite;letter-spacing:.08em;';
-        lbl.textContent = 'SAVING...';
-
-        overlay.appendChild(spinner);
-        overlay.appendChild(lbl);
-        wrap.appendChild(overlay);
-      }
-      return;
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;min-height:100vh;overflow-x:hidden;}
+    body::before{
+      content:'';position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:0;
+      background:
+        radial-gradient(ellipse 80% 40% at 20% 10%,rgba(0,229,204,.07) 0%,transparent 60%),
+        radial-gradient(ellipse 60% 30% at 80% 5%,rgba(124,77,255,.06) 0%,transparent 55%),
+        radial-gradient(ellipse 50% 20% at 50% 0%,rgba(79,195,247,.05) 0%,transparent 50%);
     }
-  }
-}
+    .container{max-width:680px;margin:0 auto;padding:0 16px 80px;position:relative;z-index:1;}
+    
+    /* ── Header */
+    header{text-align:center;padding:32px 16px 16px;}
+    .aurora-line{height:2px;margin-bottom:18px;background:linear-gradient(90deg,transparent,var(--aurora1),var(--accent),var(--aurora2),transparent);animation:shimmer 3s ease-in-out infinite;}
+    @keyframes shimmer{0%,100%{opacity:.6}50%{opacity:1}}
+    header h1{font-family:'Cinzel',serif;font-size:1.55rem;font-weight:600;letter-spacing:.12em;color:var(--accent2);text-shadow:0 0 30px rgba(79,195,247,.4);}
+    header .subtitle{font-size:.75rem;color:var(--muted);letter-spacing:.2em;text-transform:uppercase;margin-top:5px;}
 
-// 樂觀更新：新增用插入頂部重建，修改只做 DOM 原地標記
-function optimisticUpdate(type, rowIndex, newItem) {
-  if (!window.APP_DATA) return;
-  const isEdit = rowIndex != null && Number(rowIndex) > 0;
-  if (type === 'expense') {
-    if (isEdit) {
-      // 修改：只標記卡片，不動 APP_DATA，等重拉
-      mutateCardInPlace('expense', rowIndex);
-    } else {
-      window.APP_DATA.expenses = [newItem, ...(window.APP_DATA.expenses || [])];
-      _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses));
-      _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
-      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+    /* ── Sync bar */
+    .sync-bar{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;}
+    .sync-status{font-size:.72rem;color:var(--muted);opacity:.8;}
+    .sync-btn{
+      display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;
+      border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-family:'Lato',sans-serif;
+      font-size:.7rem;color:var(--muted);transition:all .2s;
     }
-  } else if (type === 'repay') {
-    if (isEdit) {
-      mutateCardInPlace('repay', rowIndex);
-    } else {
-      window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory || []), newItem];
-      _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory, window.APP_DATA.split || {}));
-      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+    .sync-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .sync-btn .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:background .3s;}
+    .dot-local{background:#f0c040;}
+    .dot-cloud{background:var(--green);}
+    .dot-syncing{background:var(--accent);animation:pulse .8s ease-in-out infinite;}
+    .dot-offline{background:var(--aurora3);}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .sync-icon{font-size:.9rem;line-height:1;}
+    .spin-icon{display:inline-block;animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes px-spin{to{transform:rotate(360deg)}}
+    @keyframes px-blink{0%,100%{opacity:1}50%{opacity:0}}
+
+    /* ── Summary */
+    .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0;}
+    .summary-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;position:relative;overflow:hidden;}
+    .summary-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--aurora2),var(--accent));}
+    .summary-card.full{grid-column:1/-1;}
+    .summary-card.full::before{background:linear-gradient(90deg,var(--aurora1),var(--gold));}
+    .summary-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.15em;margin-bottom:6px;}
+    .summary-value{font-family:'Cinzel',serif;font-size:1.35rem;color:var(--gold);font-weight:600;}
+    .summary-card.full .summary-value{font-size:1.75rem;color:var(--accent2);}
+    .summary-sub{font-size:.7rem;color:var(--muted);margin-top:4px;}
+
+    /* ── Rate */
+    .rate-bar{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 16px;display:flex;justify-content:center;gap:24px;margin-bottom:18px;font-size:.73rem;color:var(--muted);}
+    .rate-bar span{display:flex;align-items:center;gap:5px;}
+    .rate-bar strong{color:var(--accent);}
+
+    /* ── Tabs */
+    .tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
+    .tabs::-webkit-scrollbar{display:none;}
+    .tab{flex-shrink:0;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:7px 16px;font-size:.8rem;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap;font-family:'Lato',sans-serif;}
+    .tab.active{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700;}
+    .tab:hover:not(.active){border-color:var(--accent);color:var(--accent);}
+    .section{display:none;animation:fadeIn .3s ease;}
+    .section.active{display:block;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ── Card — border colour encodes paid status */
+    .card{
+      background:var(--card);border:1.5px solid var(--border);border-radius:14px;
+      margin-bottom:11px;overflow:hidden;transition:border-color .2s,box-shadow .2s;
     }
-  }
+    .card.paid-card{border-color:rgba(76,175,110,.45);}
+    .card.paid-card:hover{border-color:var(--green);box-shadow:0 0 0 1px rgba(76,175,110,.2);}
+    .card.unpaid-card{border-color:rgba(224,85,85,.4);}
+    .card.unpaid-card:hover{border-color:var(--red);box-shadow:0 0 0 1px rgba(224,85,85,.2);}
+    .card:not(.paid-card):not(.unpaid-card):hover{border-color:var(--accent);}
+
+    /* ── Card header: date big / name small below */
+    .card-header{padding:13px 16px 9px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+    .card-date{font-family:'Cinzel',serif;font-size:1rem;font-weight:600;color:var(--accent2);line-height:1.2;letter-spacing:.04em;}
+    .card-nights{font-size:.68rem;color:var(--muted);margin-left:6px;}
+    .card-name-row{display:flex;align-items:center;gap:6px;margin-top:4px;}
+    .place-type-icon{font-size:.9rem;flex-shrink:0;}
+    .card-name{font-size:.8rem;color:var(--muted);line-height:1.35;}
+
+    /* ── Price block — per-person first */
+    .card-price{text-align:right;flex-shrink:0;}
+    .price-per{font-family:'Cinzel',serif;font-size:1.1rem;color:var(--gold);font-weight:600;white-space:nowrap;line-height:1.2;}
+    .price-per-label{font-size:.62rem;color:var(--muted);margin-bottom:1px;}
+    .price-total{font-size:.75rem;color:var(--muted);margin-top:3px;white-space:nowrap;}
+    .price-orig{font-size:.68rem;color:rgba(126,179,212,.6);margin-top:1px;}
+
+    /* ── Tags row */
+    .card-body{padding:0 16px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+    .tag{font-size:.66rem;padding:3px 9px;border-radius:9px;font-weight:700;letter-spacing:.04em;white-space:nowrap;}
+    .tag-paid{background:rgba(76,175,110,.15);color:var(--green);border:1px solid rgba(76,175,110,.35);}
+    .tag-unpaid{background:rgba(224,85,85,.12);color:var(--red);border:1px solid rgba(224,85,85,.3);}
+    .tag-cancel{background:rgba(79,195,247,.1);color:var(--accent);border:1px solid rgba(79,195,247,.25);}
+    .tag-nocancel{background:rgba(255,110,64,.1);color:#ff9e80;border:1px solid rgba(255,110,64,.25);}
+    .tag-person{background:rgba(124,77,255,.12);color:#c5b3f0;border:1px solid rgba(124,77,255,.3);}
+    .tag-fee{background:rgba(240,192,64,.08);color:rgba(240,192,64,.7);border:1px solid rgba(240,192,64,.2);font-style:italic;}
+
+    /* ── Note */
+    .card-note{margin:0 16px 11px;font-size:.73rem;color:var(--muted);background:var(--bg3);border-radius:6px;padding:7px 10px;border-left:2px solid var(--border);}
+
+    /* ── Car */
+    .car-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;}
+    .car-header{background:linear-gradient(135deg,#112a4a,#0d1e35);padding:18px 16px;border-bottom:1px solid var(--border);}
+    .car-title{font-family:'Cinzel',serif;font-size:1.1rem;color:var(--accent2);margin-bottom:3px;}
+    .car-model{font-size:.78rem;color:var(--muted);}
+    .car-grid{display:grid;grid-template-columns:1fr 1fr;}
+    .car-item{padding:11px 16px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);}
+    .car-item:nth-child(even){border-right:none;}
+    .car-item:last-child,.car-item:nth-last-child(2){border-bottom:none;}
+    .car-item-label{font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;}
+    .car-item-value{font-size:.88rem;color:var(--text);font-weight:600;}
+    .car-price-row{padding:13px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:rgba(79,195,247,.04);}
+    .insurance-list{margin:10px 16px;font-size:.76rem;color:var(--muted);list-style:none;}
+    .insurance-list li{display:flex;align-items:center;gap:8px;padding:4px 0;}
+    .insurance-list li::before{content:'✓';color:var(--green);font-weight:700;}
+
+    /* ── Progress */
+    .progress-wrap{margin:14px 0 8px;}
+    .progress-label{display:flex;justify-content:space-between;font-size:.73rem;color:var(--muted);margin-bottom:5px;}
+    .progress-bar{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+    .progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 4px;
+  transition: width 0.3s ease;
 }
 
+    /* ── Misc */
+    .loading{text-align:center;padding:60px 20px;color:var(--muted);}
+    .spinner{width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 14px;}
+    .offline-badge{display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--aurora3);color:white;font-size:.73rem;padding:6px 16px;border-radius:20px;font-weight:700;z-index:100;letter-spacing:.08em;}
+    .offline-badge.show{display:block;}
+    .empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:.9rem;}
+    .section-title{font-family:'Cinzel',serif;font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:18px 0 9px;display:flex;align-items:center;gap:10px;}
+    .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+    .total-bar{background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--border);border-radius:11px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+    .total-bar-label{font-size:.75rem;color:var(--muted);}
+    .total-bar-value{font-family:'Cinzel',serif;font-size:1.08rem;color:var(--gold);}
+    .filter-row{display:flex;gap:6px;margin-bottom:11px;flex-wrap:wrap;}
+    .filter-btn{font-size:.7rem;padding:4px 11px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;transition:all .2s;}
+    .filter-btn.active{background:var(--aurora2);border-color:var(--aurora2);color:white;}
+    .countdown-bar{background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--border);border-radius:11px;padding:10px 16px;text-align:center;font-size:.85rem;color:var(--accent);margin-bottom:10px;letter-spacing:.05em;}
+    .countdown-bar strong{font-size:1.2em;color:var(--gold);}
 
+    /* ── Pixel Weather Scene */
+    .px-scene-wrap{margin-bottom:14px;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:transparent;}
+    .px-scene{position:relative;width:100%;height:220px;overflow:hidden;border-bottom:3px solid #000;image-rendering:pixelated;background:#a8dff0;}
+    .px-ground{position:absolute;bottom:0;left:0;right:0;height:44%;background:repeating-linear-gradient(90deg,#3a6a4a 0 16px,#2a5a3a 16px 32px);}
+    .px-path{position:absolute;bottom:0;left:5%;right:5%;height:28%;background:repeating-linear-gradient(90deg,#8a7a5a 0 14px,#7a6a4a 14px 28px);}
+    .px-mtn{position:absolute;bottom:44%;width:0;height:0;}
+    .px-particles{position:absolute;inset:0;pointer-events:none;}
+    .px-loc{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.75);border:2px solid #fff;font-family:'Silkscreen',monospace;font-size:8px;color:#fff;padding:2px 6px;z-index:20;}
+    .px-weather{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.75);border:2px solid #ffcc00;font-family:'Silkscreen',monospace;font-size:8px;color:#ffcc00;padding:2px 6px;z-index:20;}
+    .px-runner{position:absolute;bottom:18%;display:flex;flex-direction:column;align-items:center;gap:2px;transform:translateX(-50%);transition:left .8s steps(12);z-index:10;}
+    .px-runner-name{font-family:'Silkscreen',monospace;font-size:7px;color:#fff;background:rgba(0,0,0,.65);padding:1px 4px;border:1px solid #fff;white-space:nowrap;}
+    .px-runner svg{transition:transform .4s steps(3);image-rendering:pixelated;}
+    .px-runner.dead{bottom:18% !important;}
+    .px-runner.dead svg{transform:rotate(90deg);transform-origin:center;}
+    .px-runner.dead .px-runner-name{color:#ff3366;border-color:#ff3366;}
+    /* GB 對話框 */
+    .px-dialog{background:#e8f0d0;border-top:3px solid #000;padding:10px 14px;}
+    .px-dialog-title{font-family:'Silkscreen',monospace;font-size:8px;color:#2a4a1a;letter-spacing:1px;margin-bottom:7px;border-bottom:2px solid #2a4a1a;padding-bottom:4px;}
+    .px-bar-label{display:flex;justify-content:space-between;font-family:'Silkscreen',monospace;font-size:8px;color:#2a4a1a;margin-bottom:3px;}
+    .px-bar-bg{height:14px;background:#888;border:3px solid #000;position:relative;overflow:hidden;}
+    .px-bar-fill{height:100%;position:absolute;left:0;top:0;transition:width 1s steps(20);}
+    .px-bar-fill.safe{background:repeating-linear-gradient(90deg,#48b845 0 6px,#2a8a27 6px 12px);}
+    .px-bar-fill.warn{background:repeating-linear-gradient(90deg,#e8c020 0 6px,#b89010 6px 12px);}
+    .px-bar-fill.danger{background:repeating-linear-gradient(90deg,#e03030 0 6px,#a01010 6px 12px);}
+    .px-bar-limit{position:absolute;right:0;top:-3px;bottom:-3px;width:3px;background:#000;z-index:5;}
+    .px-gb-msg{margin-top:7px;text-align:center;font-family:'Silkscreen',monospace;font-size:8px;padding:4px;border:2px solid #2a4a1a;background:#c8d8a8;}
+    .px-gb-msg.safe{color:#1a5a1a;} .px-gb-msg.warn{color:#7a5a00;} .px-gb-msg.danger{color:#8a1010;}
+    /* ── 角色對話框泡泡 */
+    .px-bubble{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+      background:#e8f0d0;border:2px solid #2a4a1a;padding:4px 7px;border-radius:6px;
+      font-family:'Silkscreen',monospace;font-size:7px;color:#1a3a0a;line-height:1.6;
+      pointer-events:none;opacity:0;transition:opacity .4s;z-index:30;
+      max-width:130px;white-space:normal;text-align:center;min-width:70px;}
+    .px-bubble::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+      border:4px solid transparent;border-top-color:#2a4a1a;}
+    .px-bubble::before{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+      margin-top:-1px;border:4px solid transparent;border-top-color:#e8f0d0;z-index:1;}
+    .px-bubble.show{opacity:1;}
+    /* ── 卷軸選擇器 */
+    .px-repay-picker-col{width:100px;display:flex;flex-direction:column;align-items:center;gap:0;position:relative;}
+    .px-repay-picker-indicator{position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:10px;color:#2a4a1a;pointer-events:none;z-index:10;line-height:1;}
+    .px-repay-picker-list{width:100%;height:88px;overflow-y:scroll;border:2px solid #2a4a1a;background:#f8fce8;scrollbar-width:none;overscroll-behavior:contain;scroll-snap-type:y mandatory;}
+    .px-repay-picker-list::-webkit-scrollbar{display:none;}
+    .px-repay-picker-item{height:88px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;scroll-snap-align:start;transition:background .15s;}
+    .px-repay-picker-item span{font-size:9px;color:#2a4a1a;letter-spacing:1px;}
+    /* ── 算盤 */
+    .px-calc-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:180;align-items:flex-end;justify-content:center;padding-bottom:32px;}
+    .px-calc-overlay.show{display:flex;}
+    .px-calc-box{background:#e8f0d0;border:3px solid #000;width:100%;max-width:400px;border-radius:4px 4px 0 0;font-family:'Silkscreen',monospace;}
+    .px-calc-header{background:#2a4a1a;color:#c8d8a8;font-size:8px;padding:5px 10px;display:flex;justify-content:space-between;align-items:center;}
+    .px-calc-display{background:#c8d8a8;border:2px solid #2a4a1a;margin:8px;padding:8px 10px;font-size:20px;color:#1a3a0a;text-align:right;min-height:44px;word-break:break-all;}
+    .px-calc-expr{font-size:8px;color:#3a5a2a;min-height:12px;text-align:right;}
+    .px-calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:0 8px 8px;}
+    .px-calc-btn{background:#c8d8a8;border:2px solid #2a4a1a;padding:16px 4px;font-family:'Silkscreen',monospace;font-size:13px;color:#1a3a0a;cursor:pointer;text-align:center;border-radius:2px;}
+    .px-calc-btn:active{background:#a8c888;}
+    .px-calc-btn.op{background:#a8c088;}
+    .px-calc-btn.eq{background:#2a4a1a;color:#c8d8a8;grid-column:span 2;}
+    .px-calc-btn.cancel{background:#c8a8a8;border-color:#8a2a2a;color:#5a1a1a;}
 
+    /* ── 像素風表單 */
+    .px-add-menu{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:150;align-items:flex-end;justify-content:center;}
+    .px-add-menu.show{display:flex;}
+    .px-add-box{background:#e8f0d0;border-top:3px solid #000;border-left:3px solid #000;border-right:3px solid #000;width:100%;max-width:680px;font-family:'Silkscreen',monospace;}
+    .px-add-title{background:#2a4a1a;color:#c8d8a8;font-size:11px;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px;}
+    .px-add-title button{background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:10px;padding:2px 8px;cursor:pointer;}
+    .px-add-choices{display:flex;border-top:2px solid #2a4a1a;}
+    .px-add-choice{flex:1;background:#c8d8a8;border:none;border-right:2px solid #2a4a1a;padding:16px 8px;font-family:'Silkscreen',monospace;font-size:12px;color:#2a4a1a;cursor:pointer;text-align:center;line-height:1.8;transition:background .15s;}
+    .px-add-choice:last-child{border-right:none;}
+    .px-add-choice:hover{background:#a8c888;}
+    .px-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:160;align-items:flex-end;justify-content:center;padding-bottom:28px;}
+    .px-modal-overlay.show{display:flex;}
+    .px-modal-box{background:#e8f0d0;border:3px solid #000;width:100%;max-width:680px;max-height:82vh;overflow-y:auto;font-family:'Silkscreen',monospace;border-radius:4px 4px 0 0;}
+    .px-modal-header{background:#2a4a1a;color:#c8d8a8;font-size:11px;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px;position:sticky;top:0;}
+    .px-modal-header button{background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:10px;padding:2px 8px;cursor:pointer;}
+    .px-form{padding:12px;}
+    .px-field{margin-bottom:12px;}
+    .px-label{font-size:11px;color:#2a4a1a;letter-spacing:1px;display:block;margin-bottom:5px;}
+    .px-input{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;box-sizing:border-box;}
+    .px-input:focus{outline:none;background:#fff;}
+    .px-select{width:100%;background:#f8fce8;border:2px solid #2a4a1a;padding:7px 10px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;}
+    .px-member-row{display:flex;gap:6px;}
+    .px-member-btn{flex:1;background:#c8d8a8;border:2px solid #2a4a1a;padding:8px 4px;font-family:'Silkscreen',monospace;font-size:8px;color:#2a4a1a;cursor:pointer;text-align:center;transition:background .15s;}
+    .px-member-btn.sel{background:#2a4a1a;color:#c8d8a8;}
+    .px-member-btn:hover:not(.sel){background:#a8c888;}
+    .px-split-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+    .px-split-name{font-size:11px;color:#2a4a1a;width:28px;}
+    .px-split-input{flex:1;background:#f8fce8;border:2px solid #2a4a1a;padding:5px 8px;font-family:'Silkscreen',monospace;font-size:12px;color:#2a4a1a;}
+    .px-split-total{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-top:1px solid #2a4a1a;margin-top:3px;}
+    .px-total-ok{color:#1a5a1a;} .px-total-err{color:#8a1010;}
+    .px-form-actions{display:flex;border-top:2px solid #2a4a1a;margin-top:4px;}
+    .px-btn-cancel{flex:1;background:#c8d8a8;border:none;border-right:2px solid #2a4a1a;padding:12px;font-family:'Silkscreen',monospace;font-size:8px;color:#2a4a1a;cursor:pointer;}
+    .px-btn-cancel:hover{background:#a8c888;}
+    .px-btn-submit{flex:2;background:#2a4a1a;border:none;padding:12px;font-family:'Silkscreen',monospace;font-size:8px;color:#c8d8a8;cursor:pointer;letter-spacing:1px;}
+    .px-btn-submit:hover{background:#3a6a2a;}
+    .px-btn-submit:disabled{background:#888;cursor:not-allowed;}
+    .px-divider{border:none;border-top:1px solid #2a4a1a;margin:10px 0;}
 
-// 只更新指定區塊，不重建整頁
-function _refreshSection(elId, renderFn) {
-  const el = document.getElementById(elId);
-  if (!el) { window.renderAll?.(); return; }
-  el.innerHTML = renderFn();
-  // 重新初始化滑動
-  if (window.initSwipeCards) window.initSwipeCards(el);
-}
-let _pxRepayFrom = '';
-let _pxRepayTo   = '';
-const PX_MEMBERS = ['花','猴','寧'];
-
-// 算盤狀態
-let _calcExpr  = '';
-let _calcTarget = '';
-let _calcCb    = '';
-let _calcPrev  = '';
-
-// 修改模式（直接覆蓋原行）
-let _editMode     = false;   // 是否為修改模式
-let _editRowIndex = null;    // 要覆蓋的行號
-let _editSheet    = '';      // 'expense' | 'repay'
-
-// ══ GAS API ══
-const _GAS_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
-
-async function postToGAS(payload) {
-  const base = window._GAS_BASE;
-  if (!base) throw new Error('找不到 GAS URL，請確認 app.js 已載入');
-  // GAS doPost 需用 text/plain 避免 CORS preflight 被 redirect 擋住
-  const res = await fetch(base, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
-    redirect: 'follow',
-  });
-  if (!res.ok) throw new Error('GAS 回應錯誤：' + res.status);
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || '寫入失敗');
-  return data;
-}
-
-async function deleteRowFromGAS(sheet, rowIndex) {
-  if (sheet === 'expense') return postToGAS({ action: 'deleteExpense', rowIndex });
-  if (sheet === 'repay')   return postToGAS({ action: 'deleteRepay',   rowIndex });
-  throw new Error('未知的 sheet：' + sheet);
-}
-
-function pxLocalNow() {
-  const now = new Date();
-  const p = n => String(n).padStart(2,'0');
-  return `${now.getFullYear()}-${p(now.getMonth()+1)}-${p(now.getDate())}T${p(now.getHours())}:${p(now.getMinutes())}`;
-}
-
-// ── 背景鎖定
-function lockBody()   { document.body.style.overflow = 'hidden'; }
-function unlockBody() { document.body.style.overflow = ''; }
-
-// ── 角色 SVG
-function pxAvatarSvg(name, size=28) {
-  if (typeof avatarSvg === 'function') {
-    const scale = size / 28;
-    const w = Math.round(16 * scale);
-    return avatarSvg(name)
-      .replace(/width="16"/, `width="${w}"`)
-      .replace(/height="28"/, `height="${size}"`);
-  }
-  return `<span style="font-size:.8rem">${name}</span>`;
-}
-
-// ── 角色按鈕 HTML
-function pxMemberBtnHtml(name, isSelected, onclickFn) {
-  const op  = isSelected ? '1' : '0.3';
-  const fil = isSelected ? 'none' : 'grayscale(70%)';
-  const bdr = isSelected ? '2px solid #2a4a1a' : '2px solid #888';
-  const bg  = isSelected ? '#c8d8a8' : '#d8d8c8';
-  const tri = isSelected ? '#2a4a1a' : 'transparent';
-  return `<button class="px-member-btn${isSelected?' sel':''}" onclick="${onclickFn}(this,'${name}')"
-    style="opacity:${op};filter:${fil};border:${bdr};background:${bg};
-           display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;transition:all .2s;flex:1;">
-    <div style="font-size:8px;color:${tri};line-height:1;margin-bottom:2px;">▼</div>
-    ${pxAvatarSvg(name,28)}
-    <span style="font-size:7px;color:#2a4a1a;margin-top:2px;font-family:'Silkscreen',monospace">${name}</span>
-  </button>`;
-}
-
-// ══ 新增選單 ══
-window.openAddMenu = function() {
-  document.getElementById('pxAddMenu').classList.add('show');
-};
-window.closeAddMenu = function() {
-  document.getElementById('pxAddMenu').classList.remove('show');
-};
-window.closeAddMenuOutside = function(e) {
-  if (e.target === document.getElementById('pxAddMenu')) closeAddMenu();
-};
-
-// ══ Modal 開關 ══
-window.openPxModal = function(type, prefill = null) {
-  closeAddMenu();
-  lockBody();
-
-  if (type === 'expense') {
-    _pxPayer     = prefill?.payer || '';
-    _pxSplitMode = prefill?.splitMode || 'equal';
-    _pxSplitSel  = new Set(prefill?.splitSel || ['花','猴','寧']);
-    _pxCustomAmt = prefill?.customAmt || {'花':0,'猴':0,'寧':0};
-
-    // 動態建立類別選單
-    const catSel = document.getElementById('pxExpCat');
-    const cats = (window.APP_DATA?.expenseCategories?.length ? window.APP_DATA.expenseCategories : null)
-              || window.STATIC?.expenseCategories
-              || [];
-    catSel.innerHTML = '<option value="">-- 選擇類別 --</option>' +
-      cats.map(c => `<option value="${c}"${prefill?.category===c?' selected':''}>${c}</option>`).join('');
-
-    document.getElementById('pxExpAmt').value  = prefill?.amount || '';
-    document.getElementById('pxExpCur').value  = prefill?.currency || 'NT';
-    // 台幣換算欄：編輯模式帶入已知 twd，新增模式清空
-    const twdEl = document.getElementById('pxExpTwd');
-    if (twdEl) twdEl.value = prefill?.twd ? String(prefill.twd) : '';
-    _twdManualEdited = !!prefill?.twd; // 編輯模式帶入的值視為手動，不覆蓋
-    pxOnCurrencyChange(); // 根據幣別決定顯示/隱藏換算列
-    document.getElementById('pxExpLoc').value  = prefill?.location || '';
-    // 地點建議：從已有記錄取最近三個不重複地點
-    const locSuggests = document.getElementById('pxLocSuggests');
-    if (locSuggests) {
-      const recentLocs = [...new Set(
-        (window.APP_DATA?.expenses || window.STATIC?.expenses || [])
-          .slice().reverse()
-          .map(e => e.location).filter(Boolean)
-      )].slice(0, 3);
-      locSuggests.innerHTML = recentLocs.map(loc =>
-        `<button type="button" onclick="document.getElementById('pxExpLoc').value='${loc.replace(/'/g,'\'')}';"
-          style="background:#c8d8a8;border:1px solid #2a4a1a;color:#1a3a0a;font-family:'Silkscreen',monospace;
-                 font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;">${loc}</button>`
-      ).join('');
+    /* ── 輪盤選單 */
+    .radial-overlay{
+      display:none;position:fixed;inset:0;z-index:200;
+      background:rgba(0,0,0,0);transition:background .15s;
+      touch-action:none;
     }
-    document.getElementById('pxExpNote').value = prefill?.note || '';
-    document.getElementById('pxExpDate').value = prefill?.date || pxLocalNow();
-    document.getElementById('pxExpShared').checked = prefill?.isShared !== false; // 預設勾選
+    .radial-overlay.show{display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);}
+    .radial-menu{
+      position:relative;width:220px;height:220px;
+      pointer-events:none;
+    }
+    /* 中心關閉鈕 */
+    .radial-center{
+      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+      width:52px;height:52px;border-radius:50%;
+      background:#1a1a2e;border:3px solid #fff;
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Silkscreen',monospace;font-size:18px;color:#fff;
+      pointer-events:all;cursor:pointer;z-index:5;
+      box-shadow:0 0 0 4px rgba(0,0,0,.4);
+    }
+    /* 各方向按鈕 */
+    .radial-btn{
+      position:absolute;
+      width:68px;height:68px;border-radius:50%;
+      background:#e8f0d0;border:3px solid #2a4a1a;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+      font-family:'Silkscreen',monospace;font-size:7px;color:#2a4a1a;
+      pointer-events:all;cursor:pointer;
+      transition:background .12s,transform .12s,box-shadow .12s;
+      user-select:none;-webkit-user-select:none;
+    }
+    .radial-btn .radial-icon{font-size:22px;line-height:1;}
+    .radial-btn:hover,.radial-btn.hover{
+      background:#2a4a1a;color:#c8d8a8;
+      box-shadow:0 0 0 3px rgba(42,74,26,.5),0 0 20px rgba(200,216,168,.5);
+    }
+    /* 右：記帳  左：還錢  — transform 固定，不加 scale 避免跳動 */
+    .radial-btn-expense{ left:50%;top:50%;transform:translate(44px,-50%); }
+    .radial-btn-repay  { left:50%;top:50%;transform:translate(calc(-100% - 44px),-50%); }
+    .radial-btn-expense.hover,.radial-btn-expense:hover{ transform:translate(44px,-50%); }
+    .radial-btn-repay.hover,.radial-btn-repay:hover  { transform:translate(calc(-100% - 44px),-50%); }
 
-    // 修改模式標題
-    const header = document.querySelector('#pxModalExpense .px-modal-header span');
-    if (header) header.textContent = _editMode ? '▶ 修改消費' : '▶ 新增消費';
-    document.getElementById('pxBtnExpense').textContent = _editMode ? '[ 確認修改 ]' : '[ 記帳！]';
-    document.getElementById('pxBtnExpense').disabled = !_editMode;
+    /* 連接線（裝飾用） */
+    .radial-line{
+      position:absolute;left:50%;top:50%;
+      height:2px;background:rgba(42,74,26,.35);
+      transform-origin:left center;pointer-events:none;
+      width:44px;
+    }
+    .radial-line-r{transform:translateY(-50%);}
+    .radial-line-l{transform:translateY(-50%) rotate(180deg);}
 
-    document.getElementById('pxSplitSummary').textContent = '均分（三人）';
-    pxRenderPayerBtns();
-    pxRenderSplitBtns();
-    if (_editMode) pxCheckSubmit();
+    /* px-gb-msg 點擊提示 */
+    .px-gb-msg{cursor:pointer;position:relative;}
+    .px-gb-msg::after{
+      content:'▶';position:absolute;right:8px;top:50%;transform:translateY(-50%);
+      font-size:8px;opacity:.6;
+    }
+    /* ══ 滑動卡片 ══ */
+    .swipe-card-wrap{position:relative;overflow:hidden;border-radius:8px;margin-bottom:8px;}
+    /* 電腦版滑動提示（觸控裝置隱藏） */
+    .swipe-hint{
+      display:none;
+      position:absolute;top:50%;right:10px;transform:translateY(-50%);
+      font-size:1.2rem;color:var(--muted);opacity:.5;pointer-events:all;cursor:pointer;
+      line-height:1;letter-spacing:-2px;
+    }
+    @media(hover:hover){
+      .swipe-hint{ display:block; }
+      .swipe-card-wrap:hover .swipe-hint{ opacity:.8; }
+      .swipe-card-wrap.open .swipe-hint{ display:none; }
+    }
+    .swipe-card-actions{position:absolute;right:0;top:0;bottom:0;display:flex;align-items:stretch;transform:translateX(100%);transition:transform .25s ease;z-index:1;}
+    .swipe-card-wrap.open .swipe-card-actions{transform:translateX(0);}
+    .swipe-action-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:60px;cursor:pointer;border:none;font-family:'Silkscreen',monospace;font-size:6px;}
+    .swipe-action-btn.edit{background:#2a4a7a;color:#81d4fa;}
+    .swipe-action-btn.delete{background:#6a1a1a;color:#ff8a80;}
+    .swipe-action-btn span{font-size:1.1rem;line-height:1;}
+    .swipe-card-content{position:relative;z-index:2;background:var(--card);transition:transform .25s ease;touch-action:pan-y;}
+    .swipe-card-wrap.open .swipe-card-content{transform:translateX(-120px);}
+    /* ══ 刪除確認框 ══ */
+    .px-delete-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:center;justify-content:center;}
+    .px-delete-overlay.show{display:flex;}
+    .px-delete-box{background:#e8f0d0;border:3px solid #000;font-family:'Silkscreen',monospace;padding:16px;max-width:280px;width:90%;}
+    .px-delete-title{font-size:8px;color:#6a1a1a;margin-bottom:8px;border-bottom:2px solid #6a1a1a;padding-bottom:4px;}
+    .px-delete-msg{font-size:7px;color:#2a4a1a;margin-bottom:12px;line-height:1.6;}
+    .px-delete-actions{display:flex;gap:8px;}
+    .px-delete-actions button{flex:1;padding:8px 4px;border:2px solid #000;font-family:'Silkscreen',monospace;font-size:7px;cursor:pointer;}
+    .px-delete-actions .confirm{background:#6a1a1a;color:#fff;}
+    .px-delete-actions .cancel{background:#c8d8a8;color:#2a4a1a;}
 
-    // reset tag + brand + qty
-    // 標籤：編輯模式帶入已有標籤，新增模式清空
-    if (prefill?.tags) window.pxLoadTags?.(prefill.tags);
-    else window.pxResetTags?.();
-    window.pxResetBrand?.();
-    // 數量：編輯模式帶入原數量
-    if (prefill?.qty) window.pxLoadQty?.(prefill.qty);
-    else window.pxResetQty?.();
-    // 清標籤輸入欄
-    const tagInput = document.getElementById('pxTagInput');
-    if (tagInput) { tagInput.value = ''; }
-    const tagPanel = document.getElementById('pxTagPanel');
-    if (tagPanel) { tagPanel.style.maxHeight='0'; tagPanel.style.opacity='0'; tagPanel.style.marginTop='0'; }
-    const titleEl = document.getElementById('pxExpTitle');
-    if (titleEl) titleEl.value = prefill?.title || '';
-    document.getElementById('pxModalExpense').classList.add('show');
+    /* ── Tag chips ── */
+    .px-tag-chip{display:inline-flex;align-items:center;gap:4px;background:#2a4a1a;color:#c8d8a8;font-size:9px;padding:4px 8px;border-radius:999px;animation:chipIn .15s ease;cursor:default;user-select:none;}
+    @keyframes chipIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+    .px-tag-chip-x{width:12px;height:12px;border-radius:50%;background:rgba(200,216,168,.25);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:8px;line-height:1;transition:background .12s;flex-shrink:0;}
+    .px-tag-chip-x:hover{background:rgba(200,216,168,.55);}
+    .px-tag-add-pill{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1.5px dashed #5a7a3a;color:#5a7a3a;font-family:'Silkscreen',monospace;font-size:9px;padding:3px 9px;border-radius:999px;cursor:pointer;transition:border-color .12s,color .12s,background .12s;}
+    .px-tag-add-pill:hover{border-color:#2a4a1a;color:#2a4a1a;background:rgba(42,74,26,.07);}
+    .px-tag-suggest-pill{background:#dde8c0;border:1.5px solid #8aaa6a;color:#2a4a1a;font-family:'Silkscreen',monospace;font-size:9px;padding:3px 9px;border-radius:999px;cursor:pointer;transition:background .12s,border-color .12s;user-select:none;}
+    .px-tag-suggest-pill:hover:not(.used){background:#c8d8a8;border-color:#2a4a1a;}
+    .px-tag-suggest-pill.used{opacity:.3;cursor:default;text-decoration:line-through;}
+    /* ── Brand chips ── */
+    .px-brand-chip{background:#dde8c0;border:1.5px solid #8aaa6a;color:#2a4a1a;font-family:'Silkscreen',monospace;font-size:7px;padding:4px 10px;border-radius:999px;cursor:pointer;transition:background .12s,border-color .12s,color .12s;user-select:none;}
+    .px-brand-chip:hover{background:#c8d8a8;border-color:#2a4a1a;}
+    .px-brand-chip.sel{background:#2a4a1a;border-color:#2a4a1a;color:#c8d8a8;}
+  </style>
+</head>
+<body>
+<div class="offline-badge" id="offlineBadge">📵 離線模式</div>
+<div class="container">
+  <header>
+    <div class="aurora-line"></div>
+    <h1>🇮🇸 冰島旅行小帳</h1>
+    <div class="subtitle">Iceland · September 2026</div>
+    <div class="sync-bar">
+      <span class="sync-status" id="syncStatus">載入中…</span>
+      <button class="sync-btn" id="syncBtn" onclick="manualSync()" title="點擊同步雲端資料">
+        <span class="dot dot-local" id="syncDot"></span>
+        <span class="sync-icon" id="syncIcon">☁</span>
+        <span id="syncLabel">同步</span>
+      </button>
+    </div>
+  </header>
+  <div class="px-scene-wrap">
+      <div class="px-scene" id="pxScene">
+        <canvas class="px-particles" id="pxCanvas" width="680" height="220" style="z-index:3;"></canvas>
+        <canvas id="pxCloudCanvas" style="position:absolute;inset:0;pointer-events:none;z-index:4;"></canvas>
+        <svg id="pxBgSvg" width="100%" height="100%" viewBox="0 0 680 150" preserveAspectRatio="xMidYMax slice" style="position:absolute;inset:0;z-index:2;image-rendering:pixelated" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="px-loc" id="pxLoc">📍 讀取中...</div>
+        <div id="pxWeatherWind" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.75);border:2px solid #ffcc00;font-family:'Silkscreen',monospace;font-size:8px;color:#ffcc00;padding:3px 7px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+          <span id="pxWeather">⏳ 連線中</span>
+          <span id="pxWind" style="color:#7eb3d4;border-top:1px solid #444;padding-top:2px;width:100%;text-align:right;">💨 —</span>
+        </div>
+        <div id="pxTimes" style="position:absolute;bottom:20%;left:6px;right:6px;display:flex;justify-content:space-between;font-family:'Silkscreen',monospace;font-size:11px;color:#fff;z-index:20;text-shadow:1px 1px 0 #000;pointer-events:none">
+          <span id="pxTimeTW">🇹🇼 --:--</span>
+          <span id="pxTimeIS">🇮🇸 --:--</span>
+        </div>
+        <div id="pxCountdown" style="position:absolute;top:10%;left:0;right:0;text-align:center;font-family:'Silkscreen',monospace;font-size:10px;color:#fff;z-index:20;text-shadow:1px 1px 0 #000,0 0 8px rgba(255,255,255,0.5);pointer-events:none;line-height:2;"></div>
 
-  } else {
-    // 預設第一和第二個成員
-    _pxRepayFrom = prefill?.from || PX_MEMBERS[0] || '';
-    _pxRepayTo   = prefill?.to   || PX_MEMBERS[1] || '';
+        <div id="pxCarEl" style="position:absolute;bottom:14%;left:2%;transform:translateX(-50%);z-index:9;image-rendering:pixelated;transition:left .8s steps(12);">
+          <svg id="pxCar" width="64" height="40" viewBox="0 0 32 20" style="image-rendering:pixelated;display:block;"></svg>
+        </div>
+        <div class="px-runner" id="pxHana" style="left:5%">
+          <div class="px-bubble" id="bubbleHana"></div>
+          <svg id="svgHana" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
+        </div>
+        <div class="px-runner" id="pxMonkey" style="left:5%">
+          <div class="px-bubble" id="bubbleMonkey"></div>
+          <svg id="svgMonkey" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
+        </div>
+        <div class="px-runner" id="pxNing" style="left:5%">
+          <div class="px-bubble" id="bubbleNing"></div>
+          <svg id="svgNing" width="16" height="28" viewBox="0 0 16 28" style="image-rendering:pixelated"></svg>
+        </div>
+      </div>
+      <div class="px-dialog">
+        <div class="px-dialog-title">▶ ICELAND BUDGET　目標：&lt; <span id="pxBudgetLabel">NT$100,000</span> / 人</div>
+        <div class="px-bar-label"><span>NT$0</span><span id="pxSpent">NT$ —</span><span id="pxBudgetMax">NT$100,000 ⚠</span></div>
+        <div class="px-bar-bg" style="position:relative">
+          <div class="px-bar-fill safe" id="pxBar" style="width:0%"></div>
+          <div class="px-bar-limit"></div>
+          <div id="pxPct" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Silkscreen',monospace;font-size:7px;color:#fff;text-shadow:1px 1px 0 #000;z-index:10;white-space:nowrap;pointer-events:none">0%</div>
+        </div>
+        <div class="px-gb-msg safe" id="pxMsg">▶ 讀取中...</div>
+      </div>
+  </div>
+  <div id="mainContent">
+    <div class="loading"><div class="spinner"></div><div>正在讀取資料…</div></div>
+  </div>
+</div>
 
-    document.getElementById('pxRepayAmt').value  = prefill?.amount || '';
-    document.getElementById('pxRepayNote').value = prefill?.note || '';
-    document.getElementById('pxRepayDate').value = prefill?.date || pxLocalNow();
 
-    const header = document.querySelector('#pxModalRepay .px-modal-header span');
-    if (header) header.textContent = _editMode ? '▶ 修改還款' : '▶ 還錢';
-    document.getElementById('pxBtnRepay').textContent = _editMode ? '[ 確認修改 ]' : '[ 確認還款 ]';
-    document.getElementById('pxBtnRepay').disabled = !_editMode;
+<!-- ══ 新增選單 ══ -->
+<div class="px-add-menu" id="pxAddMenu" onclick="closeAddMenuOutside(event)">
+  <div class="px-add-box">
+    <div class="px-add-title">
+      <span>▶ 新增記錄</span>
+      <button onclick="closeAddMenu()">✕ 取消</button>
+    </div>
+    <div class="px-add-choices">
+      <div class="px-add-choice" onclick="openPxModal('expense')">
+        [ + 新增開銷 ]<br>
+        <span style="font-size:7px;color:#3a6a2a">記錄這筆花費</span>
+      </div>
+      <div class="px-add-choice" onclick="openPxModal('repay')">
+        [ 還錢 ]<br>
+        <span style="font-size:7px;color:#3a6a2a">記錄還款紀錄</span>
+      </div>
+    </div>
+  </div>
+</div>
 
-    pxRenderScrollPicker('pxRepayFromList', _pxRepayFrom, 'from');
-    pxRenderScrollPicker('pxRepayToList',   _pxRepayTo,   'to');
-    pxValidateRepay();
-    document.getElementById('pxModalRepay').classList.add('show');
-  }
-};
-
-// ══ 修改入口（從卡片滑動後呼叫）══
-window.openEditExpense = function(rowIndex, data) {
-  _editMode     = true;
-  _editRowIndex = Number(rowIndex);
-  _editSheet    = 'expense';
-  window.openPxModal('expense', data);
-};
-
-window.openEditRepay = function(rowIndex, data) {
-  _editMode     = true;
-  _editRowIndex = Number(rowIndex);
-  _editSheet    = 'repay';
-  window.openPxModal('repay', data);
-};
-
-// ══ 刪除入口（從卡片滑動後呼叫）══
-window.pxConfirmDelete = function(rowIndex, sheet, label) {
-  // 像素風確認框
-  const overlay = document.getElementById('pxDeleteOverlay');
-  document.getElementById('pxDeleteLabel').textContent = label || '這筆記錄';
-  overlay.classList.add('show');
-  overlay._rowIndex = rowIndex;
-  overlay._sheet    = sheet;
-};
-
-window.pxExecuteDelete = function() {
-  const overlay = document.getElementById('pxDeleteOverlay');
-  const rowIndex = overlay._rowIndex;
-  const sheet    = overlay._sheet;
-  overlay.classList.remove('show');
-
-  // 立刻樂觀更新畫面
-  const type = sheet === 'expense' ? 'expense' : 'repay';
-  optimisticDelete(type, rowIndex);
-
-  // 背景送 GAS
-  deleteRowFromGAS(sheet, rowIndex)
-    .then(() => bgSync('刪除同步中…'))
-    .catch(() => setSyncState?.('local', '⚠ 刪除失敗，請重新同步'));
-};
-
-window.pxCancelDelete = function() {
-  document.getElementById('pxDeleteOverlay').classList.remove('show');
-};
-
-window.cancelPxModal = function(id) {
-  document.getElementById(id).classList.remove('show');
-  unlockBody();
-  // 重置修改狀態
-  _editMode     = false;
-  _editRowIndex = null;
-  _editSheet    = '';
-};
-window.closePxModalOutside = function(e, id) {
-  if (e.target === document.getElementById(id)) window.cancelPxModal(id);
-};
-
-// ══ 付款人 ══
-function pxRenderPayerBtns() {
-  document.getElementById('pxPayerBtns').innerHTML =
-    PX_MEMBERS.map(m => pxMemberBtnHtml(m, _pxPayer===m, 'pxSelectPayer')).join('');
-}
-window.pxSelectPayer = function(btn, name) {
-  _pxPayer = name;
-  pxRenderPayerBtns();
-  pxCheckSubmit();
-};
-
-// ══ 如何分攤 ══
-function pxRenderSplitBtns() {
-  document.getElementById('pxSplitBtns').innerHTML =
-    PX_MEMBERS.map(m => pxMemberBtnHtml(m, _pxSplitSel.has(m), 'pxToggleSplit')).join('');
-}
-window.pxToggleSplit = function(btn, name) {
-  if (_pxSplitSel.has(name) && _pxSplitSel.size <= 1) return;
-  if (_pxSplitSel.has(name)) _pxSplitSel.delete(name);
-  else _pxSplitSel.add(name);
-  _pxSplitMode = 'equal';
-  pxRenderSplitBtns();
-  pxUpdateSplitSummary();
-  pxAutoShared();
-  pxCheckSubmit();
-};
-
-window.pxUpdateSplit = function() {
-  pxAutoFillTwd(); // 金額確認後自動帶入換算台幣（空白時才填）
-  pxUpdateSplitSummary();
-  pxCheckSubmit();
-};
-
-// 分攤人數 → 自動決定共同消費勾選
-// 3人 → 勾選，1或2人 → 取消勾選
-function pxAutoShared() {
-  const el = document.getElementById('pxExpShared');
-  if (!el) return;
-  el.checked = _pxSplitSel.size === 3;
-}
-
-function pxUpdateSplitSummary() {
-  const el  = document.getElementById('pxSplitSummary');
-  if (!el) return;
-  const sel = [..._pxSplitSel];
-  const amt = parseFloat(document.getElementById('pxExpAmt').value) || 0;
-  if (_pxSplitMode === 'custom') {
-    el.textContent = sel.map(m => `${m} NT$${_pxCustomAmt[m]}`).join(' / ');
-  } else if (amt > 0) {
-    const each = Math.round(amt / sel.length);
-    el.textContent = `均分（${sel.join('、')}，各約 NT$${each}）`;
-  } else {
-    el.textContent = `均分（${sel.join('、')}）`;
-  }
-}
-
-function pxCheckSubmit() {
-  const amt = parseFloat(document.getElementById('pxExpAmt').value) || 0;
-  const cat = document.getElementById('pxExpCat').value;
-  const fuelFields = document.getElementById('pxFuelFields');
-  if (fuelFields) fuelFields.style.display = cat === '加油' ? 'block' : 'none';
-  // 品項欄：加油/停車不顯示
-  const titleField = document.getElementById('pxTitleField');
-  if (titleField) titleField.style.display = (cat === '加油' || cat === '停車費') ? 'none' : 'block';
-  // 數量欄：加油/停車不顯示
-  const hideQty = cat === '加油' || cat === '停車費';
-  const qtyField = document.getElementById('pxQtyField');
-  if (qtyField) qtyField.style.display = hideQty ? 'none' : 'block';
-  const qtyRow = document.getElementById('pxQtyRow');
-  if (qtyRow) {
-    const qtyDiv = qtyRow.querySelector('div');
-    if (qtyDiv) qtyDiv.style.display = hideQty ? 'none' : 'flex';
-  }
-
-  const disabled = !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
-  document.getElementById('pxBtnExpense').disabled = disabled;
-  const btnNext = document.getElementById('pxBtnExpenseNext');
-  if (btnNext) btnNext.disabled = disabled || _editMode; // 下一筆不支援修改模式
-}
-window.pxCheckSubmit = pxCheckSubmit;
-
-// ══ 自訂金額彈窗 ══
-window.pxOpenCustomSplit = function() {
-  const amt = parseFloat(document.getElementById('pxExpAmt').value) || 0;
-  if (amt <= 0) { alert('請先填寫金額'); return; }
-  const sel  = [..._pxSplitSel];
-  const each = Math.round((amt / sel.length) * 100) / 100;
-  sel.forEach(m => { if (!_pxCustomAmt[m]) _pxCustomAmt[m] = each; });
-
-  const box = document.getElementById('pxCustomSplitBox');
-  box.innerHTML = `
-    <div class="px-modal-header" style="position:sticky;top:0;">
-      <span>▶ 自訂金額</span>
-      <button onclick="pxCloseCustomSplit()" style="background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:8px;padding:2px 8px;cursor:pointer;">取消</button>
+<!-- ══ 新增開銷 Modal ══ -->
+<div class="px-modal-overlay" id="pxModalExpense" onclick="closePxModalOutside(event,'pxModalExpense')">
+  <div class="px-modal-box">
+    <div class="px-modal-header">
+      <span>▶ 新增開銷</span>
+      <button onclick="cancelPxModal('pxModalExpense')">✕ 取消</button>
     </div>
     <div class="px-form">
-      <div style="font-size:7px;color:#2a4a1a;margin-bottom:8px;">合計應為 NT$ ${amt.toLocaleString()}</div>
-      ${PX_MEMBERS.map(m => `
-        <div class="px-split-row" style="${_pxSplitSel.has(m)?'':'opacity:.35;pointer-events:none'}">
-          <span class="px-split-name" style="display:flex;align-items:center;gap:3px;">${pxAvatarSvg(m,20)} ${m}</span>
-          <input class="px-split-input" id="pxCA${m}" type="number" inputmode="decimal"
-            value="${_pxSplitSel.has(m)?(_pxCustomAmt[m]||each):0}"
-            ${_pxSplitSel.has(m)?'':'disabled'}
-            oninput="pxUpdateCustomTotal()">
-        </div>`).join('')}
-      <div class="px-split-total" style="margin-top:6px;">
-        <span>合計</span><span id="pxCustomTotal" class="px-total-ok">0</span>
+      <div class="px-field">
+        <label class="px-label">▸ 類別 *</label>
+        <select class="px-select" id="pxExpCat" onchange="pxCheckSubmit()">
+          <option value="">-- 選擇類別 --</option>
+        </select>
       </div>
-      <div id="pxCustomDiffMsg" style="font-size:7px;text-align:right;margin-top:3px;min-height:12px;"></div>
-      <div class="px-form-actions" style="margin-top:8px;margin-bottom:8px;">
-        <button class="px-btn-submit" id="pxBtnCustomOk" onclick="pxConfirmCustomSplit()" style="flex:1;">[ 確認 ]</button>
+      <!-- 品項（加油/停車不顯示）-->
+      <div class="px-field" id="pxTitleField">
+        <input class="px-input" type="text" id="pxExpTitle" placeholder="買了什麼？"
+          style="font-size:16px;" autocomplete="off">
       </div>
-    </div>`;
-  document.getElementById('pxCustomSplitOverlay').classList.add('show');
-  pxUpdateCustomTotal();
-};
+      <div class="px-field">
+        <!-- 標籤列 -->
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <div class="px-label" style="width:60px;flex-shrink:0;" id="pxQtyField">▸ 數量</div>
+          <div class="px-label" style="flex:1;">▸ 總金額 *</div>
+          <div class="px-label" style="width:52px;flex-shrink:0;">▸ 幣別</div>
+        </div>
+        <!-- 輸入列 -->
+        <div style="display:flex;gap:4px;align-items:center;" id="pxQtyRow">
+          <!-- 數量：三角上下，數字中間 -->
+          <div style="width:60px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;">
+            <button onclick="pxQtyStep(1)"  style="background:none;border:none;padding:0;font-size:13px;color:#2a4a1a;cursor:pointer;line-height:1;">▲</button>
+            <input class="px-input" id="pxExpQty" value="1" style="width:44px;text-align:center;" readonly>
+            <button onclick="pxQtyStep(-1)" style="background:none;border:none;padding:0;font-size:13px;color:#2a4a1a;cursor:pointer;line-height:1;">▼</button>
+          </div>
+          <!-- 總金額 -->
+          <input class="px-input" id="pxExpAmt" placeholder="點此輸入" style="flex:1;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpAmt','pxUpdateSplit')">
+          <!-- 幣別 -->
+          <select class="px-select" id="pxExpCur" style="width:52px;flex-shrink:0;padding:0 4px;" onchange="pxOnCurrencyChange()">
+            <option value="NT">NT$</option>
+            <option value="ISK">ISK</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+        <!-- 換算台幣（外幣時顯示） -->
+        <div id="pxTwdRow" style="display:none;flex-direction:column;gap:4px;margin-top:4px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:7px;color:#7a9a5a;white-space:nowrap;">≈ NT$</span>
+            <input class="px-input" id="pxExpTwd" placeholder="點此修改" style="flex:1;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpTwd','pxOnTwdManualEdit')">
+            <button onclick="pxClearTwd()" style="background:none;border:none;font-size:10px;color:#aaa;cursor:pointer;padding:2px 4px;" title="回復自動換算">↺</button>
+          </div>
+          <div id="pxTwdRateHint" style="font-size:9px;color:#7a9a5a;text-align:right;padding-right:2px;"></div>
+        </div>
+      </div>
+      <!-- ── 標籤（常駐）── -->
+      <div class="px-field" id="pxTagField">
+        <div class="px-label">▸ 標籤（選填）</div>
+        <div id="pxTagRow" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:26px;"></div>
+        <div id="pxTagPanel" style="overflow:hidden;max-height:0;opacity:0;transition:max-height .22s ease,opacity .18s ease;margin-top:0;">
+          <div style="display:flex;gap:5px;margin-bottom:8px;margin-top:8px;">
+            <input id="pxTagInput" style="flex:1;background:#f8fce8;border:2px solid #2a4a1a;padding:5px 9px;font-family:'Silkscreen',monospace;font-size:16px;color:#2a4a1a;outline:none;border-radius:3px;" placeholder="輸入新標籤…" maxlength="10"
+              oninput="pxOnTagInput()"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();pxConfirmTag();}if(event.key==='Escape')pxCloseTagPanel();">
+            <button id="pxTagConfirmBtn" onclick="pxConfirmTag()" disabled
+              style="background:#2a4a1a;border:none;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:7px;padding:5px 10px;cursor:pointer;border-radius:3px;opacity:.35;">確認</button>
+          </div>
+          <div style="font-size:7px;color:#7a9a5a;letter-spacing:1px;margin-bottom:5px;">常用標籤</div>
+          <div id="pxTagSuggestRow" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+        </div>
+      </div>
+      <!-- 油費特殊欄位 -->
+      <div id="pxFuelFields" style="display:none;background:#f0f8e8;border:1px solid #b8c8a0;border-radius:4px;padding:8px;margin-bottom:8px;">
+        <div style="font-size:7px;color:#2a4a1a;margin-bottom:6px;letter-spacing:1px;">▸ 加油紀錄（選填）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div>
+            <div style="font-size:7px;color:#2a4a1a;margin-bottom:3px;">目前里程 (km)</div>
+            <input class="px-input" type="number" inputmode="decimal" id="pxFuelMileage" placeholder="0" style="padding:5px 8px;">
+          </div>
+          <div>
+            <div style="font-size:7px;color:#2a4a1a;margin-bottom:3px;">公升數 (L)</div>
+            <input class="px-input" type="number" inputmode="decimal" id="pxFuelLiters" placeholder="0" style="padding:5px 8px;">
+          </div>
+        </div>
+        <div style="margin-top:6px;">
+          <div style="font-size:7px;color:#2a4a1a;margin-bottom:3px;">品牌（選填）</div>
+          <div style="position:relative;">
+            <input class="px-input" type="text" id="pxFuelBrand" placeholder="點選或輸入…"
+              style="padding:5px 8px;font-size:14px;padding-right:28px;"
+              oninput="pxOnBrandInput()" onfocus="pxShowBrandChips()">
+            <button id="pxBrandClear" onclick="pxClearBrand()"
+              style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#5a7a3a;cursor:pointer;font-size:12px;display:none;padding:2px;">✕</button>
+          </div>
+          <div id="pxBrandChips" style="display:none;flex-wrap:wrap;gap:5px;margin-top:7px;"></div>
+        </div>
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 付款人 *（單選）</label>
+        <div class="px-member-row" id="pxPayerBtns"></div>
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 如何分攤（點角色取消）</label>
+        <div class="px-member-row" id="pxSplitBtns" style="margin-bottom:8px;"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div id="pxSplitSummary" style="font-size:7px;color:#2a4a1a;flex:1;">均分（三人）</div>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;">
+            <input type="checkbox" id="pxExpShared" checked
+              style="width:14px;height:14px;cursor:pointer;accent-color:#2a4a1a;">
+            <span style="font-family:'Silkscreen',monospace;font-size:6px;color:#2a4a1a;white-space:nowrap;">共同消費</span>
+          </label>
+          <button class="px-member-btn" onclick="pxOpenCustomSplit()" style="flex:0 0 auto;padding:5px 10px;font-size:7px;white-space:nowrap;">自訂金額</button>
+        </div>
+      </div>
+      <hr class="px-divider">
+      <div class="px-field">
+        <label class="px-label">▸ 日期</label>
+        <input class="px-input" type="datetime-local" id="pxExpDate" style="width:100%;max-width:100%;box-sizing:border-box;min-width:0;">
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 地點（選填）</label>
+        <input class="px-input" type="text" id="pxExpLoc" placeholder="">
+        <div id="pxLocSuggests" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;"></div>
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 備註（選填）</label>
+        <input class="px-input" type="text" id="pxExpNote" placeholder="">
+      </div>
+      <div class="px-form-actions" style="margin-bottom:12px;">
+        <button class="px-btn-submit" id="pxBtnExpense" onclick="pxSubmitExpense(false)" disabled style="flex:1;">[ 確認送出 ]</button>
+        <button class="px-btn-submit" id="pxBtnExpenseNext" onclick="pxSubmitExpense(true)" disabled style="flex:1;background:#1a3a0a;">[ 下一筆 ]</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-window.pxUpdateCustomTotal = function() {
-  const amt   = parseFloat(document.getElementById('pxExpAmt').value) || 0;
-  const total = [..._pxSplitSel].reduce((s,m) => s+(parseFloat(document.getElementById('pxCA'+m)?.value)||0), 0);
-  const diff  = total - amt;
-  const el    = document.getElementById('pxCustomTotal');
-  const msg   = document.getElementById('pxCustomDiffMsg');
-  if (el) { el.textContent = 'NT$ '+total.toFixed(2); el.className = Math.abs(diff)<0.02?'px-total-ok':'px-total-err'; }
-  if (msg) {
-    if (Math.abs(diff)<0.02)   msg.textContent = '';
-    else if (diff>0)            msg.textContent = '▲ 超出 NT$'+diff.toFixed(2);
-    else                        msg.textContent = '▼ 還差 NT$'+Math.abs(diff).toFixed(2)+' 未分配';
-    msg.style.color = Math.abs(diff)<0.02?'#1a5a1a':'#8a1010';
-  }
-  const btn = document.getElementById('pxBtnCustomOk');
-  if (btn) btn.disabled = Math.abs(diff)>=0.02;
-};
+<!-- ══ 自訂金額 Sub-Modal ══ -->
+<div class="px-modal-overlay" id="pxCustomSplitOverlay" style="z-index:170;">
+  <div class="px-modal-box" id="pxCustomSplitBox" style="max-height:70vh;"></div>
+</div>
+<!-- ══ 還錢 Modal ══ -->
+<div class="px-modal-overlay" id="pxModalRepay" onclick="closePxModalOutside(event,'pxModalRepay')">
+  <div class="px-modal-box">
+    <div class="px-modal-header">
+      <span>▶ 還錢</span>
+      <button onclick="cancelPxModal('pxModalRepay')">✕ 取消</button>
+    </div>
+    <div class="px-form">
+      <div class="px-field">
+        <label class="px-label">▸ 選擇雙方 *</label>
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px;">
+          <div class="px-repay-picker-col">
+            <div class="px-repay-picker-indicator">▼</div>
+            <div class="px-repay-picker-list" id="pxRepayFromList"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+            <div style="font-size:9px;color:#2a4a1a;font-family:'Silkscreen',monospace;letter-spacing:1px;">債務人 還給</div>
+            <div style="font-size:28px;color:#2a4a1a;line-height:1;">→</div>
+            <div style="font-size:9px;color:#2a4a1a;font-family:'Silkscreen',monospace;letter-spacing:1px;">債主</div>
+          </div>
+          <div class="px-repay-picker-col">
+            <div class="px-repay-picker-indicator">▼</div>
+            <div class="px-repay-picker-list" id="pxRepayToList"></div>
+          </div>
+        </div>
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 金額（NT$）*</label>
+        <input class="px-input" id="pxRepayAmt" placeholder="點此輸入" style="cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxRepayAmt','pxValidateRepay')">
+      </div>
+      <hr class="px-divider">
+      <div class="px-field">
+        <label class="px-label">▸ 日期</label>
+        <input class="px-input" type="datetime-local" id="pxRepayDate" style="width:100%;max-width:100%;box-sizing:border-box;min-width:0;">
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 備註（選填）</label>
+        <input class="px-input" type="text" id="pxRepayNote" placeholder="">
+      </div>
+      <div class="px-form-actions" style="margin-bottom:12px;">
+        <button class="px-btn-submit" id="pxBtnRepay" onclick="pxSubmitRepay()" disabled style="flex:1;">[ 確認送出 ]</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-window.pxConfirmCustomSplit = function() {
-  PX_MEMBERS.forEach(m => {
-    const el = document.getElementById('pxCA'+m);
-    _pxCustomAmt[m] = el ? (parseFloat(el.value)||0) : 0;
-  });
-  _pxSplitMode = 'custom';
-  document.getElementById('pxCustomSplitOverlay').classList.remove('show');
-  pxUpdateSplitSummary();
-  pxCheckSubmit();
-};
-window.pxCloseCustomSplit = function() {
-  document.getElementById('pxCustomSplitOverlay').classList.remove('show');
-};
 
-// ══ 幣別切換：顯示/隱藏換算列，並自動帶入估算值 ══
-window.pxOnCurrencyChange = function() {
-  const cur    = document.getElementById('pxExpCur')?.value || 'NT';
-  const twdRow = document.getElementById('pxTwdRow');
-  if (!twdRow) return;
-  if (cur === 'NT') {
-    twdRow.style.display = 'none';
-    const twdEl = document.getElementById('pxExpTwd');
-    if (twdEl) twdEl.value = '';
-    const hintEl = document.getElementById('pxTwdRateHint');
-    if (hintEl) hintEl.textContent = '';
-  } else {
-    twdRow.style.display = 'flex';
-    pxAutoFillTwd();
-  }
-  pxUpdateSplit();
-};
+<!-- ══ 像素風算盤 ══ -->
+<div class="px-calc-overlay" id="pxCalcOverlay">
+  <div class="px-calc-box">
+    <div class="px-calc-header">
+      <span>▶ 輸入金額</span>
+      <button onclick="pxCancelCalc()" style="background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:8px;padding:2px 8px;cursor:pointer;">取消</button>
+    </div>
+    <div class="px-calc-display">
+      <div class="px-calc-expr" id="pxCalcExpr"></div>
+      <div id="pxCalcDisplay">0</div>
+    </div>
+    <div class="px-calc-grid">
+      <button class="px-calc-btn cancel" onclick="pxCalcInput('C')">C</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('(')">(</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput(')')">)</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('/')">÷</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('7')">7</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('8')">8</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('9')">9</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('*')">×</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('4')">4</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('5')">5</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('6')">6</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('-')">−</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('1')">1</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('2')">2</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('3')">3</button>
+      <button class="px-calc-btn op" onclick="pxCalcInput('+')">+</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('0')">0</button>
+      <button class="px-calc-btn" onclick="pxCalcInput('.')">.</button>
+      <button class="px-calc-btn eq" onclick="pxCalcConfirm()">[ 確認 ]</button>
+    </div>
+  </div>
+</div>
 
-// 根據目前金額+幣別自動填入估算台幣（每次都覆蓋，讓使用者看到參考值再決定要不要改）
-window.pxAutoFillTwd = function() {
-  const twdEl = document.getElementById('pxExpTwd');
-  if (!twdEl) return;
-  const amt = parseFloat(document.getElementById('pxExpAmt')?.value) || 0;
-  const cur = document.getElementById('pxExpCur')?.value || 'NT';
-  if (cur === 'NT' || amt <= 0) return;
-  const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
-  const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
-  const est = cur === 'ISK' ? Math.round(amt * exISK)
-            : cur === 'EUR' ? Math.round(amt * exEUR)
-            : 0;
-  // 使用者手動改過就不覆蓋
-  if (est > 0 && !_twdManualEdited) twdEl.value = String(est);
-  // 匯率提示
-  const hintEl = document.getElementById('pxTwdRateHint');
-  if (hintEl) {
-    const rate = cur === 'ISK' ? exISK : cur === 'EUR' ? exEUR : 0;
-    hintEl.textContent = rate > 0
-      ? `參考匯率：1 ${cur} = ${rate} NT$${_twdManualEdited ? '（已手動修改）' : ''}`
-      : '';
-  }
-  // 不呼叫 pxUpdateSplit，避免與 pxUpdateSplit→pxAutoFillTwd 無限遞迴
-  pxUpdateSplitSummary();
-  pxCheckSubmit();
-};
+<!-- ══ 輪盤選單 ══ -->
+<div class="radial-overlay" id="radialOverlay">
+  <div class="radial-menu" id="radialMenu">
+    <div class="radial-line radial-line-r"></div>
+    <div class="radial-line radial-line-l"></div>
+    <div class="radial-center" id="radialClose">✕</div>
+    <div class="radial-btn radial-btn-expense" id="radialExpense" data-action="expense">
+      <span class="radial-icon">＋</span>
+      <span>記帳</span>
+    </div>
+    <div class="radial-btn radial-btn-repay" id="radialRepay" data-action="repay">
+      <span class="radial-icon">💰</span>
+      <span>還錢</span>
+    </div>
+  </div>
+</div>
 
-window.pxOnTwdManualEdit = function() {
-  _twdManualEdited = true;
-  const hintEl = document.getElementById('pxTwdRateHint');
-  if (hintEl && hintEl.textContent) {
-    const cur = document.getElementById('pxExpCur')?.value || '';
-    const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
-    const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
-    const rate = cur === 'ISK' ? exISK : cur === 'EUR' ? exEUR : 0;
-    if (rate > 0) hintEl.textContent = `參考匯率：1 ${cur} = ${rate} NT$（已手動修改）`;
-  }
-  pxUpdateSplit();
-};
+<script>
+(function(){
+  const overlay = document.getElementById('radialOverlay');
+  const btns = overlay.querySelectorAll('.radial-btn');
+  let dragging = false;
+  let hovered = null;
 
-window.pxClearTwd = function() {
-  const twdEl = document.getElementById('pxExpTwd');
-  _twdManualEdited = false; // 清除後允許重新自動換算
-  if (twdEl) twdEl.value = '';
-  pxAutoFillTwd(); // 立即重新帶入匯率估算值
-};
+  function openRadial(){ overlay.classList.add('show'); }
+  function closeRadial(){ overlay.classList.remove('show'); hovered=null; btns.forEach(b=>b.classList.remove('hover')); }
 
-// ══ 送出記帳（新增 or 修改） ══
-window.pxSubmitExpense = async function(nextMode = false) {
-  const amt  = parseFloat(document.getElementById('pxExpAmt').value) || 0;
-  const cat  = document.getElementById('pxExpCat').value;
-  const cur  = document.getElementById('pxExpCur').value;
-  const date = document.getElementById('pxExpDate').value || pxLocalNow();
-  const loc  = document.getElementById('pxExpLoc').value;
-  const note = document.getElementById('pxExpNote').value;
-  const isShared = document.getElementById('pxExpShared').checked;
-  const sel  = [..._pxSplitSel];
-  const splits = {'花':0,'猴':0,'寧':0};
-  // 分攤基準：外幣用台幣換算值（手動填的優先），NT 直接用 amt
-  const _splitCur = document.getElementById('pxExpCur')?.value || 'NT';
-  const _twdForSplit = _splitCur === 'NT' ? amt
-    : (parseFloat(document.getElementById('pxExpTwd')?.value) || 0) || amt;
-  if (_pxSplitMode === 'custom') {
-    PX_MEMBERS.forEach(m => { splits[m] = _pxCustomAmt[m]||0; });
-  } else {
-    const each = Math.round((_twdForSplit/sel.length)*100)/100;
-    sel.forEach(m => { splits[m] = each; });
-  }
-  const fuelMileage = cat === '加油' ? (parseFloat(document.getElementById('pxFuelMileage')?.value)||0) : 0;
-  const fuelLiters  = cat === '加油' ? (parseFloat(document.getElementById('pxFuelLiters')?.value)||0)  : 0;
-  const fuelBrand   = cat === '加油' ? (window.pxGetSelectedBrand?.() || document.getElementById('pxFuelBrand')?.value||'') : '';
-  const tags        = (window.pxGetSelectedTags?.() || []).join(',');
-
-  if (_isSubmitting) return;
-  _isSubmitting = true;
-
-  // 換算台幣：優先用使用者手動填的值，否則用即時匯率估算
-  const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
-  const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
-  const twdManual = parseFloat(document.getElementById('pxExpTwd')?.value);
-  const twd = cur === 'NT' ? amt
-            : (Number.isFinite(twdManual) && twdManual > 0) ? twdManual
-            : cur === 'ISK' ? Math.round(amt * exISK)
-            : cur === 'EUR' ? Math.round(amt * exEUR)
-            : amt;
-  const total = twd;
-  const title = (document.getElementById('pxExpTitle')?.value||'').trim();
-  const qty   = parseInt(document.getElementById('pxExpQty')?.value||'1')||1;
-
-  const payload = {
-    action: _editMode ? 'editExpense' : 'addExpense',
-    rowIndex: _editMode ? _editRowIndex : undefined,
-    title, qty, category: cat, amount: amt, currency: cur,
-    twd, foreignFee: 0, total,
-    payer: _pxPayer,
-    splitMode: [..._pxSplitSel].join(','),
-    'split花': splits['花'], 'split猴': splits['猴'], 'split寧': splits['寧'],
-    date, location: loc, note, isShared,
-    fuelMileage, fuelLiters, fuelBrand, tags,
-  };
-
-  // nextMode：留窗清空；否則關窗
-  if (nextMode) {
-    // 按鈕短暫顯示成功
-    const btnNext = document.getElementById('pxBtnExpenseNext');
-    if (btnNext) {
-      const orig = btnNext.textContent;
-      btnNext.textContent = '✓ 已記錄！';
-      btnNext.disabled = true;
-      setTimeout(() => {
-        btnNext.textContent = orig;
-        pxCheckSubmit();
-      }, 1200);
+  function getBtnAt(x, y){
+    for(const b of btns){
+      const r = b.getBoundingClientRect();
+      if(x>=r.left && x<=r.right && y>=r.top && y<=r.bottom) return b;
     }
-    // 清空金額/品項/備註/標籤，保留類別/付款人/分攤/地點
-    document.getElementById('pxExpAmt').value  = '';
-    document.getElementById('pxExpTwd').value  = '';
-    _twdManualEdited = false;
-    pxOnCurrencyChange();
-    const titleEl = document.getElementById('pxExpTitle');
-    if (titleEl) titleEl.value = '';
-    document.getElementById('pxExpNote').value = '';
-    window.pxResetTags?.();
-    window.pxResetQty?.();
-    pxCheckSubmit();
-  } else {
-    window.cancelPxModal('pxModalExpense');
+    return null;
   }
-  const wasEdit = _editMode;
-  const editRowIdx = _editRowIndex;
 
-  const optimisticItem = {
-    _rowIndex: wasEdit ? editRowIdx : -1,
-    _syncing: true,
-    category: cat, amount: amt, currency: cur, twd, total,
-    payer: _pxPayer, date, location: loc, note, isShared, title, qty,
-    splitMode: [..._pxSplitSel].join(','),
-    burden: { '花': splits['花'], '猴': splits['猴'], '寧': splits['寧'] },
-    tags,
+  function fireAction(btn){
+    if(!btn) return;
+    closeRadial();
+    const action = btn.dataset.action;
+    if(action === 'expense') openPxModal('expense');
+    else if(action === 'repay') openPxModal('repay');
+  }
+
+  // 點擊關閉鈕
+  document.getElementById('radialClose').addEventListener('click', e=>{ e.stopPropagation(); closeRadial(); });
+
+  // 點擊 overlay 背景關閉
+  overlay.addEventListener('click', e=>{ if(e.target === overlay) closeRadial(); });
+
+  // 點擊按鈕（一般點擊）
+  btns.forEach(b => b.addEventListener('click', e=>{ e.stopPropagation(); fireAction(b); }));
+
+  // ── 長按 + 滑動（touch）
+  overlay.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    dragging = true;
+    const t = e.touches[0];
+    const b = getBtnAt(t.clientX, t.clientY);
+    if(b !== hovered){
+      btns.forEach(x=>x.classList.remove('hover'));
+      hovered = b;
+      if(b) b.classList.add('hover');
+    }
+  }, {passive:false});
+
+  overlay.addEventListener('touchend', e=>{
+    if(dragging && hovered){ fireAction(hovered); dragging=false; return; }
+    dragging=false;
+  });
+
+  // ── 長按 + 滑動（mouse，桌機測試用）
+  overlay.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    const b = getBtnAt(e.clientX, e.clientY);
+    if(b !== hovered){
+      btns.forEach(x=>x.classList.remove('hover'));
+      hovered = b;
+      if(b) b.classList.add('hover');
+    }
+  });
+  overlay.addEventListener('mouseup', e=>{
+    if(dragging && hovered){ fireAction(hovered); dragging=false; return; }
+    dragging=false;
+  });
+
+  // 開放給外部呼叫
+  window.openRadialMenu = function(){ dragging=false; hovered=null; openRadial(); };
+})();
+</script>
+
+<!-- ══ 刪除確認框 ══ -->
+<div class="px-delete-overlay" id="pxDeleteOverlay">
+  <div class="px-delete-box">
+    <div class="px-delete-title">⚠ 確認刪除</div>
+    <div class="px-delete-msg">確定要刪除<br>「<span id="pxDeleteLabel"></span>」嗎？<br>此操作無法復原。</div>
+    <div class="px-delete-actions">
+      <button class="cancel" onclick="pxCancelDelete()">[ 取消 ]</button>
+      <button class="confirm" onclick="pxExecuteDelete()">[ 刪除 ]</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js" defer></script>
+<script src="sprites.js" defer></script>
+<script src="render.js" defer></script>
+<script src="render-ledger.js" defer></script>
+<script src="render-cards.js" defer></script>
+<script src="render-info.js" defer></script>
+<script src="scene.js" defer></script>
+<script src="forms.js" defer></script>
+<script defer>document.addEventListener('DOMContentLoaded', () => init());</script>
+
+<script>
+// ════ 數量控制 ════
+window._pxQty = 1;
+window.pxQtyStep = function(dir) {
+  window._pxQty = Math.max(1, (window._pxQty || 1) + dir);
+  const el = document.getElementById('pxExpQty');
+  if (el) el.value = window._pxQty;
+};
+window.pxLoadQty = function(qty) {
+  window._pxQty = qty || 1;
+  const el = document.getElementById('pxExpQty');
+  if (el) el.value = window._pxQty;
+};
+window.pxResetQty = function() {
+  window._pxQty = 1;
+  const el = document.getElementById('pxExpQty');
+  if (el) el.value = '1';
+};
+
+// ════ Tag 選擇器 ════
+(function(){
+  let _selectedTags = [];
+  const _DEFAULT_TAGS = ['食物','飲料','紀念品','藥局','超市'];
+  let _tagLibrary   = [..._DEFAULT_TAGS];
+  let _panelOpen    = false;
+
+  function _buildTagChips() {
+    const row = document.getElementById('pxTagRow');
+    if (!row) return;
+    row.innerHTML = _selectedTags.map(t =>
+      `<span class="px-tag-chip">${t}<span class="px-tag-chip-x" data-tag="${t}">✕</span></span>`
+    ).join('') + `<button class="px-tag-add-pill" onclick="pxToggleTagPanel()">＋ 標籤</button>`;
+    // bind remove events without re-render
+    row.querySelectorAll('.px-tag-chip-x').forEach(el => {
+      el.addEventListener('click', () => {
+        _selectedTags = _selectedTags.filter(t => t !== el.dataset.tag);
+        _buildTagChips();
+        _buildSuggests();
+      });
+    });
+  }
+
+  function _buildSuggests() {
+    const row = document.getElementById('pxTagSuggestRow');
+    if (!row) return;
+    const q = (document.getElementById('pxTagInput')?.value || '').trim().toLowerCase();
+    row.innerHTML = _tagLibrary
+      .filter(t => !q || t.toLowerCase().includes(q))
+      .map(t => {
+        const used = _selectedTags.includes(t);
+        return `<span class="px-tag-suggest-pill${used?' used':''}" data-tag="${t}">${t}</span>`;
+      }).join('');
+    row.querySelectorAll('.px-tag-suggest-pill:not(.used)').forEach(el => {
+      el.addEventListener('click', () => {
+        if (!_selectedTags.includes(el.dataset.tag)) _selectedTags.push(el.dataset.tag);
+        _buildTagChips();
+        _buildSuggests();
+        document.getElementById('pxTagInput').value = '';
+        document.getElementById('pxTagConfirmBtn').disabled = true;
+        document.getElementById('pxTagConfirmBtn').style.opacity = '.35';
+        document.getElementById('pxTagInput').focus();
+      });
+    });
+  }
+
+  window.pxToggleTagPanel = function() {
+    if (_panelOpen) return;
+    _panelOpen = true;
+    const panel = document.getElementById('pxTagPanel');
+    panel.style.maxHeight = '200px';
+    panel.style.opacity   = '1';
+    panel.style.marginTop = '8px';
+    setTimeout(() => document.getElementById('pxTagInput')?.focus(), 50);
+    _buildSuggests();
   };
-  optimisticUpdate('expense', wasEdit ? editRowIdx : null, optimisticItem);
 
-  postToGAS(payload)
-    .then(() => {
-      if (wasEdit) {
-        // 修改：cache 已清，立刻重拉換掉帶 badge 的樂觀資料
-        setSyncState?.('syncing', '更新中…');
-        window.__syncIcelandBudgetFromSheets?.();
-      } else {
-        bgSync('記帳同步中…');
-      }
-    })
-    .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'))
-    .finally(() => { _isSubmitting = false; });
-};
-
-// ══ 還錢：卷軸選擇（同圓餅圖邏輯）══
-const PICKER_ITEM_H = 88;
-
-function pxRenderScrollPicker(listId, selectedName, side) {
-  const el = document.getElementById(listId);
-  if (!el) return;
-
-  const pad = `<div style="height:${PICKER_ITEM_H}px;flex-shrink:0;"></div>`;
-  el.innerHTML = pad + PX_MEMBERS.map(m =>
-    `<div class="px-repay-picker-item${m===selectedName?' sel':''}" data-key="${m}">
-      ${pxAvatarSvg(m, 44)}
-      <span>${m}</span>
-    </div>`
-  ).join('') + pad;
-
-  const idx = PX_MEMBERS.indexOf(selectedName);
-  // 用 setTimeout 確保 modal 已顯示再設 scrollTop
-  setTimeout(() => { el.scrollTop = (idx + 1) * PICKER_ITEM_H; }, 30);
-
-  // 移除舊事件
-  if (el._pickerClick)  el.removeEventListener('click',  el._pickerClick);
-  if (el._pickerScroll) el.removeEventListener('scroll', el._pickerScroll);
-
-  el._pickerClick = e => {
-    const item = e.target.closest('.px-repay-picker-item');
-    if (!item) return;
-    const cur     = side === 'from' ? _pxRepayFrom : _pxRepayTo;
-    const curIdx  = PX_MEMBERS.indexOf(cur);
-    const nextIdx = (curIdx + 1) % PX_MEMBERS.length;
-    const nextKey = PX_MEMBERS[nextIdx];
-    if (side === 'from') _pxRepayFrom = nextKey; else _pxRepayTo = nextKey;
-    el.scrollTo({ top: (nextIdx + 1) * PICKER_ITEM_H, behavior: 'smooth' });
-    el.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === nextKey));
-    pxValidateRepay();
+  window.pxOnTagInput = function() {
+    const val = document.getElementById('pxTagInput').value.trim();
+    const btn = document.getElementById('pxTagConfirmBtn');
+    btn.disabled     = !val;
+    btn.style.opacity = val ? '1' : '.35';
+    _buildSuggests();
   };
 
-  let _t;
-  el._pickerScroll = () => {
-    clearTimeout(_t);
-    _t = setTimeout(() => {
-      const i       = Math.round(el.scrollTop / PICKER_ITEM_H) - 1;
-      const clamped = Math.max(0, Math.min(i, PX_MEMBERS.length - 1));
-      const newKey  = PX_MEMBERS[clamped];
-      const cur     = side === 'from' ? _pxRepayFrom : _pxRepayTo;
-      if (newKey !== cur) {
-        if (side === 'from') _pxRepayFrom = newKey; else _pxRepayTo = newKey;
-        el.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === newKey));
-        pxValidateRepay();
-      }
-    }, 80);
+  window.pxConfirmTag = function() {
+    const input = document.getElementById('pxTagInput');
+    const val   = input.value.trim();
+    if (!val) return;
+    if (!_selectedTags.includes(val)) _selectedTags.push(val);
+    if (!_tagLibrary.includes(val))   _tagLibrary.push(val);
+    input.value = '';
+    document.getElementById('pxTagConfirmBtn').disabled = true;
+    document.getElementById('pxTagConfirmBtn').style.opacity = '.35';
+    _buildTagChips();
+    _buildSuggests();
+    input.focus();
   };
 
-  el.addEventListener('click',  el._pickerClick);
-  el.addEventListener('scroll', el._pickerScroll, { passive: true });
-}
+  window.pxGetSelectedTags = function() { return [..._selectedTags]; };
+  window.pxResetTags = function() {
+    _selectedTags = [];
+    _panelOpen    = false;
+    const panel   = document.getElementById('pxTagPanel');
+    if (panel) { panel.style.maxHeight='0'; panel.style.opacity='0'; panel.style.marginTop='0'; }
+    _buildTagChips();
+  };
+  window.pxCloseTagPanel = function() {
+    _panelOpen = false;
+    const panel = document.getElementById('pxTagPanel');
+    if (panel) { panel.style.maxHeight='0'; panel.style.opacity='0'; panel.style.marginTop='0'; }
+  };
+  window.pxLoadTags = function(tagsStr) {
+    _selectedTags = tagsStr ? tagsStr.split(',').map(t=>t.trim()).filter(Boolean) : [];
+    _panelOpen    = false;
+    const panel   = document.getElementById('pxTagPanel');
+    if (panel) { panel.style.maxHeight='0'; panel.style.opacity='0'; panel.style.marginTop='0'; }
+    _buildTagChips();
+  };
+  window.pxUpdateTagLibrary = function(lib) { if (Array.isArray(lib)) _tagLibrary = [...new Set([..._DEFAULT_TAGS, ...lib, ..._tagLibrary])]; };
 
-window.pxScrollSelectFrom = function(name) { _pxRepayFrom = name; pxValidateRepay(); };
-window.pxScrollSelectTo   = function(name) { _pxRepayTo   = name; pxValidateRepay(); };
-window.pxValidateRepay = function() {
-  const amt = parseFloat(document.getElementById('pxRepayAmt').value) || 0;
-  document.getElementById('pxBtnRepay').disabled =
-    !_pxRepayFrom || !_pxRepayTo || _pxRepayFrom === _pxRepayTo || amt <= 0;
-};
+  // 類別切換時顯示/隱藏 tag 欄
+  document.addEventListener('DOMContentLoaded', () => {
+    _buildTagChips();
 
-// ══ 送出還款（新增 or 修改）══
-window.pxSubmitRepay = async function() {
-  const amt  = parseFloat(document.getElementById('pxRepayAmt').value) || 0;
-  const date = document.getElementById('pxRepayDate').value || pxLocalNow();
-  const note = document.getElementById('pxRepayNote').value;
-  if (_isSubmitting) return;
-  _isSubmitting = true;
+  });
+})();
 
-  const payload = {
-    action: _editMode ? 'editRepay' : 'addRepay',
-    rowIndex: _editMode ? _editRowIndex : undefined,
-    from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
+// ════ 品牌選擇器 ════
+(function(){
+  const BRANDS = ['N1','Orkan','Olís','ÓB','Atlantsolía','Costco'];
+  let _selectedBrand = '';
+
+  function _buildBrandChips() {
+    const wrap = document.getElementById('pxBrandChips');
+    if (!wrap) return;
+    wrap.innerHTML = BRANDS.map(b =>
+      `<span class="px-brand-chip${_selectedBrand===b?' sel':''}" data-brand="${b}">${b}</span>`
+    ).join('');
+    wrap.querySelectorAll('.px-brand-chip').forEach(el => {
+      el.addEventListener('click', () => {
+        _selectedBrand = _selectedBrand === el.dataset.brand ? '' : el.dataset.brand;
+        document.getElementById('pxFuelBrand').value = _selectedBrand;
+        document.getElementById('pxBrandClear').style.display = _selectedBrand ? 'block' : 'none';
+        wrap.querySelectorAll('.px-brand-chip').forEach(c => c.classList.toggle('sel', c.dataset.brand === _selectedBrand));
+      });
+    });
+  }
+
+  window.pxShowBrandChips = function() {
+    const wrap = document.getElementById('pxBrandChips');
+    if (wrap) wrap.style.display = 'flex';
+    _buildBrandChips();
   };
 
-  // 立刻關窗
-  window.cancelPxModal('pxModalRepay');
-
-  const wasEditRepay = _editMode;
-  const editRepayIdx = _editRowIndex;
-
-  const optimisticRepayItem = {
-    _rowIndex: wasEditRepay ? editRepayIdx : -1,
-    _syncing: true,
-    from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
+  window.pxOnBrandInput = function() {
+    const val = document.getElementById('pxFuelBrand').value.trim();
+    if (val && !BRANDS.includes(val)) {
+      _selectedBrand = '';
+      document.getElementById('pxBrandChips')?.querySelectorAll('.px-brand-chip').forEach(c => c.classList.remove('sel'));
+    }
+    document.getElementById('pxBrandClear').style.display = val ? 'block' : 'none';
   };
-  optimisticUpdate('repay', wasEditRepay ? editRepayIdx : null, optimisticRepayItem);
 
-  postToGAS(payload)
-    .then(() => {
-      if (wasEditRepay) {
-        setSyncState?.('syncing', '更新中…');
-        window.__syncIcelandBudgetFromSheets?.();
-      } else {
-        bgSync('還款同步中…');
-      }
-    })
-    .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'))
-    .finally(() => { _isSubmitting = false; });
-};
+  window.pxClearBrand = function() {
+    _selectedBrand = '';
+    document.getElementById('pxFuelBrand').value = '';
+    document.getElementById('pxBrandClear').style.display = 'none';
+    document.getElementById('pxBrandChips')?.querySelectorAll('.px-brand-chip').forEach(c => c.classList.remove('sel'));
+  };
 
-// ══ 像素算盤 ══
-window.pxOpenCalc = function(targetId, cbName) {
-  _calcTarget = targetId;
-  _calcCb     = cbName;
-  _calcExpr   = '';
-  _calcPrev   = document.getElementById(targetId)?.value || '';
-  document.getElementById('pxCalcDisplay').textContent = _calcPrev || '0';
-  document.getElementById('pxCalcExpr').textContent    = '';
-  document.getElementById('pxCalcOverlay').classList.add('show');
-};
+  window.pxGetSelectedBrand = function() { return _selectedBrand || document.getElementById('pxFuelBrand')?.value.trim() || ''; };
+  window.pxResetBrand = function() {
+    _selectedBrand = '';
+    const input = document.getElementById('pxFuelBrand');
+    if (input) input.value = '';
+    const clear = document.getElementById('pxBrandClear');
+    if (clear) clear.style.display = 'none';
+    const wrap  = document.getElementById('pxBrandChips');
+    if (wrap)  { wrap.style.display = 'none'; wrap.querySelectorAll('.px-brand-chip').forEach(c => c.classList.remove('sel')); }
+  };
+})();
+</script>
 
-window.pxCalcInput = function(key) {
-  const disp = document.getElementById('pxCalcDisplay');
-  const expr = document.getElementById('pxCalcExpr');
-  if (key === 'C') { _calcExpr = ''; disp.textContent = '0'; expr.textContent = ''; return; }
-  _calcExpr += key;
-  expr.textContent = _calcExpr;
-  try {
-    const safe   = _calcExpr.replace(/[^0-9+\-*/.()]/g,'');
-    const result = Function('"use strict"; return (' + safe + ')')();
-    if (isFinite(result)) disp.textContent = Math.round(result*100)/100;
-  } catch(e) { disp.textContent = _calcExpr; }
-};
-
-window.pxCalcConfirm = function() {
-  try {
-    const safe   = _calcExpr.replace(/[^0-9+\-*/.()]/g,'');
-    const result = safe ? Function('"use strict"; return (' + safe + ')')() : parseFloat(_calcPrev)||0;
-    if (!isFinite(result)) { alert('請輸入有效金額'); return; }
-    const val = Math.round(result*100)/100;
-    const el  = document.getElementById(_calcTarget);
-    if (el) el.value = val;
-    document.getElementById('pxCalcOverlay').classList.remove('show');
-    if (_calcCb && window[_calcCb]) window[_calcCb]();
-  } catch(e) { alert('計算錯誤，請重新輸入'); }
-};
-
-window.pxCancelCalc = function() {
-  const el = document.getElementById(_calcTarget);
-  if (el) el.value = _calcPrev;
-  document.getElementById('pxCalcOverlay').classList.remove('show');
-};
-do
+</body>
+</html>
