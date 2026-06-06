@@ -616,10 +616,10 @@ window.pxSubmitExpense = async function(nextMode = false) {
   optimisticUpdate('expense', _editMode ? _editRowIndex : null, optimisticItem);
 
   // 背景送 GAS，不等待
-  _isSubmitting = false;
   postToGAS(payload)
     .then(() => bgSync('記帳同步中…'))
-    .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'));
+    .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'))
+    .finally(() => { _isSubmitting = false; });
 };
 
 // ══ 還錢：卷軸選擇（同圓餅圖邏輯）══
@@ -708,10 +708,10 @@ window.pxSubmitRepay = async function() {
   };
   optimisticUpdate('repay', _editMode ? _editRowIndex : null, optimisticRepayItem);
 
-  _isSubmitting = false;
   postToGAS(payload)
     .then(() => bgSync('還款同步中…'))
-    .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'));
+    .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'))
+    .finally(() => { _isSubmitting = false; });
 };
 
 // ══ 像素算盤 ══
