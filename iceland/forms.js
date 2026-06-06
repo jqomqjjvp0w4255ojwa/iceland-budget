@@ -60,7 +60,66 @@ function markCardLoading(type, rowIndex) {
   }
 }
 
-// 樂觀更新：新增用插入頂部，修改用覆蓋原筆（帶轉轉badge）
+// 修改模式：直接抓 DOM 把卡片內容換成新資料 + 半透明鎖定狀態，不重建整個區塊
+function mutateCardInPlace(type, rowIndex, newItem) {
+  const containers = type === 'repay'
+    ? [document.getElementById('repayContent')]
+    : [document.getElementById('dailyContent'), document.getElementById('carContent')];
+
+  for (const container of containers) {
+    if (!container) continue;
+    for (const btn of container.querySelectorAll('.swipe-action-btn.edit')) {
+      if (!btn.getAttribute('onclick')?.includes(`(${rowIndex},`)) continue;
+      const wrap = btn.closest('.swipe-card-wrap');
+      if (!wrap) continue;
+
+      // 用新資料渲染一張卡片的 HTML，取出 swipe-card-content 部分替換
+      let newHtml = '';
+      if (type === 'expense') {
+        // 借用 renderDaily/renderTransport 產生單筆 HTML
+        const tmpData = { ...window.APP_DATA, expenses: [newItem] };
+        const isFuelOrPark = ['加油','停車費'].includes(newItem.category);
+        if (isFuelOrPark) {
+          const full = renderTransport(tmpData);
+          const tmp = document.createElement('div');
+          tmp.innerHTML = full;
+          const card = tmp.querySelector('.swipe-card-wrap');
+          newHtml = card ? card.outerHTML : '';
+        } else {
+          newHtml = renderDaily([newItem]);
+        }
+      } else {
+        newHtml = renderRepay([newItem], window.APP_DATA.split || {});
+      }
+
+      if (!newHtml) continue;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = newHtml;
+      const newContent = tmp.querySelector('.swipe-card-content');
+      const oldContent = wrap.querySelector('.swipe-card-content');
+      if (newContent && oldContent) {
+        // 套上半透明鎖定樣式 + 轉轉
+        newContent.style.opacity = '0.55';
+        newContent.style.pointerEvents = 'none';
+        if (!newContent.querySelector('.card-sync-badge')) {
+          const badge = document.createElement('span');
+          badge.className = 'card-sync-badge';
+          badge.style.cssText = 'position:absolute;top:7px;right:28px;font-size:.9rem;animation:spin .8s linear infinite;display:inline-block;z-index:10;line-height:1;';
+          badge.textContent = '⟳';
+          newContent.style.position = 'relative';
+          newContent.appendChild(badge);
+        }
+        wrap.replaceChild(newContent, oldContent);
+        // 同步更新 edit 按鈕的 data-d，避免再次點修改帶舊資料
+        const newEditBtn = tmp.querySelector('.swipe-action-btn.edit');
+        if (newEditBtn) btn.dataset.d = newEditBtn.dataset.d;
+      }
+      return; // 找到就停
+    }
+  }
+}
+
+// 樂觀更新：新增用插入頂部重建，修改用 DOM 原地替換
 function optimisticUpdate(type, rowIndex, newItem) {
   if (!window.APP_DATA) return;
   const isEdit = rowIndex != null && Number(rowIndex) > 0;
@@ -69,23 +128,26 @@ function optimisticUpdate(type, rowIndex, newItem) {
     if (isEdit) {
       const i = list.findIndex(e => Number(e._rowIndex) === Number(rowIndex));
       if (i !== -1) { list[i] = newItem; window.APP_DATA.expenses = [...list]; }
+      mutateCardInPlace('expense', rowIndex, newItem);
     } else {
       window.APP_DATA.expenses = [newItem, ...list];
+      _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses));
+      _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
     }
-    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses));
-    _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
   } else if (type === 'repay') {
     const list = window.APP_DATA.repayHistory || [];
     if (isEdit) {
       const i = list.findIndex(r => Number(r._rowIndex) === Number(rowIndex));
       if (i !== -1) { list[i] = newItem; window.APP_DATA.repayHistory = [...list]; }
+      mutateCardInPlace('repay', rowIndex, newItem);
     } else {
       window.APP_DATA.repayHistory = [...list, newItem];
+      _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory, window.APP_DATA.split || {}));
     }
-    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory, window.APP_DATA.split || {}));
   }
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
 }
+
 
 
 
