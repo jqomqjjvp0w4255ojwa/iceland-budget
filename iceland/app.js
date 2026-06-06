@@ -255,17 +255,6 @@
       const { overview, accommodation, car, activity, split, lines, flight, expense } = all;
 
       const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
-
-      // 把還沒拿到真實行號的「新增中」項目接回來（修改項 GAS 已原地覆寫，雲端資料就是對的）
-      if (window.APP_DATA?.expenses) {
-        const pending = window.APP_DATA.expenses.filter(e => Number(e._rowIndex) === -1);
-        if (pending.length) newData.expenses = [...pending, ...newData.expenses];
-      }
-      if (window.APP_DATA?.repayHistory) {
-        const pending = window.APP_DATA.repayHistory.filter(r => Number(r._rowIndex) === -1);
-        if (pending.length) newData.repayHistory = [...pending, ...newData.repayHistory];
-      }
-
       window.APP_DATA = newData;
       localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
       window.renderAll?.();
