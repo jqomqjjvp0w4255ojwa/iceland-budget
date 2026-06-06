@@ -250,27 +250,36 @@ function renderTransport(d) {
     const labels = {all:'全部', car:'🚗 租車', flight:'✈️ 機票', fuel:'⛽ 油費', parking:'🅿 停車'};
     return `<button class="filter-btn${currentFilter===f?' active':''}" onclick="setTransportFilter('${f}')">${labels[f]}</button>`;
   }).join('');
+  const isUsedModel = /used/i.test(car.model||'');
+  const modelClean  = (car.model||'').replace(/\(.*?\)/g,'').replace(/\n.*/,'').trim();
   const carCard = (currentFilter === 'all' || currentFilter === 'car') ? `
     <div class="card paid-card" style="margin-bottom:11px;">
       <div class="card-header">
-        <div>
-          <div class="card-date" style="font-size:.85rem">${car.pickup||'—'} → ${car.dropoff||'—'}</div>
-          <div class="card-name-row" style="margin-top:4px;">
-            <span style="font-size:.85rem">🚗</span>
-            <span class="card-name">${car.company}　${car.model}</span>
-          </div>
-          ${car.location ? `<div style="font-size:.72rem;color:var(--muted);margin-top:4px;">📍 ${car.location.replace('Zero Car, ','').replace(', Iceland','')}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
+                       border-radius:4px;padding:1px 6px;white-space:nowrap;">🚗 租車</span>
+          ${avatarSvg(car.payer)}
         </div>
         <div class="card-price">
-          <div class="price-per-label">&nbsp;</div>
-          <div class="price-per">${fmtPer(car.totalTWD)}</div>
-          <div class="price-total">${fmt(car.totalTWD)} 合計</div>
+          <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${fmt(car.perPerson)}/人</div>
+          <div style="font-size:.65rem;color:var(--muted);">${fmt(car.totalTWD)} 合計</div>
         </div>
       </div>
-      <div class="card-body">
-        <span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;">付款 ${avatarSvg(car.payer)}</span>
-        <span class="tag tag-person">${car.days} 天</span>
-        ${car.startMileage ? `<span class="tag" style="background:rgba(79,195,247,.1);color:var(--accent);border:1px solid rgba(79,195,247,.25);">取車 ${car.startMileage.toLocaleString()} km</span>` : ''}
+      <div style="padding:0 16px 12px;">
+        <div style="margin-bottom:8px;">
+          <div style="font-size:.88rem;color:var(--text);font-weight:600;margin-bottom:2px">${car.company||'—'}</div>
+          <div style="font-size:.72rem;color:var(--muted)">${modelClean}</div>
+          ${car.location?`<div style="font-size:.65rem;color:var(--muted);margin-top:2px">📍 ${car.location}</div>`:''}
+        </div>
+        <div class="card-body" style="padding:0 0 8px;gap:5px;">
+          <span class="tag tag-paid">${car.days} 天</span>
+          ${isUsedModel?'<span class="tag" style="background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border)">Used Model</span>':''}
+          ${car.startMileage?`<span class="tag" style="background:rgba(79,195,247,.1);color:var(--accent);border:1px solid rgba(79,195,247,.25);">取車 ${car.startMileage.toLocaleString()} km</span>`:''}
+        </div>
+        <div style="display:flex;gap:12px;font-size:.68rem;color:var(--muted);">
+          <div><span style="color:var(--accent)">取車</span> ${car.pickup||'—'}</div>
+          <div><span style="color:var(--aurora3)">還車</span> ${car.dropoff||'—'}</div>
+        </div>
       </div>
     </div>` : '';
   const flightCards = (currentFilter === 'all' || currentFilter === 'flight') ?
