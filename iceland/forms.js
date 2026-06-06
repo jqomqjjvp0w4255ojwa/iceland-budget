@@ -434,15 +434,14 @@ function pxRenderScrollPicker(listId, selectedName, side) {
     </div>`
   ).join('') + pad;
 
-  // 捲到選中位置
   const idx = PX_MEMBERS.indexOf(selectedName);
   el.scrollTop = (idx + 1) * PICKER_ITEM_H;
 
-  // 點擊：移除舊事件再加新的，避免堆疊
-  el.replaceWith(el.cloneNode(true));
-  const el2 = document.getElementById(listId);
-  el2.scrollTop = (idx + 1) * PICKER_ITEM_H;
-  el2.addEventListener('click', e => {
+  // 移除舊事件
+  if (el._pickerClick)  el.removeEventListener('click',  el._pickerClick);
+  if (el._pickerScroll) el.removeEventListener('scroll', el._pickerScroll);
+
+  el._pickerClick = e => {
     const item = e.target.closest('.px-repay-picker-item');
     if (!item) return;
     const cur     = side === 'from' ? _pxRepayFrom : _pxRepayTo;
@@ -450,14 +449,13 @@ function pxRenderScrollPicker(listId, selectedName, side) {
     const nextIdx = (curIdx + 1) % PX_MEMBERS.length;
     const nextKey = PX_MEMBERS[nextIdx];
     if (side === 'from') _pxRepayFrom = nextKey; else _pxRepayTo = nextKey;
-    el2.scrollTo({ top: (nextIdx + 1) * PICKER_ITEM_H, behavior: 'smooth' });
-    el2.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === nextKey));
+    el.scrollTo({ top: (nextIdx + 1) * PICKER_ITEM_H, behavior: 'smooth' });
+    el.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === nextKey));
     pxValidateRepay();
-  });
+  };
 
-  // 滾動結束後更新（同圓餅圖）
   let _t;
-  el2.addEventListener('scroll', () => {
+  el._pickerScroll = () => {
     clearTimeout(_t);
     _t = setTimeout(() => {
       const i       = Math.round(el.scrollTop / PICKER_ITEM_H) - 1;
@@ -466,11 +464,14 @@ function pxRenderScrollPicker(listId, selectedName, side) {
       const cur     = side === 'from' ? _pxRepayFrom : _pxRepayTo;
       if (newKey !== cur) {
         if (side === 'from') _pxRepayFrom = newKey; else _pxRepayTo = newKey;
-        el2.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === newKey));
+        el.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === newKey));
         pxValidateRepay();
       }
     }, 80);
-  }, { passive: true });
+  };
+
+  el.addEventListener('click',  el._pickerClick);
+  el.addEventListener('scroll', el._pickerScroll, { passive: true });
 }
 
 window.pxScrollSelectFrom = function(name) { _pxRepayFrom = name; pxValidateRepay(); };

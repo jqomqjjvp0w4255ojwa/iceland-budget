@@ -327,49 +327,43 @@ function renderTransport(d) {
         </div>
       </div>`;
     }).join('') : '';
+  function transportItemCard(item, icon, emptyMsg) {
+    const date = String(item.date||'').split('T')[0] || '—';
+    const name = item.title || item.location || item.fuelBrand || icon;
+    const burdenTags = ['猴','花','寧'].filter(m=>(item.burden?.[m]||0)>0)
+      .map(m=>`<span style="display:inline-flex;align-items:center;gap:2px;font-size:.62rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted)">${avatarSvg(m)} NT$${Math.round(item.burden[m]).toLocaleString()}</span>`).join('');
+    const fuelMeta = item.category==='加油' ? `
+      <div style="font-size:.63rem;color:var(--muted);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
+        ${item.fuelLiters?`<span>${item.fuelLiters}L</span>`:''}
+        ${item.fuelMileage?`<span>📍 ${Number(item.fuelMileage).toLocaleString()} km</span>`:''}
+        ${item.fuelEfficiency?`<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>`:''}
+      </div>` : '';
+    return `
+      <div class="card paid-card" style="margin-bottom:8px;">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
+                         border-radius:4px;padding:1px 6px;white-space:nowrap;">${icon}</span>
+            ${item.payer?`<span class="tag tag-paid" style="display:inline-flex;align-items:center;gap:3px;">付款 ${avatarSvg(item.payer)}</span>`:''}
+          </div>
+          <div class="card-price">
+            <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${fmt(item.total||item.twd)}</div>
+            <div style="font-size:.65rem;color:var(--muted);">${date}</div>
+          </div>
+        </div>
+        <div style="padding:0 16px 12px;">
+          ${name?`<div style="font-size:.85rem;color:var(--text);margin-bottom:4px">${name}</div>`:''}
+          ${fuelMeta}
+          <div class="card-body" style="padding:${name||fuelMeta?'6px':'0'} 0 0;gap:4px">${burdenTags}</div>
+        </div>
+      </div>`;
+  }
   const fuelCard = (currentFilter === 'all' || currentFilter === 'fuel') ?
-    (fuelItems.length ? fuelItems.map(item => `
-      <div class="card paid-card" style="margin-bottom:8px;">
-        <div class="card-header">
-          <div>
-            <div class="card-date">${String(item.date).split('T')[0]||'—'}</div>
-            <div class="card-name-row" style="margin-top:4px">
-              <span style="font-size:.85rem">⛽</span>
-              <span style="font-size:.85rem">${item.fuelBrand||'加油'}</span>
-            </div>
-          </div>
-          <div class="card-price">
-            <div class="price-per" style="font-size:1.1rem">${fmt(item.total||item.twd)}</div>
-          </div>
-        </div>
-        <div class="card-body" style="padding:6px 16px 10px;gap:6px;font-size:.63rem;color:var(--muted)">
-          ${item.fuelLiters ? `<span>${item.fuelLiters}L</span>` : ''}
-          ${item.fuelMileage ? `<span>📍 ${Number(item.fuelMileage).toLocaleString()} km</span>` : ''}
-          ${item.fuelEfficiency ? `<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>` : ''}
-        </div>
-        <div class="card-body" style="padding:0 16px 10px;gap:4px">
-          ${item.payer ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:.62rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted)">付 ${avatarSvg(item.payer)}</span>` : ''}
-          ${['猴','花','寧'].filter(m=>(item.burden?.[m]||0)>0).map(m=>`<span style="display:inline-flex;align-items:center;gap:2px;font-size:.62rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted)">${avatarSvg(m)} NT$${Math.round(item.burden[m]).toLocaleString()}</span>`).join('')}
-        </div>
-      </div>`).join('') : `<div class="empty" style="padding:16px;margin-bottom:8px;">⛽ 旅途中加油記錄會顯示在這裡</div>`)
-    : '';
+    (fuelItems.length ? fuelItems.map(item => transportItemCard(item,'⛽ 油費','')).join('')
+    : `<div class="empty" style="padding:16px;margin-bottom:8px;">⛽ 旅途中加油記錄會顯示在這裡</div>`) : '';
   const parkCard = (currentFilter === 'all' || currentFilter === 'parking') ?
-    (parkItems.length ? parkItems.map(item => `
-      <div class="card paid-card" style="margin-bottom:8px;">
-        <div class="card-header">
-          <div>
-            <div class="card-date">${String(item.date).split('T')[0]||'—'}</div>
-            <div class="card-name-row" style="margin-top:4px">
-              <span>🅿</span>
-              <span style="font-size:.85rem">${item.location||item.title||'停車費'}</span>
-            </div>
-          </div>
-          <div class="card-price">
-            <div class="price-per" style="font-size:1.1rem">${fmt(item.total||item.twd)}</div>
-          </div>
-        </div>
-      </div>`).join('') : `<div class="empty" style="padding:16px;margin-bottom:8px;">🅿 旅途中停車費記錄會顯示在這裡</div>`)
-    : '';
+    (parkItems.length ? parkItems.map(item => transportItemCard(item,'🅿 停車','')).join('')
+    : `<div class="empty" style="padding:16px;margin-bottom:8px;">🅿 旅途中停車費記錄會顯示在這裡</div>`) : '';
   return `<div class="filter-row">${filterBtns}</div>${carCard}${flightCards}${fuelCard}${parkCard}`;
 }
 
