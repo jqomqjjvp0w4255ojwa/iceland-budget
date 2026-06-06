@@ -76,7 +76,7 @@ function catLabel(c){ return CAT_LABEL[c] || c || '📦 其他'; }
 
 function renderDaily(expenses) {
   const TRANSPORT_CATS = ['加油','停車費'];
-  const items = (expenses||[]).filter(e => !TRANSPORT_CATS.includes(e.category)).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const items = (expenses||[]).filter(e => !TRANSPORT_CATS.includes(e.category)).slice().sort((a,b)=>Number(b.date)-Number(a.date));
   if (!items.length) return `<div class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div>`;
 
   const html = items.map(item => {
@@ -282,7 +282,7 @@ function renderRepay(items, splitData) {
 function renderTransport(d) {
   const car = d.car;
   const flights = d.flights || [];
-  const sortByDate = arr => arr.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const sortByDate = arr => arr.slice().sort((a,b)=>Number(b.date)-Number(a.date));
   const fuelItems   = sortByDate((d.expenses||[]).filter(e => e.category === '加油'));
   const parkItems   = sortByDate((d.expenses||[]).filter(e => e.category === '停車費'));
   const currentFilter = window._transportFilter || 'all';
