@@ -8,14 +8,14 @@ let _pxCustomAmt = {'花':0,'猴':0,'寧':0};
 let _twdManualEdited = false; // 使用者手動改過換算台幣
 let _isSubmitting = false; // 防止重複送出
 
-// 背景送出 GAS，立刻更新畫面不等待
+// 背景送出 GAS，稍等確保 GAS clearCache 完成再 sync
 function bgSync(label) {
   setSyncState?.('syncing', label || '同步中…');
-  window.__syncIcelandBudgetFromSheets?.().then(() => {
-    // 同步成功後不需要特別提示，setSyncState 已更新
-  }).catch(e => {
-    setSyncState?.('local', '⚠ 同步失敗，下次開啟會重試');
-  });
+  setTimeout(() => {
+    window.__syncIcelandBudgetFromSheets?.().catch(e => {
+      setSyncState?.('local', '⚠ 同步失敗，下次開啟會重試');
+    });
+  }, 1500);
 }
 
 // 樂觀更新本地快取：把新資料立刻塞進 APP_DATA 並重繪
