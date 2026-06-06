@@ -320,6 +320,7 @@ function renderAll(){
   requestAnimationFrame(()=>{
     drawDonutCanvas(carPct, flightPct, accomPct, actPct);
     initDonutPicker();
+    refreshDonut(); // 確保個人消費等數字在 renderAll 後也更新
     if (_activeTab !== 'ledger') {
       const btn = document.getElementById('mainTab-' + _activeTab);
       if (btn) switchMainTab(_activeTab, btn);
@@ -409,4 +410,4 @@ async function init(){
   syncFromCloud();
 }
 
-// ── init() 由 index.html 最後一個 defer script 呼叫，確保所有模組都已載入
+// ── init() 由 index.html 最後一個 defer script 呼叫，確保所有模組都已載入字
