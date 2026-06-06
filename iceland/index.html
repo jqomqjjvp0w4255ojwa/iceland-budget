@@ -487,10 +487,13 @@
           </select>
         </div>
         <!-- 換算台幣（外幣時顯示） -->
-        <div id="pxTwdRow" style="display:none;align-items:center;gap:6px;margin-top:4px;">
-          <span style="font-size:7px;color:#7a9a5a;white-space:nowrap;">≈ NT$</span>
-          <input class="px-input" id="pxExpTwd" placeholder="點此修改" style="flex:1;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpTwd','pxOnTwdManualEdit')">
-          <button onclick="pxClearTwd()" style="background:none;border:none;font-size:10px;color:#aaa;cursor:pointer;padding:2px 4px;" title="回復自動換算">↺</button>
+        <div id="pxTwdRow" style="display:none;flex-direction:column;gap:4px;margin-top:4px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:7px;color:#7a9a5a;white-space:nowrap;">≈ NT$</span>
+            <input class="px-input" id="pxExpTwd" placeholder="點此修改" style="flex:1;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpTwd','pxOnTwdManualEdit')">
+            <button onclick="pxClearTwd()" style="background:none;border:none;font-size:10px;color:#aaa;cursor:pointer;padding:2px 4px;" title="回復自動換算">↺</button>
+          </div>
+          <div id="pxTwdRateHint" style="font-size:7px;color:#7a9a5a;padding-left:2px;"></div>
         </div>
       </div>
       <!-- ── 標籤（常駐）── -->

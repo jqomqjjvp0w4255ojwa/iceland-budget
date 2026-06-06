@@ -381,6 +381,8 @@ window.pxOnCurrencyChange = function() {
     twdRow.style.display = 'none';
     const twdEl = document.getElementById('pxExpTwd');
     if (twdEl) twdEl.value = '';
+    const hintEl = document.getElementById('pxTwdRateHint');
+    if (hintEl) hintEl.textContent = '';
   } else {
     twdRow.style.display = 'flex';
     pxAutoFillTwd();
@@ -402,13 +404,29 @@ window.pxAutoFillTwd = function() {
             : 0;
   // 使用者手動改過就不覆蓋
   if (est > 0 && !_twdManualEdited) twdEl.value = String(est);
+  // 匯率提示
+  const hintEl = document.getElementById('pxTwdRateHint');
+  if (hintEl) {
+    const rate = cur === 'ISK' ? exISK : cur === 'EUR' ? exEUR : 0;
+    hintEl.textContent = rate > 0
+      ? `參考匯率：1 ${cur} = ${rate} NT$${_twdManualEdited ? '（已手動修改）' : ''}`
+      : '';
+  }
   // 不呼叫 pxUpdateSplit，避免與 pxUpdateSplit→pxAutoFillTwd 無限遞迴
   pxUpdateSplitSummary();
   pxCheckSubmit();
 };
 
 window.pxOnTwdManualEdit = function() {
-  _twdManualEdited = true; // 使用者手動確認過，之後不再自動覆蓋
+  _twdManualEdited = true;
+  const hintEl = document.getElementById('pxTwdRateHint');
+  if (hintEl && hintEl.textContent) {
+    const cur = document.getElementById('pxExpCur')?.value || '';
+    const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
+    const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
+    const rate = cur === 'ISK' ? exISK : cur === 'EUR' ? exEUR : 0;
+    if (rate > 0) hintEl.textContent = `參考匯率：1 ${cur} = ${rate} NT$（已手動修改）`;
+  }
   pxUpdateSplit();
 };
 
