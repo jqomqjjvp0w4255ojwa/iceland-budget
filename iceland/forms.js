@@ -400,7 +400,9 @@ window.pxAutoFillTwd = function() {
             : 0;
   // 編輯模式且已有值（使用者手動填或從 prefill 帶入）→ 不覆蓋
   if (est > 0 && !(_editMode && twdEl.value !== '')) twdEl.value = String(est);
-  pxUpdateSplit();
+  // 不呼叫 pxUpdateSplit，避免與 pxUpdateSplit→pxAutoFillTwd 無限遞迴
+  pxUpdateSplitSummary();
+  pxCheckSubmit();
 };
 
 window.pxClearTwd = function() {
@@ -578,7 +580,7 @@ window.pxCalcConfirm = function() {
   try {
     const safe   = _calcExpr.replace(/[^0-9+\-*/.()]/g,'');
     const result = safe ? Function('"use strict"; return (' + safe + ')')() : parseFloat(_calcPrev)||0;
-    if (!isFinite(result) || result < 0) { alert('請輸入有效金額'); return; }
+    if (!isFinite(result)) { alert('請輸入有效金額'); return; }
     const val = Math.round(result*100)/100;
     const el  = document.getElementById(_calcTarget);
     if (el) el.value = val;
