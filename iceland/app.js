@@ -255,25 +255,20 @@
       const { overview, accommodation, car, activity, split, lines, flight, expense } = all;
 
       const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
-      localStorage.setItem('cached_iceland_budget', JSON.stringify(newData));
-      // 不呼叫 renderAll：樂觀更新已經畫好正確畫面，此時 GAS 可能還有舊快取
-      // 只更新非使用者編輯的欄位（匯率、住宿、分帳等）
-      if (window.APP_DATA) {
-        window.APP_DATA.exchangeISK     = newData.exchangeISK;
-        window.APP_DATA.exchangeEUR     = newData.exchangeEUR;
-        window.APP_DATA.accommodation   = newData.accommodation;
-        window.APP_DATA.split           = newData.split;
-        window.APP_DATA.car             = newData.car;
-        window.APP_DATA.flights         = newData.flights;
-        window.APP_DATA.activity        = newData.activity;
-        window.APP_DATA.expenseCategories = newData.expenseCategories;
-        window.APP_DATA.budgetPerPerson = newData.budgetPerPerson;
-        window.APP_DATA.tagLibrary      = newData.tagLibrary;
-        // expenses / repayHistory 不覆蓋，保留樂觀更新的畫面
-      } else {
-        window.APP_DATA = newData;
-        window.renderAll?.();
+
+      // 把還沒拿到真實行號的「新增中」項目接回來（修改項 GAS 已原地覆寫，雲端資料就是對的）
+      if (window.APP_DATA?.expenses) {
+        const pending = window.APP_DATA.expenses.filter(e => Number(e._rowIndex) === -1);
+        if (pending.length) newData.expenses = [...pending, ...newData.expenses];
       }
+      if (window.APP_DATA?.repayHistory) {
+        const pending = window.APP_DATA.repayHistory.filter(r => Number(r._rowIndex) === -1);
+        if (pending.length) newData.repayHistory = [...pending, ...newData.repayHistory];
+      }
+
+      window.APP_DATA = newData;
+      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+      window.renderAll?.();
       window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
 
     } catch (error) {
