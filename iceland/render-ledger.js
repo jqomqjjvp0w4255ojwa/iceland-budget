@@ -155,7 +155,8 @@ function refreshDonut(){
   const totalActivity= (d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
   const totalFlight  = d.totalFlightTWD||0;
   const carTotal     = d.car.totalTWD||0;
-  const sharedTotal  = carTotal+totalAccom+totalActivity;
+  const totalExpenseShared = (d.expenses||[]).filter(e=>e.isShared).reduce((s,e)=>s+(e.total||0),0);
+  const sharedTotal  = carTotal+totalAccom+totalActivity+totalExpenseShared;
   const {perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel} =
     calcFlightDisplay(sharedTotal, totalFlight, d.flights);
 
@@ -182,7 +183,7 @@ function refreshDonut(){
 
   // 小計進度條
   const elCat = document.getElementById('catRowsContent');
-  if(elCat) elCat.innerHTML = buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandForCat);
+  if(elCat) elCat.innerHTML = buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandForCat, totalExpenseShared);
 }
 
 // ── 各類別進度條（模組級函式，refreshDonut 和 renderAll 都可呼叫）
