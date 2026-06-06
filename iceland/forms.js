@@ -43,23 +43,6 @@ function optimisticDelete(type, rowIndex) {
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
 }
 
-// 樂觀更新：修改模式用原地替換，不刪舊加新（避免 bgSync 後舊卡片重新出現）
-function optimisticEdit(type, rowIndex, newItem) {
-  if (!window.APP_DATA) return;
-  if (type === 'expense') {
-    window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).map(e =>
-      Number(e._rowIndex) === Number(rowIndex) ? { ...newItem } : e
-    );
-    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
-  } else if (type === 'repay') {
-    window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).map(r =>
-      Number(r._rowIndex) === Number(rowIndex) ? { ...newItem } : r
-    );
-    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
-  }
-  localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
-}
-
 // 只更新指定區塊，不重建整頁
 function _refreshSection(elId, renderFn) {
   const el = document.getElementById(elId);
@@ -84,7 +67,7 @@ let _editRowIndex = null;    // 要刪除的舊資料行號
 let _editSheet    = '';      // 'expense' | 'repay'
 
 // ══ GAS API ══
-const _GAS_BASE = "https://script.google.com/macros/s/AKfycbyD8lE5o_ke0vGEeezw-w7U56MGSZy3vCA_mROlT5jV0QRAaVqGq1gil4LejMKqa1D0/exec";
+const _GAS_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
 
 async function postToGAS(payload) {
   const base = window._GAS_BASE;
@@ -611,7 +594,8 @@ window.pxSubmitExpense = async function(nextMode = false) {
     tags,
   };
   if (_editMode) {
-    optimisticEdit('expense', _editRowIndex, optimisticItem);
+    optimisticDelete('expense', _editRowIndex);
+    optimisticAdd('expense', optimisticItem);
   } else {
     optimisticAdd('expense', optimisticItem);
   }
@@ -708,7 +692,8 @@ window.pxSubmitRepay = async function() {
     from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
   };
   if (_editMode) {
-    optimisticEdit('repay', _editRowIndex, optimisticRepayItem);
+    optimisticDelete('repay', _editRowIndex);
+    optimisticAdd('repay', optimisticRepayItem);
   } else {
     optimisticAdd('repay', optimisticRepayItem);
   }
