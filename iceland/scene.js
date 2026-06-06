@@ -357,7 +357,7 @@
         .sort((a,b) => ((split[b]&&split[b].balance)||0) - ((split[a]&&split[a].balance)||0))[0] || '？';
       text = text.replace(/\{A\}/g, creditor).replace(/\{n\}/g, 'NT$'+amt);
     }
-    return text;
+    return { text, state };
   }
 
   function showNextBubble() {
@@ -368,10 +368,11 @@
     const name = CHARS[_bubbleIdx];
     const el   = document.getElementById(CHAR_MAP[name]);
     if (el) {
-      const text = getBubbleText(name);
-      if (text) {
-        // 讓 NT$數字 顯示金色
-        el.innerHTML = text.replace(/(NT\\$[\d,]+)/g, '<span style="color:#f0c040;font-weight:700">$1</span>');
+      const result = getBubbleText(name);
+      if (result) {
+        const { text, state } = result;
+        const numColor = state === '債主' ? '#4caf6e' : state === '欠債' ? '#e05555' : '#f0c040';
+        el.innerHTML = text.replace(/NT\$[\d,]+元?/g, m => `<span style="color:${numColor};font-weight:700">${m}</span>`);
         requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
       }
     }

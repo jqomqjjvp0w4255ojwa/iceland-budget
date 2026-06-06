@@ -130,7 +130,7 @@ function renderDaily(expenses) {
           </button>
         </div>
         <div class="swipe-card-content card" style="position:relative;${item.isShared?'border:1.5px solid rgba(78,195,121,.35);':''}">
-          <span class="swipe-hint" title="滑動可修改/刪除">⋯</span>
+          <span class="swipe-hint" title="點擊或滑動可修改/刪除" onclick="this.closest('.swipe-card-wrap').classList.toggle('open')">⋮</span>
           <div style="padding:10px 14px 10px;">
             <!-- 第一行：[類別][共同/個人] ---- NT金額 -->
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
@@ -272,7 +272,7 @@ function renderRepay(items, splitData) {
           </button>
         </div>
         <div class="swipe-card-content card" style="position:relative;">
-          <span class="swipe-hint" title="滑動可修改/刪除">⋯</span>
+          <span class="swipe-hint" title="點擊或滑動可修改/刪除" onclick="this.closest('.swipe-card-wrap').classList.toggle('open')">⋮</span>
           <div class="card-header">
             <div>
               <div class="card-date" style="font-size:.85rem">${date}</div>
