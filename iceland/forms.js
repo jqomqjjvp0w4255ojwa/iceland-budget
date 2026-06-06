@@ -183,7 +183,9 @@ window.openPxModal = function(type, prefill = null) {
     if (_editMode) pxCheckSubmit();
 
     // reset tag + brand + qty
-    window.pxResetTags?.();
+    // 標籤：編輯模式帶入已有標籤，新增模式清空
+    if (prefill?.tags) window.pxLoadTags?.(prefill.tags);
+    else window.pxResetTags?.();
     window.pxResetBrand?.();
     window.pxResetQty?.();
     // 清標籤輸入欄

@@ -873,6 +873,13 @@ window.pxResetQty = function() {
     if (panel) { panel.style.maxHeight='0'; panel.style.opacity='0'; panel.style.marginTop='0'; }
     _buildTagChips();
   };
+  window.pxLoadTags = function(tagsStr) {
+    _selectedTags = tagsStr ? tagsStr.split(',').map(t=>t.trim()).filter(Boolean) : [];
+    _panelOpen    = false;
+    const panel   = document.getElementById('pxTagPanel');
+    if (panel) { panel.style.maxHeight='0'; panel.style.opacity='0'; panel.style.marginTop='0'; }
+    _buildTagChips();
+  };
   window.pxUpdateTagLibrary = function(lib) { if (Array.isArray(lib)) _tagLibrary = [...new Set([..._DEFAULT_TAGS, ...lib, ..._tagLibrary])]; };
 
   // 類別切換時顯示/隱藏 tag 欄

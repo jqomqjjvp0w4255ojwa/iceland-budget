@@ -113,6 +113,7 @@ function renderDaily(expenses) {
       splitMode: item.splitMode,
       splitSel: Object.keys(item.burden||{}).filter(k=>(item.burden[k]||0)>0),
       customAmt: item.burden||{},
+      tags: item.tags||'',
     }).replace(/"/g,'&quot;');
 
     return `
