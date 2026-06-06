@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE = "https://script.google.com/macros/s/AKfycbznzJtuPpRscOsg6knYJyQwKHTjKNjE-bb_UrRVvFg4KSaoiaAS48wWdw0oU8D1Z798/exec";
+  const API_BASE = "https://script.google.com/macros/s/AKfycbwK9MlKsP_Xd2pjGxmtSRgHp3KzCfgAYSiY16Ua3kqbHTBvgvd5wUcOehjG-hoRfEc/exec";
   window._GAS_BASE = API_BASE;
   const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
 
