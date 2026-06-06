@@ -165,16 +165,10 @@ function renderAll(){
   // ── 角色站位依付款金額排序
   const memberOrder = [...MEMBERS].sort((a,b)=>paid[b]-paid[a]);
 
-  // ── 圓餅比例（依 flightMode）
-  const { perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel, expForDisplay } =
-    calcFlightDisplay(sharedTotal, totalFlight, d.flights||[], d.expenses||[]);
-  const pieTotal   = grandDisplay || 1;
-  // 成員模式下共同費用只算該人的 1/3，避免三人總額把比例撐爆
-  const isMemberMode = !['none','equal'].includes(window._flightMode||'equal');
-  const carPct   = (isMemberMode ? carTotal/3    : carTotal)   / pieTotal;
-  const accomPct = (isMemberMode ? totalAccom/3  : totalAccom) / pieTotal;
-  const actPct   = (isMemberMode ? totalActivity/3 : totalActivity) / pieTotal;
-  const flightPct  = flightForDisplay/pieTotal;
+  // ── 圓餅比例（由 calcFlightDisplay 統一計算）
+  const { perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel, expForDisplay, pcts } =
+    calcFlightDisplay(sharedTotal, totalFlight, d.flights||[], d.expenses||[], carTotal, totalAccom, totalActivity);
+  const { car: carPct, flight: flightPct, accom: accomPct, act: actPct } = pcts;
 
   // ── 圓餅 HTML（canvas + 中心卷軸選擇器，無圓框，圓餅本身即邊界）
   const donutHtml = `
@@ -270,7 +264,7 @@ function renderAll(){
               <div style="font-size:.65rem;color:var(--accent);margin-top:1px;min-height:14px;line-height:1.6" id="donutWhoLabel">${whoLabel}</div>
               <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="donutGrandTotal">合計 ${fmt(grandDisplay)}</div>
               <div style="margin-top:8px;width:100%" id="donutLegend">
-                ${buildLegend(carPct, flightPct, accomPct, actPct, expForDisplay/pieTotal)}
+                ${buildLegend(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp)}
               </div>
             </div>
           </div>
@@ -319,7 +313,7 @@ function renderAll(){
 
   // ── DOM 建立完後初始化圓餅 canvas 和卷軸選擇器，並恢復分頁
   requestAnimationFrame(()=>{
-    drawDonutCanvas(carPct, flightPct, accomPct, actPct, expForDisplay/pieTotal);
+    drawDonutCanvas(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp);
     initDonutPicker();
     refreshDonut(); // 確保個人消費等數字在 renderAll 後也更新
     if (_activeTab !== 'ledger') {

@@ -6,7 +6,7 @@
 // 模式2 平均：  顯示 (sharedTotal+allFlight)/3，分母同，機票 allFlight/3
 // 模式3 成員X：顯示 sharedTotal/3 + X機票 + X雜支burden總和，分母同，機票X個人，雜支X總負擔
 
-function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses){
+function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses, carTotal, totalAccom, totalActivity){
   const flightByPerson = {};
   (flights||[]).forEach(f=>{
     flightByPerson[f.person] = (flightByPerson[f.person]||0) + (f.totalTWD||0);
@@ -67,10 +67,21 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses){
     flightLabel = fmt(personalFlight);
   }
 
+  // ── 圓餅比例（集中在這裡算，外部直接用 pcts，不再各自重算）
+  const pt = grandDisplay || 1;
+  const isMember = !['none','equal'].includes(mode);
+  const pcts = {
+    car:    (isMember ? carTotal/3      : carTotal)      / pt,
+    flight: flightForDisplay                             / pt,
+    accom:  (isMember ? totalAccom/3    : totalAccom)    / pt,
+    act:    (isMember ? totalActivity/3 : totalActivity) / pt,
+    exp:    expForDisplay                                / pt,
+  };
+
   return {
     perPersonAmt, grandDisplay, whoLabel,
     flightByPerson, flightForDisplay, flightLabel,
-    expForDisplay,
+    expForDisplay, pcts,
   };
 }
 
@@ -194,8 +205,8 @@ function refreshDonut(){
 
   const {
     perPersonAmt, grandDisplay, whoLabel,
-    flightForDisplay, flightLabel, expForDisplay,
-  } = calcFlightDisplay(sharedTotal, totalFlight, d.flights, expenses);
+    flightForDisplay, flightLabel, expForDisplay, pcts,
+  } = calcFlightDisplay(sharedTotal, totalFlight, d.flights, expenses, carTotal, totalAccom, totalActivity);
 
   // 數字區
   const elAmt    = document.getElementById('donutPerPerson');
@@ -207,19 +218,10 @@ function refreshDonut(){
   if(elAll)    elAll.textContent  = '合計 '+fmt(grandDisplay);
   if(elApprox) elApprox.textContent = (window._flightMode==='equal')?'約':'';
 
-  // 圓餅：分母統一用 grandDisplay，成員模式共同費用只取 1/3
-  const pt = grandDisplay||1;
-  const _isMember = !['none','equal'].includes(window._flightMode||'equal');
-  const _carP   = (_isMember ? carTotal/3    : carTotal)    / pt;
-  const _accomP = (_isMember ? totalAccom/3  : totalAccom)  / pt;
-  const _actP   = (_isMember ? totalActivity/3 : totalActivity) / pt;
-  const _fltP   = flightForDisplay / pt;
-  const _expP   = expForDisplay / pt;
-  drawDonutCanvas(_carP, _fltP, _accomP, _actP, _expP);
-
-  // Legend
+  // 圓餅 & Legend（比例由 calcFlightDisplay 統一提供）
+  drawDonutCanvas(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp);
   const elLegend = document.getElementById('donutLegend');
-  if(elLegend) elLegend.innerHTML = buildLegend(_carP, _fltP, _accomP, _actP, _expP);
+  if(elLegend) elLegend.innerHTML = buildLegend(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp);
 
   // 小計進度條
   const elCat = document.getElementById('catRowsContent');
