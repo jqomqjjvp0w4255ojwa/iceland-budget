@@ -26,9 +26,10 @@ const _GAS_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp
 async function postToGAS(payload) {
   const base = window._GAS_BASE;
   if (!base) throw new Error('找不到 GAS URL，請確認 app.js 已載入');
+  // GAS doPost 需用 text/plain 避免 CORS preflight 被 redirect 擋住
   const res = await fetch(base, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload),
     redirect: 'follow',
   });
