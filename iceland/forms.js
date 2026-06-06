@@ -23,22 +23,33 @@ function optimisticAdd(type, item) {
   if (!window.APP_DATA) return;
   if (type === 'expense') {
     window.APP_DATA.expenses = [item, ...(window.APP_DATA.expenses||[])];
+    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
   } else if (type === 'repay') {
     window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory||[]), item];
+    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
   }
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
-  window.renderAll?.();
 }
 
 function optimisticDelete(type, rowIndex) {
   if (!window.APP_DATA) return;
   if (type === 'expense') {
     window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e => e._rowIndex !== rowIndex);
+    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
   } else if (type === 'repay') {
     window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => r._rowIndex !== rowIndex);
+    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
   }
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
-  window.renderAll?.();
+}
+
+// 只更新指定區塊，不重建整頁
+function _refreshSection(elId, renderFn) {
+  const el = document.getElementById(elId);
+  if (!el) { window.renderAll?.(); return; }
+  el.innerHTML = renderFn();
+  // 重新初始化滑動
+  if (window.initSwipeCards) window.initSwipeCards(el);
 }
 let _pxRepayFrom = '';
 let _pxRepayTo   = '';
