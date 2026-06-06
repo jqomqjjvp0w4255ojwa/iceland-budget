@@ -131,17 +131,23 @@ window.openPxModal = function(type, prefill = null) {
     pxRenderSplitBtns();
     if (_editMode) pxCheckSubmit();
 
-    // reset tag + brand
+    // reset tag + brand + qty
     window.pxResetTags?.();
     window.pxResetBrand?.();
+    window.pxResetQty?.();
+    // 清標籤輸入欄
+    const tagInput = document.getElementById('pxTagInput');
+    if (tagInput) { tagInput.value = ''; }
+    const tagPanel = document.getElementById('pxTagPanel');
+    if (tagPanel) { tagPanel.style.maxHeight='0'; tagPanel.style.opacity='0'; tagPanel.style.marginTop='0'; }
     const titleEl = document.getElementById('pxExpTitle');
     if (titleEl) titleEl.value = prefill?.title || '';
-    if (prefill?.tags) prefill.tags.forEach(t => window.pxGetSelectedTags && window.pxGetSelectedTags()); // prefill tags handled later
     document.getElementById('pxModalExpense').classList.add('show');
 
   } else {
-    _pxRepayFrom = prefill?.from || '';
-    _pxRepayTo   = prefill?.to || '';
+    // 預設第一和第二個成員
+    _pxRepayFrom = prefill?.from || PX_MEMBERS[0] || '';
+    _pxRepayTo   = prefill?.to   || PX_MEMBERS[1] || '';
 
     document.getElementById('pxRepayAmt').value  = prefill?.amount || '';
     document.getElementById('pxRepayNote').value = prefill?.note || '';
@@ -154,7 +160,7 @@ window.openPxModal = function(type, prefill = null) {
 
     pxRenderScrollPicker('pxRepayFromList', _pxRepayFrom, 'from');
     pxRenderScrollPicker('pxRepayToList',   _pxRepayTo,   'to');
-    if (_editMode) pxValidateRepay();
+    pxValidateRepay();
     document.getElementById('pxModalRepay').classList.add('show');
   }
 };
@@ -274,6 +280,9 @@ function pxCheckSubmit() {
   const cat = document.getElementById('pxExpCat').value;
   const fuelFields = document.getElementById('pxFuelFields');
   if (fuelFields) fuelFields.style.display = cat === '加油' ? 'block' : 'none';
+  // 品項欄：加油/停車不顯示
+  const titleField = document.getElementById('pxTitleField');
+  if (titleField) titleField.style.display = (cat === '加油' || cat === '停車費') ? 'none' : 'block';
 
   document.getElementById('pxBtnExpense').disabled =
     !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;

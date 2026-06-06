@@ -19,7 +19,12 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights){
     flightLabel      = fmt(totalFlight/3);
   } else {
     const personal    = flightByPerson[mode]||0;
-    const personalExp = (window.APP_DATA||window.STATIC).split?.[mode]?.personal || 0;
+    // 個人消費：從 expenses 算該人的非共同消費負擔
+    const expenses    = (window.APP_DATA||window.STATIC).expenses || [];
+    const personalExp = expenses
+      .filter(e => !e.isShared)
+      .reduce((s, e) => s + (e.burden?.[mode] || 0), 0)
+      || (window.APP_DATA||window.STATIC).split?.[mode]?.personal || 0;
     perPersonAmt      = sharedTotal/3 + personal + personalExp;
     grandDisplay      = sharedTotal + personal;
     flightForDisplay  = personal;

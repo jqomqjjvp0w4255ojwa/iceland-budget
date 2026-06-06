@@ -452,29 +452,40 @@
     </div>
     <div class="px-form">
       <div class="px-field">
-        <input class="px-input" type="text" id="pxExpTitle" placeholder="買了什麼？"
-          style="font-size:1rem;" autocomplete="off">
-      </div>
-      <div class="px-field">
         <label class="px-label">▸ 類別 *</label>
         <select class="px-select" id="pxExpCat" onchange="pxCheckSubmit()">
           <option value="">-- 選擇類別 --</option>
         </select>
       </div>
+      <!-- 品項（加油/停車不顯示）-->
+      <div class="px-field" id="pxTitleField">
+        <input class="px-input" type="text" id="pxExpTitle" placeholder="買了什麼？"
+          style="font-size:16px;" autocomplete="off">
+      </div>
       <div class="px-field">
-        <label class="px-label">▸ 金額 *</label>
-        <div style="display:flex;gap:6px;">
-          <input class="px-input" id="pxExpAmt" placeholder="點此輸入" style="flex:2;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpAmt','pxUpdateSplit')">
-          <select class="px-select" id="pxExpCur" style="flex:1">
-            <option value="NT">NT$</option>
-            <option value="ISK">ISK</option>
-            <option value="EUR">EUR</option>
-          </select>
-          <!-- 數量滾輪 -->
-          <div style="display:flex;flex-direction:column;align-items:center;border:2px solid #2a4a1a;background:#f8fce8;width:44px;flex-shrink:0;">
-            <button onclick="pxQtyStep(1)"  style="background:none;border:none;border-bottom:1px solid #2a4a1a;width:100%;padding:4px 0;font-size:14px;color:#2a4a1a;cursor:pointer;line-height:1;">▲</button>
-            <div id="pxExpQty" style="font-family:'Silkscreen',monospace;font-size:11px;color:#2a4a1a;padding:4px 0;text-align:center;min-width:28px;">1</div>
-            <button onclick="pxQtyStep(-1)" style="background:none;border:none;border-top:1px solid #2a4a1a;width:100%;padding:4px 0;font-size:14px;color:#2a4a1a;cursor:pointer;line-height:1;">▼</button>
+        <div style="display:flex;gap:6px;align-items:flex-end;">
+          <!-- 數量 -->
+          <div style="flex-shrink:0;">
+            <div class="px-label">▸ 數量</div>
+            <div style="display:flex;flex-direction:column;align-items:center;border:2px solid #2a4a1a;background:#f8fce8;width:44px;height:38px;justify-content:space-between;">
+              <button onclick="pxQtyStep(1)"  style="background:none;border:none;border-bottom:1px solid #2a4a1a;width:100%;padding:2px 0;font-size:12px;color:#2a4a1a;cursor:pointer;line-height:1;flex:1;">▲</button>
+              <div id="pxExpQty" style="font-family:'Silkscreen',monospace;font-size:11px;color:#2a4a1a;padding:1px 0;text-align:center;flex:1;display:flex;align-items:center;justify-content:center;">1</div>
+              <button onclick="pxQtyStep(-1)" style="background:none;border:none;border-top:1px solid #2a4a1a;width:100%;padding:2px 0;font-size:12px;color:#2a4a1a;cursor:pointer;line-height:1;flex:1;">▼</button>
+            </div>
+          </div>
+          <!-- 總金額 -->
+          <div style="flex:1;">
+            <label class="px-label">▸ 總金額 *</label>
+            <input class="px-input" id="pxExpAmt" placeholder="點此輸入" style="cursor:pointer;height:38px;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpAmt','pxUpdateSplit')">
+          </div>
+          <!-- 幣別 -->
+          <div style="flex-shrink:0;width:70px;">
+            <div class="px-label">▸ 幣別</div>
+            <select class="px-select" id="pxExpCur" style="height:38px;padding:0 6px;">
+              <option value="NT">NT$</option>
+              <option value="ISK">ISK</option>
+              <option value="EUR">EUR</option>
+            </select>
           </div>
         </div>
       </div>

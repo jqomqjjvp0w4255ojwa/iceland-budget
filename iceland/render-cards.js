@@ -75,7 +75,8 @@ function catLabel(c){ return CAT_LABEL[c] || c || '📦 其他'; }
 
 
 function renderDaily(expenses) {
-  const items = (expenses||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const TRANSPORT_CATS = ['加油','停車費'];
+  const items = (expenses||[]).filter(e => !TRANSPORT_CATS.includes(e.category)).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   if (!items.length) return `<div class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div>`;
 
   const html = items.map(item => {
