@@ -355,7 +355,7 @@
       const amt      = Math.abs(Math.round(bal)).toLocaleString('zh-TW');
       const creditor = CHARS.filter(m => m !== name)
         .sort((a,b) => ((split[b]&&split[b].balance)||0) - ((split[a]&&split[a].balance)||0))[0] || '？';
-      text = text.replace(/\{A\}/g, creditor).replace(/\{n\}/g, 'NT$'+amt);
+      text = text.replace(/\{A\}/g, creditor).replace(/\{n\}/g, amt);
     }
     return { text, state };
   }
@@ -372,7 +372,7 @@
       if (result) {
         const { text, state } = result;
         const numColor = state === '債主' ? '#4caf6e' : state === '欠債' ? '#e05555' : '#f0c040';
-        el.innerHTML = text.replace(/NT\$[\d,]+元?/g, m => `<span style="color:${numColor};font-weight:700">${m}</span>`);
+        el.innerHTML = text.replace(/[\d,]+/g, m => m.length > 2 ? `<span style="color:#e05555;font-weight:700">${m}</span>` : m);
         requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
       }
     }

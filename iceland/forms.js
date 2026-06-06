@@ -34,10 +34,10 @@ function optimisticAdd(type, item) {
 function optimisticDelete(type, rowIndex) {
   if (!window.APP_DATA) return;
   if (type === 'expense') {
-    window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e => e._rowIndex !== rowIndex);
+    window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e => Number(e._rowIndex) !== Number(rowIndex));
     _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
   } else if (type === 'repay') {
-    window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => r._rowIndex !== rowIndex);
+    window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => Number(r._rowIndex) !== Number(rowIndex));
     _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
   }
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
@@ -237,14 +237,14 @@ window.openPxModal = function(type, prefill = null) {
 // ══ 修改入口（從卡片滑動後呼叫）══
 window.openEditExpense = function(rowIndex, data) {
   _editMode     = true;
-  _editRowIndex = rowIndex;
+  _editRowIndex = Number(rowIndex);
   _editSheet    = 'expense';
   window.openPxModal('expense', data);
 };
 
 window.openEditRepay = function(rowIndex, data) {
   _editMode     = true;
-  _editRowIndex = rowIndex;
+  _editRowIndex = Number(rowIndex);
   _editSheet    = 'repay';
   window.openPxModal('repay', data);
 };
