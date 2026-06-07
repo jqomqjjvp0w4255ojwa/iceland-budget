@@ -159,9 +159,9 @@ function renderInfoFlights(flights) {
             </div>
             <!-- 目的地 -->
             <div style="text-align:center;width:72px;flex-shrink:0;">
-              <div style="display:inline-flex;align-items:center;justify-content:center;gap:1px;">
+              <div style="display:inline-flex;align-items:center;justify-content:center;gap:2px;">
                 <div style="font-family:'Silkscreen',monospace;font-size:1.45rem;letter-spacing:.04em;line-height:1;color:${s.isTransit?'#ffa726':'#fff'};">${s.to}</div>
-                ${s.isTransit?`<div style="font-family:'Silkscreen',monospace;font-size:.32rem;color:#ffa726;writing-mode:vertical-lr;text-orientation:mixed;letter-spacing:.08em;line-height:1;align-self:stretch;display:flex;align-items:center;">轉機</div>`:''}
+                ${s.isTransit?`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;"><span style="font-family:'Silkscreen',monospace;font-size:.32rem;color:#ffa726;line-height:1;">轉</span><span style="font-family:'Silkscreen',monospace;font-size:.32rem;color:#ffa726;line-height:1;">機</span></div>`:''}
               </div>
               ${s.toTerm?`<div style="font-size:.62rem;color:var(--muted);margin-top:3px;font-family:sans-serif;">${s.toTerm}</div>`:'<div style="min-height:.8rem;"></div>'}
               <div style="font-family:'Silkscreen',monospace;font-size:.95rem;color:var(--gold);margin-top:7px;">${arr.time}</div>
@@ -378,4 +378,4 @@ window.showInfoTab = function(id, btn) {
   document.querySelectorAll('#mainSection-info .tab').forEach(t => t.classList.remove('active'));
   document.getElementById('infoTab-'+id)?.classList.add('active');
   btn.classList.add('active');
-};
+}我;ㄨ
