@@ -117,40 +117,42 @@ function renderInfoFlights(flights) {
           <div style="padding:5px 12px;display:flex;align-items:center;justify-content:space-between;
                       background:${hdrbg};border-bottom:1px solid ${hdrline};">
             <span style="font-family:'Silkscreen',monospace;font-size:.52rem;color:${hdrcol};">${segLabel}</span>
-            <span style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);">${s.flightNo||''}${s.operatedBy?' · '+s.operatedBy:''}</span>
+            <span style="font-size:.6rem;color:var(--muted);font-family:sans-serif;">${s.flightNo||''}${s.operatedBy?' · '+s.operatedBy:''}</span>
           </div>
           <!-- 路線 -->
           <div style="padding:14px 14px 8px;display:flex;align-items:center;gap:6px;">
             <!-- 出發 -->
             <div style="text-align:center;width:72px;flex-shrink:0;">
               <div style="font-family:'Silkscreen',monospace;font-size:1.45rem;letter-spacing:.04em;line-height:1;color:#fff;">${s.from}</div>
-              ${s.fromTerm?`<div style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);margin-top:3px;">${s.fromTerm}</div>`:'<div style="min-height:.65rem;"></div>'}
+              ${s.fromTerm?`<div style="font-size:.62rem;color:var(--muted);margin-top:3px;font-family:sans-serif;">${s.fromTerm}</div>`:'<div style="min-height:.8rem;"></div>'}
               <div style="font-family:'Silkscreen',monospace;font-size:.95rem;color:var(--gold);margin-top:7px;">${dep.time}</div>
-              <div style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);margin-top:3px;">${dep.date}</div>
+              <div style="font-size:.6rem;color:var(--muted);margin-top:3px;font-family:sans-serif;">${dep.date}</div>
             </div>
             <!-- 軌道 -->
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 4px;">
-              <div style="font-family:'Silkscreen',monospace;font-size:.52rem;color:var(--muted);">${s.flightTime||''}</div>
+              <div style="font-size:.6rem;color:var(--muted);font-family:sans-serif;">${s.flightTime||''}</div>
               <div style="width:100%;display:flex;align-items:center;height:16px;">
                 <div style="flex:1;height:2px;background:${dashbg};"></div>
                 <span style="font-size:.8rem;padding:0 4px;color:${accent};">✈</span>
                 <div style="flex:1;height:2px;background:${dashbg};"></div>
               </div>
-              ${s.aircraft?`<div style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);">${s.aircraft}</div>`:''}
+              ${s.aircraft?`<div style="font-size:.6rem;color:var(--muted);font-family:sans-serif;">${s.aircraft}</div>`:''}
             </div>
             <!-- 目的地 -->
             <div style="text-align:center;width:72px;flex-shrink:0;">
-              <div style="font-family:'Silkscreen',monospace;font-size:1.45rem;letter-spacing:.04em;line-height:1;color:${s.isTransit?'#ffa726':'#fff'};">${s.to}</div>
-              ${s.toTerm?`<div style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);margin-top:3px;">${s.toTerm}</div>`:'<div style="min-height:.65rem;"></div>'}
-              ${s.isTransit?`<div style="display:inline-block;font-size:.55rem;color:#ffa726;border:1px solid rgba(255,167,38,.5);padding:1px 6px;border-radius:3px;margin-top:3px;font-family:sans-serif;">轉機</div>`:''}
-              <div style="font-family:'Silkscreen',monospace;font-size:.95rem;color:var(--gold);margin-top:${s.isTransit?'4px':'7px'};">${arr.time}</div>
-              <div style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);margin-top:3px;">${arr.date}</div>
+              <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;">
+                <div style="font-family:'Silkscreen',monospace;font-size:1.45rem;letter-spacing:.04em;line-height:1;color:${s.isTransit?'#ffa726':'#fff'};">${s.to}</div>
+                ${s.isTransit?`<div style="font-size:.6rem;color:#ffa726;font-family:sans-serif;">轉機</div>`:''}
+              </div>
+              ${s.toTerm?`<div style="font-size:.62rem;color:var(--muted);margin-top:3px;font-family:sans-serif;">${s.toTerm}</div>`:'<div style="min-height:.8rem;"></div>'}
+              <div style="font-family:'Silkscreen',monospace;font-size:.95rem;color:var(--gold);margin-top:7px;">${arr.time}</div>
+              <div style="font-size:.6rem;color:var(--muted);margin-top:3px;font-family:sans-serif;">${arr.date}</div>
             </div>
           </div>
           <!-- footer -->
           <div style="display:flex;align-items:center;justify-content:flex-end;
                       padding:5px 12px 9px;border-top:1px solid var(--border);gap:4px;">
-            ${s.note?`<span style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);font-style:italic;margin-right:auto;">📌 ${s.note}</span>`:''}
+            ${s.note?`<span style="font-size:.6rem;color:var(--muted);font-style:italic;margin-right:auto;font-family:sans-serif;">📌 ${s.note}</span>`:''}
             ${charSvg(person)}
           </div>
         </div>`;
