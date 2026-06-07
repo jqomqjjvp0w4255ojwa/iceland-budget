@@ -83,9 +83,9 @@ function renderInfoFlights(flights) {
           <div style="display:flex;align-items:stretch;gap:6px;margin-bottom:6px;">
             <!-- 出發 -->
             <div style="text-align:center;min-width:58px;">
-              <div style="font-family:'Cinzel',serif;font-size:1.1rem;color:var(--accent2);font-weight:600;line-height:1">${s.from}</div>
-              ${s.fromTerm?`<div style="font-size:.58rem;color:var(--muted)">${s.fromTerm}</div>`:''}
-              <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--text);font-weight:600;margin-top:4px;line-height:1">${dep.time||'—'}</div>
+              <div style="font-family:'Cinzel',serif;font-size:1.1rem;color:#e8f4ff;font-weight:700;line-height:1">${s.from}</div>
+              ${s.fromTerm?`<div style="font-size:.58rem;color:var(--muted)">${s.fromTerm}</div>`:''} 
+              <div style="font-family:'Cinzel',serif;font-size:.95rem;color:#c8e8ff;font-weight:600;margin-top:4px;line-height:1">${dep.time||'—'}</div>
               <div style="font-size:.58rem;color:var(--muted);margin-top:1px">${dep.date}</div>
             </div>
             <!-- 中間箭頭 -->
@@ -99,10 +99,10 @@ function renderInfoFlights(flights) {
             </div>
             <!-- 目的地 -->
             <div style="text-align:center;min-width:58px;">
-              <div style="font-family:'Cinzel',serif;font-size:1.1rem;color:${s.isTransit?'var(--aurora3)':'var(--text)'};font-weight:600;line-height:1">${s.to}</div>
+              <div style="font-family:'Cinzel',serif;font-size:1.1rem;color:${s.isTransit?'var(--aurora3)':'#e8f4ff'};font-weight:700;line-height:1">${s.to}</div>
               ${s.toTerm?`<div style="font-size:.62rem;color:var(--muted)">${s.toTerm}</div>`:''}
               ${s.isTransit?`<div style="font-size:.55rem;color:var(--aurora3);margin-top:2px">轉機</div>`:''}
-              <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--text);font-weight:600;margin-top:4px;line-height:1">${arr.time||'—'}</div>
+              <div style="font-family:'Cinzel',serif;font-size:.95rem;color:#c8e8ff;font-weight:600;margin-top:4px;line-height:1">${arr.time||'—'}</div>
               <div style="font-size:.58rem;color:var(--muted);margin-top:1px">${arr.date}</div>
             </div>
           </div>
