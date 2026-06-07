@@ -85,14 +85,33 @@ function renderInfoFlights(flights) {
       const arr = parseTime(s.arrTime);
       const segLabel = segs.length > 1 ? `第 ${i+1} 段` : direction;
 
-      // 找同班機的其他乘客（下一段航班號相同）
-      function coPassengers(flightNo) {
-        if (!flightNo || !flights) return [];
-        return flights
+      // 這段所有乘客（自己＋同班機的人）
+      function segPassengers(flightNo) {
+        if (!flightNo || !flights) return [person];
+        const others = flights
           .filter(f => f.person !== person && f.segments.some(seg => seg.flightNo === flightNo))
           .map(f => f.person);
+        return [person, ...others];
       }
+
+      // 轉機線：下一段同班機的人（含自己）
+      function coPassengers(flightNo) {
+        if (!flightNo || !flights) return [person];
+        const others = flights
+          .filter(f => f.person !== person && f.segments.some(seg => seg.flightNo === flightNo))
+          .map(f => f.person);
+        return [person, ...others];
+      }
+
+      const cardPassengers = segPassengers(s.flightNo);
       const companions = coPassengers(s.flightNo);
+
+      const cardCharsSvg = cardPassengers.map(name =>
+        typeof avatarSvg === 'function'
+          ? avatarSvg(name).replace(/width="16"/, 'width="14"').replace(/height="28"/, 'height="24"')
+          : ''
+      ).join('');
+
       const companionSvg = companions.map(name =>
         typeof avatarSvg === 'function'
           ? avatarSvg(name).replace(/width="16"/, 'width="14"').replace(/height="28"/, 'height="24"')
@@ -141,7 +160,7 @@ function renderInfoFlights(flights) {
             <!-- 目的地 -->
             <div style="text-align:center;width:72px;flex-shrink:0;">
               <div style="display:inline-block;text-align:right;">
-                ${s.isTransit?`<div style="font-size:.58rem;color:#ffa726;font-family:sans-serif;margin-bottom:1px;">轉機</div>`:'<div style="min-height:.8rem;"></div>'}
+                ${s.isTransit?`<div style="font-family:'Silkscreen',monospace;font-size:.38rem;color:#ffa726;line-height:1.2;writing-mode:vertical-rl;letter-spacing:.05em;display:inline-block;margin-bottom:2px;">轉機</div>`:'<div style="min-height:.8rem;"></div>'}
                 <div style="font-family:'Silkscreen',monospace;font-size:1.45rem;letter-spacing:.04em;line-height:1;color:${s.isTransit?'#ffa726':'#fff'};">${s.to}</div>
               </div>
               ${s.toTerm?`<div style="font-size:.62rem;color:var(--muted);margin-top:3px;font-family:sans-serif;">${s.toTerm}</div>`:'<div style="min-height:.8rem;"></div>'}
@@ -153,7 +172,7 @@ function renderInfoFlights(flights) {
           <div style="display:flex;align-items:center;justify-content:flex-end;
                       padding:5px 12px 9px;border-top:1px solid var(--border);gap:4px;">
             ${s.note?`<span style="font-size:.6rem;color:var(--muted);font-style:italic;margin-right:auto;font-family:sans-serif;">📌 ${s.note}</span>`:''}
-            ${charSvg(person)}
+            <div style="display:flex;gap:1px;align-items:flex-end;">${cardCharsSvg}</div>
           </div>
         </div>`;
     }).join('');
