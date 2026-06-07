@@ -140,12 +140,10 @@ function renderInfoFlights(flights) {
             </div>
             <!-- 目的地 -->
             <div style="text-align:center;width:72px;flex-shrink:0;">
-              <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
-                <div style="font-family:'Silkscreen',monospace;font-size:1.45rem;letter-spacing:.04em;line-height:1;color:${s.isTransit?'#ffa726':'#fff'};">${s.to}</div>
-                ${s.isTransit?`<div style="font-family:'Silkscreen',monospace;font-size:.38rem;color:#ffa726;line-height:1.2;writing-mode:vertical-rl;letter-spacing:.05em;margin-top:2px;">轉機</div>`:''}
-              </div>
+              <div style="font-family:'Silkscreen',monospace;font-size:1.45rem;letter-spacing:.04em;line-height:1;color:${s.isTransit?'#ffa726':'#fff'};">${s.to}</div>
               ${s.toTerm?`<div style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);margin-top:3px;">${s.toTerm}</div>`:'<div style="min-height:.65rem;"></div>'}
-              <div style="font-family:'Silkscreen',monospace;font-size:.95rem;color:var(--gold);margin-top:7px;">${arr.time}</div>
+              ${s.isTransit?`<div style="display:inline-block;font-size:.55rem;color:#ffa726;border:1px solid rgba(255,167,38,.5);padding:1px 6px;border-radius:3px;margin-top:3px;font-family:sans-serif;">轉機</div>`:''}
+              <div style="font-family:'Silkscreen',monospace;font-size:.95rem;color:var(--gold);margin-top:${s.isTransit?'4px':'7px'};">${arr.time}</div>
               <div style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);margin-top:3px;">${arr.date}</div>
             </div>
           </div>
