@@ -1,830 +1,453 @@
-// forms.js — 像素風新增消費 & 還錢表單
+// scene.js — 像素天氣場景、時鐘、預算條（從 index.html 拆出）
+// ── 冰島即時天氣場景
+(function(){
+  const BUDGET = 100000; // fallback，實際值從 APP_DATA.budgetPerPerson 讀
+  const ITINERARY = [
+    {from:'09-15',to:'09-16',name:'Hekla 附近',lat:63.98,lon:-19.67},
+    {from:'09-17',to:'09-17',name:'Þakgil',lat:63.47,lon:-18.93},
+    {from:'09-18',to:'09-19',name:'Svínafell',lat:63.99,lon:-16.87},
+    {from:'09-20',to:'09-20',name:'富瑞麥德',lat:65.07,lon:-13.98},
+    {from:'09-21',to:'09-21',name:'Húsey 農場',lat:65.53,lon:-14.57},
+    {from:'09-22',to:'09-22',name:'米湖',lat:65.60,lon:-17.00},
+    {from:'09-23',to:'09-23',name:'Ósar',lat:65.72,lon:-20.28},
+    {from:'09-24',to:'09-24',name:'西峽灣小屋',lat:65.54,lon:-22.10},
+    {from:'09-25',to:'09-25',name:'Miðjanes',lat:65.45,lon:-22.50},
+    {from:'09-26',to:'09-26',name:'海山景小屋',lat:64.85,lon:-22.20},
+    {from:'09-27',to:'09-28',name:'雷克雅維克',lat:64.13,lon:-21.82},
+  ];
+  const DEFAULT={name:'雷克雅維克',lat:64.13,lon:-21.82};
 
-// ══ 狀態 ══
-let _pxPayer     = '';
-let _pxSplitMode = 'equal';
-let _pxSplitSel  = new Set(['花','猴','寧']);
-let _pxCustomAmt = {'花':0,'猴':0,'寧':0};
-let _twdManualEdited = false; // 使用者手動改過換算台幣
-let _isSubmitting = false; // 防止重複送出
-
-// 背景送出 GAS，debounce 確保多次操作只觸發一次 sync
-let _bgSyncTimer = null;
-function bgSync(label) {
-  setSyncState?.('syncing', label || '同步中…');
-  clearTimeout(_bgSyncTimer);
-  _bgSyncTimer = setTimeout(() => {
-    window.__syncIcelandBudgetFromSheets?.().catch(() => {
-      setSyncState?.('local', '⚠ 同步失敗，下次開啟會重試');
-    });
-  }, 3000);
-}
-
-
-function optimisticDelete(type, rowIndex) {
-  if (!window.APP_DATA) return;
-  if (type === 'expense') {
-    window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e => Number(e._rowIndex) !== Number(rowIndex));
-    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
-    _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
-  } else if (type === 'repay') {
-    window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => Number(r._rowIndex) !== Number(rowIndex));
-    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
+  function getLoc(){
+    const t=new Date();
+    const mmdd=String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+    for(const s of ITINERARY) if(mmdd>=s.from&&mmdd<=s.to) return s;
+    return DEFAULT;
   }
-  localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
-}
+  function decodeW(code,isDay){
+    if(code===0) return{label:isDay?'晴天 ☀️':'晴夜 🌙',type:isDay?'sunny':'night'};
+    if(code<=2)  return{label:'多雲 ⛅',type:'cloudy'};
+    if(code===3) return{label:'陰天 ☁️',type:'overcast'};
+    if(code<=49) return{label:'有霧 🌫️',type:'fog'};
+    if(code<=55) return{label:'毛毛雨 🌦️',type:'drizzle'};
+    if(code<=67) return{label:'下雨 🌧️',type:'rain'};
+    if(code<=77) return{label:'下雪 🌨️',type:'snow'};
+    if(code<=82) return{label:'陣雨 🌦️',type:'rain'};
+    if(code<=86) return{label:'陣雪 🌨️',type:'snow'};
+    if(code<=99) return{label:'雷雨 ⛈️',type:'thunder'};
+    return{label:'未知',type:'cloudy'};
+  }
+  function setSky(type){
+    const el=document.getElementById('pxScene');
+    if(!el)return;
+    // 天空背景色（SVG 天空已移除，改用純色背景配合天氣）
+    const skies={
+      sunny:'#a8dff0', night:'#050d1a', cloudy:'#7a9aaa',
+      overcast:'#606878', fog:'#a0b8c0', rain:'#4a5a68',
+      drizzle:'#5a6a78', snow:'#8090b8', thunder:'#2a2a40',
+    };
+    el.style.background=skies[type]||skies.sunny;
+  }
+  function startParticles(type, windSpeed, windDir){
+    // hFactor：連續水平分量，-1(純西風往右) ~ 0(南北風不飄) ~ +1(純東風往左)
+    // -cos(windDeg)：270°西風 → -cos(270°)=0... 用 sin 更直覺：
+    // 風向 270° 西風：粒子往右，水平 = +sin(270°-90°) = +1 → 直接用 -sin(windDeg°-90°)
+    // 更簡單：水平分量 = sin(windDeg * π/180)，270°→-1(往右)，90°→+1(往左)，0°/180°→0
+    const windDeg  = windDir || 270;
+    const hFactor  = Math.sin(windDeg * Math.PI / 180); // +1=往左, -1=往右, 0=不飄
+    const spd      = Math.max((windSpeed||0)*0.18, 0.15);
+    let _rafMain   = null;
+    let _rafCloud  = null;
+    const canvas=document.getElementById('pxCanvas');
+    if(!canvas)return;
+    const ctx=canvas.getContext('2d');
+    canvas.width=canvas.offsetWidth||680;
+    canvas.height=canvas.offsetHeight||220;
+    let pts=[],aOff=0,sunP=0;
 
-// 修改模式：原卡原地半透明 + 像素風轉圈，不重建區塊
-function mutateCardInPlace(type, rowIndex) {
-  console.log('[mutate] type='+type+' rowIndex='+rowIndex);
-  const containers = type === 'repay'
-    ? [document.getElementById('repayContent')]
-    : [document.getElementById('dailyContent'), document.getElementById('carContent')];
-
-  for (const container of containers) {
-    if (!container) continue;
-    const btns = container.querySelectorAll('.swipe-action-btn.edit');
-    console.log('[mutate] scanning '+btns.length+' btns in #'+(container.id||'?'));
-    for (const btn of btns) {
-      const oc = btn.getAttribute('onclick') || '';
-      if (!oc.includes('(' + rowIndex + ',')) continue;
-      console.log('[mutate] FOUND card');
-      const wrap = btn.closest('.swipe-card-wrap');
-      if (!wrap) continue;
-      const content = wrap.querySelector('.swipe-card-content');
-      if (!content) continue;
-
-      content.style.opacity = '0.4';
-      content.style.pointerEvents = 'none';
-      content.style.position = 'relative';
-
-      if (!wrap.querySelector('.card-sync-overlay')) {
-        const overlay = document.createElement('div');
-        overlay.className = 'card-sync-overlay';
-        overlay.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;'
-          + 'align-items:center;justify-content:center;gap:8px;z-index:10;pointer-events:none;'
-          + 'background:rgba(7,17,31,.6);';
-        const spinner = document.createElement('div');
-        spinner.style.cssText = 'width:38px;height:38px;position:relative;'
-          + 'animation:px-spin 1s steps(8,end) infinite;';
-        [1,.85,.65,.5,.35,.22,.12,.05].forEach((op, i) => {
-          const dot = document.createElement('span');
-          dot.style.cssText = 'position:absolute;width:5px;height:5px;background:#4fc3f7;'
-            + 'top:50%;left:50%;margin:-2.5px 0 0 -2.5px;'
-            + 'transform:rotate('+i*45+'deg) translateY(-16px);opacity:'+op+';';
-          spinner.appendChild(dot);
+    if(type==='rain'||type==='drizzle'||type==='thunder'){
+      for(let i=0;i<50;i++) pts.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,speed:type==='drizzle'?2:4,len:type==='drizzle'?6:12});
+      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=type==='thunder'?'rgba(150,180,220,0.7)':'rgba(120,160,200,0.6)';ctx.lineWidth=1;pts.forEach(p=>{ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+hFactor*2,p.y+p.len);ctx.stroke();p.y+=p.speed;p.x+=hFactor;if(p.y>canvas.height){p.y=0;p.x=Math.random()*canvas.width;}});if(type==='thunder'&&Math.random()<0.003){ctx.fillStyle='rgba(255,255,200,0.15)';ctx.fillRect(0,0,canvas.width,canvas.height);}if(!document.hidden)_rafMain=requestAnimationFrame(draw);})();
+    }else if(type==='snow'){
+      for(let i=0;i<40;i++) pts.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,size:Math.random()*3+1,speed:0.5+Math.random()});
+      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='rgba(220,235,255,0.85)';pts.forEach(p=>{ctx.fillRect(Math.round(p.x),Math.round(p.y),Math.round(p.size),Math.round(p.size));p.y+=p.speed;p.x+=hFactor*Math.abs(Math.sin(p.y/20)*0.5);if(p.y>canvas.height){p.y=0;p.x=Math.random()*canvas.width;}});if(!document.hidden)_rafMain=requestAnimationFrame(draw);})();
+    }else if(type==='night'){
+      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);aOff+=0.5;[[0,255,180,0.15],[120,80,255,0.12],[0,200,255,0.10]].forEach(([r,g,b,a],i)=>{ctx.fillStyle=`rgba(${r},${g},${b},${a})`;ctx.fillRect(0,15+i*8+Math.sin((aOff+i*20)/30)*6,canvas.width,10);});ctx.fillStyle='rgba(255,255,255,0.8)';[[50,20],[120,35],[200,15],[300,28],[420,18],[520,32],[620,22]].forEach(([x,y])=>ctx.fillRect(x,y,2,2));if(!document.hidden)_rafMain=requestAnimationFrame(draw);})();
+    }else if(type==='sunny'){
+      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);sunP+=0.05;ctx.fillStyle=`rgba(255,220,100,${0.06+Math.sin(sunP)*0.02})`;ctx.beginPath();ctx.arc(canvas.width-50,25,35,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,220,100,0.85)';ctx.fillRect(canvas.width-58,22,14,7);if(!document.hidden)_rafMain=requestAnimationFrame(draw);})();
+    }else if(type==='fog'){
+      const fogBalls=[
+        {x:  0,y:30,w:220,h:50,spd:0.20,op:0.13},
+        {x:180,y:55,w:280,h:60,spd:0.14,op:0.11},
+        {x:420,y:20,w:200,h:45,spd:0.25,op:0.10},
+        {x: 80,y:70,w:320,h:55,spd:0.10,op:0.09},
+        {x:500,y:45,w:250,h:50,spd:0.18,op:0.12},
+        {x:250,y:80,w:200,h:40,spd:0.22,op:0.08},
+      ];
+      (function draw(){
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        fogBalls.forEach(f=>{
+          f.x+=f.spd*(-hFactor||0.2);
+          if(f.x>canvas.width+f.w) f.x=-f.w;
+          if(f.x<-f.w) f.x=canvas.width+f.w;
+          const grd=ctx.createLinearGradient(f.x,0,f.x+f.w,0);
+          grd.addColorStop(0,`rgba(200,215,225,0)`);
+          grd.addColorStop(0.2,`rgba(200,215,225,${f.op})`);
+          grd.addColorStop(0.8,`rgba(200,215,225,${f.op})`);
+          grd.addColorStop(1,`rgba(200,215,225,0)`);
+          ctx.fillStyle=grd;
+          ctx.fillRect(f.x,f.y,f.w,f.h);
         });
-        const lbl = document.createElement('span');
-        lbl.style.cssText = "font-family:'Silkscreen',monospace;font-size:.5rem;color:#4fc3f7;"
-          + 'animation:px-blink 1s steps(1,end) infinite;letter-spacing:.08em;';
-        lbl.textContent = 'SAVING...';
-        overlay.appendChild(spinner);
-        overlay.appendChild(lbl);
-        wrap.appendChild(overlay);
+        if(!document.hidden)_rafMain=requestAnimationFrame(draw);
+      })();
+    }
+
+    // 雲：獨立 canvas，夜晚跳過
+    const cloudCanvas=document.getElementById('pxCloudCanvas');
+    if(cloudCanvas){
+      const cctx=cloudCanvas.getContext('2d');
+      cloudCanvas.width=canvas.width;
+      cloudCanvas.height=canvas.height;
+      if(type!=='night'){
+        const spd=Math.max((windSpeed||0)*0.18,0.15);
+        const clouds=[
+          {x:Math.random()*canvas.width,y:8, w:44,h:10,thick:6},
+          {x:Math.random()*canvas.width,y:18,w:58,h:10,thick:6},
+          {x:Math.random()*canvas.width,y:12,w:32,h:7, thick:4},
+          {x:Math.random()*canvas.width,y:24,w:28,h:7, thick:4},
+          {x:Math.random()*canvas.width,y:6, w:22,h:6, thick:4},
+        ];
+        (function drawClouds(){
+          cctx.clearRect(0,0,cloudCanvas.width,cloudCanvas.height);
+          clouds.forEach(c=>{
+            c.x+=hFactor*spd;
+            if(c.x>cloudCanvas.width+c.w) c.x=-c.w-10;
+            if(c.x<-c.w-10) c.x=cloudCanvas.width+10;
+            cctx.fillStyle='rgba(255,255,255,0.28)';
+            cctx.fillRect(Math.round(c.x),c.y,c.w,c.h);
+            cctx.fillRect(Math.round(c.x)+4,c.y-c.thick,c.w-8,c.thick+2);
+          });
+          if(!document.hidden)_rafCloud=requestAnimationFrame(drawClouds);
+        })();
+      } else {
+        cctx.clearRect(0,0,cloudCanvas.width,cloudCanvas.height);
       }
-      return;
     }
   }
-  console.log('[mutate] no card found');
-}
 
-// 樂觀更新：新增插頂部重建，修改只做 DOM 原地標記
-function optimisticUpdate(type, rowIndex, newItem) {
-  if (!window.APP_DATA) return;
-  const isEdit = rowIndex != null && Number(rowIndex) > 0;
-  if (type === 'expense') {
-    if (isEdit) {
-      mutateCardInPlace('expense', rowIndex);
+  window.updatePixelBudget = function(){
+    const d=window.APP_DATA||window.STATIC;
+    if(!d||!document.getElementById('pxBar'))return;
+    const totalAccom=(d.accommodation||[]).reduce((s,a)=>s+(a.twd||0),0);
+    const totalAct=(d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
+    const totalFlight=d.totalFlightTWD||0;
+    const carTotal=(d.car&&d.car.totalTWD)||0;
+    const totalExpenseShared=(d.expenses||[]).filter(e=>e.isShared).reduce((s,e)=>s+(e.total||0),0);
+    const sharedTotal=carTotal+totalAccom+totalAct+totalExpenseShared;
+
+    // 進度條數字：跟選擇器同步（顯示用）
+    const mode = window._flightMode || 'equal';
+    let perPersonAmt;
+    if(mode==='none'){
+      perPersonAmt = sharedTotal/3;
+    } else if(mode==='equal'){
+      perPersonAmt = (sharedTotal+totalFlight)/3;
     } else {
-      window.APP_DATA.expenses = [newItem, ...(window.APP_DATA.expenses||[])];
-      _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses));
-      _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
-      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+      const flightByPerson = {};
+      (d.flights||[]).forEach(f=>{ flightByPerson[f.person]=(flightByPerson[f.person]||0)+(f.totalTWD||0); });
+      const personalExp = d.split?.[mode]?.personal || 0;
+      perPersonAmt = sharedTotal/3 + (flightByPerson[mode]||0) + personalExp;
     }
-  } else if (type === 'repay') {
-    if (isEdit) {
-      mutateCardInPlace('repay', rowIndex);
-    } else {
-      window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory||[]), newItem];
-      _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory, window.APP_DATA.split||{}));
-      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+    const perPerson=Math.round(perPersonAmt);
+    const budget = d.budgetPerPerson || BUDGET;
+
+    // 角色位置：永遠用均分（共同花費 + 機票平均），不受選擇器影響
+    const posPerPerson = Math.round((sharedTotal + totalFlight) / 3);
+    const posPct = Math.min(Math.round(posPerPerson / budget * 100), 100);
+
+    const pct=Math.min(Math.round(posPerPerson/budget*100),100);
+    const remain=budget-posPerPerson;
+    const isOver=posPerPerson>=budget;
+
+    const bar=document.getElementById('pxBar');
+    bar.style.width=pct+'%';
+    bar.className='px-bar-fill '+(pct>=100?'danger':pct>=70?'warn':'safe');
+    document.getElementById('pxPct').textContent=pct+'%';
+    const spentEl=document.getElementById('pxSpent');
+    if(spentEl)spentEl.textContent='約 NT$ '+posPerPerson.toLocaleString('zh-TW');
+    const budgetLabel=document.getElementById('pxBudgetLabel');
+    const budgetMax=document.getElementById('pxBudgetMax');
+    const budgetStr='NT$ '+budget.toLocaleString('zh-TW');
+    if(budgetLabel)budgetLabel.textContent=budgetStr;
+    if(budgetMax)budgetMax.textContent=budgetStr+' ⚠';
+
+    // 付款多的站前面
+    const d2=window.APP_DATA||window.STATIC;
+    const paid2={'花':0,'猴':0,'寧':0};
+    (d2.accommodation||[]).forEach(a=>{
+      if(!a.payer||!a.twd)return;
+      for(const m of ['花','猴','寧']){if(a.payer.includes(m)){paid2[m]+=a.twd;break;}}
+    });
+    if(d2.car&&d2.car.totalTWD&&d2.car.payer){
+      for(const m of ['花','猴','寧']){if(d2.car.payer.includes(m)){paid2[m]+=d2.car.totalTWD;break;}}
     }
-  }
-}
+    const membersSorted=[...['花','猴','寧']].sort((a,b)=>paid2[b]-paid2[a]);
+    const idMap={'花':'pxHana','猴':'pxMonkey','寧':'pxNing'};
+    const posIsOver = posPerPerson >= budget;
+    membersSorted.forEach((name,i)=>{
+      const el=document.getElementById(idMap[name]);
+      if(!el)return;
+      if(posIsOver){el.classList.add('dead');el.style.left=(25+i*12)+'%';}
+      else{el.classList.remove('dead');el.style.left=Math.min(posPct*0.85+i*5,86)+'%';}
+    });
 
-// 只更新指定區塊，不重建整頁
-function _refreshSection(elId, renderFn) {
-  const el = document.getElementById(elId);
-  if (!el) { window.renderAll?.(); return; }
-  el.innerHTML = renderFn();
-  if (window.initSwipeCards) window.initSwipeCards(el);
-}
-let _pxRepayFrom = '';
-let _pxRepayTo   = '';
-const PX_MEMBERS = ['花','猴','寧'];
-
-// 算盤狀態
-let _calcExpr  = '';
-let _calcTarget = '';
-let _calcCb    = '';
-let _calcPrev  = '';
-
-// 修改模式（刪舊＋新增）
-let _editMode     = false;   // 是否為修改模式
-let _editRowIndex = null;    // 要刪除的舊資料行號
-let _editSheet    = '';      // 'expense' | 'repay'
-
-// ══ GAS API ══
-const _GAS_BASE = "https://script.google.com/macros/s/AKfycbzdizbJL4rRrHaeVNWFqp4mZiJ8BXJdE0wO7beJTIjyLgy4Nmzv9vDGmjRNi5TLgWg0/exec";
-
-async function postToGAS(payload) {
-  const base = window._GAS_BASE;
-  if (!base) throw new Error('找不到 GAS URL，請確認 app.js 已載入');
-  // GAS doPost 需用 text/plain 避免 CORS preflight 被 redirect 擋住
-  const res = await fetch(base, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
-    redirect: 'follow',
-  });
-  if (!res.ok) throw new Error('GAS 回應錯誤：' + res.status);
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || '寫入失敗');
-  return data;
-}
-
-async function deleteRowFromGAS(sheet, rowIndex) {
-  if (sheet === 'expense') return postToGAS({ action: 'deleteExpense', rowIndex });
-  if (sheet === 'repay')   return postToGAS({ action: 'deleteRepay',   rowIndex });
-  throw new Error('未知的 sheet：' + sheet);
-}
-
-function pxLocalNow() {
-  const now = new Date();
-  const p = n => String(n).padStart(2,'0');
-  return `${now.getFullYear()}-${p(now.getMonth()+1)}-${p(now.getDate())}T${p(now.getHours())}:${p(now.getMinutes())}`;
-}
-
-// ── 背景鎖定
-function lockBody()   { document.body.style.overflow = 'hidden'; }
-function unlockBody() { document.body.style.overflow = ''; }
-
-// ── 角色 SVG
-function pxAvatarSvg(name, size=28) {
-  if (typeof avatarSvg === 'function') {
-    const scale = size / 28;
-    const w = Math.round(16 * scale);
-    return avatarSvg(name)
-      .replace(/width="16"/, `width="${w}"`)
-      .replace(/height="28"/, `height="${size}"`);
-  }
-  return `<span style="font-size:.8rem">${name}</span>`;
-}
-
-// ── 角色按鈕 HTML
-function pxMemberBtnHtml(name, isSelected, onclickFn) {
-  const op  = isSelected ? '1' : '0.3';
-  const fil = isSelected ? 'none' : 'grayscale(70%)';
-  const bdr = isSelected ? '2px solid #2a4a1a' : '2px solid #888';
-  const bg  = isSelected ? '#c8d8a8' : '#d8d8c8';
-  const tri = isSelected ? '#2a4a1a' : 'transparent';
-  return `<button class="px-member-btn${isSelected?' sel':''}" onclick="${onclickFn}(this,'${name}')"
-    style="opacity:${op};filter:${fil};border:${bdr};background:${bg};
-           display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;transition:all .2s;flex:1;">
-    <div style="font-size:8px;color:${tri};line-height:1;margin-bottom:2px;">▼</div>
-    ${pxAvatarSvg(name,28)}
-    <span style="font-size:7px;color:#2a4a1a;margin-top:2px;font-family:'Silkscreen',monospace">${name}</span>
-  </button>`;
-}
-
-// ══ 新增選單 ══
-window.openAddMenu = function() {
-  document.getElementById('pxAddMenu').classList.add('show');
-};
-window.closeAddMenu = function() {
-  document.getElementById('pxAddMenu').classList.remove('show');
-};
-window.closeAddMenuOutside = function(e) {
-  if (e.target === document.getElementById('pxAddMenu')) closeAddMenu();
-};
-
-// ══ Modal 開關 ══
-window.openPxModal = function(type, prefill = null) {
-  closeAddMenu();
-  lockBody();
-
-  if (type === 'expense') {
-    _pxPayer     = prefill?.payer || '';
-    _pxSplitMode = prefill?.splitMode || 'equal';
-    _pxSplitSel  = new Set(prefill?.splitSel || ['花','猴','寧']);
-    _pxCustomAmt = prefill?.customAmt || {'花':0,'猴':0,'寧':0};
-
-    // 動態建立類別選單
-    const catSel = document.getElementById('pxExpCat');
-    const cats = (window.APP_DATA?.expenseCategories?.length ? window.APP_DATA.expenseCategories : null)
-              || window.STATIC?.expenseCategories
-              || [];
-    catSel.innerHTML = '<option value="">-- 選擇類別 --</option>' +
-      cats.map(c => `<option value="${c}"${prefill?.category===c?' selected':''}>${c}</option>`).join('');
-
-    document.getElementById('pxExpAmt').value  = prefill?.amount || '';
-    document.getElementById('pxExpCur').value  = prefill?.currency || 'NT';
-    // 台幣換算欄：編輯模式帶入已知 twd，新增模式清空
-    const twdEl = document.getElementById('pxExpTwd');
-    if (twdEl) twdEl.value = prefill?.twd ? String(prefill.twd) : '';
-    _twdManualEdited = !!prefill?.twd; // 編輯模式帶入的值視為手動，不覆蓋
-    pxOnCurrencyChange(); // 根據幣別決定顯示/隱藏換算列
-    document.getElementById('pxExpLoc').value  = prefill?.location || '';
-    // 地點建議：從已有記錄取最近三個不重複地點
-    const locSuggests = document.getElementById('pxLocSuggests');
-    if (locSuggests) {
-      const recentLocs = [...new Set(
-        (window.APP_DATA?.expenses || window.STATIC?.expenses || [])
-          .slice().reverse()
-          .map(e => e.location).filter(Boolean)
-      )].slice(0, 3);
-      locSuggests.innerHTML = recentLocs.map(loc =>
-        `<button type="button" onclick="document.getElementById('pxExpLoc').value='${loc.replace(/'/g,'\'')}';"
-          style="background:#c8d8a8;border:1px solid #2a4a1a;color:#1a3a0a;font-family:'Silkscreen',monospace;
-                 font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;">${loc}</button>`
-      ).join('');
+    // 車子跟在角色群前面
+    const carEl=document.getElementById('pxCarEl');
+    if(carEl){
+      const carLeft = posIsOver ? 8 : Math.max(Math.min(posPct*0.85-15, 74), 2);
+      carEl.style.left = carLeft+'%';
     }
-    document.getElementById('pxExpNote').value = prefill?.note || '';
-    document.getElementById('pxExpDate').value = prefill?.date || pxLocalNow();
-    document.getElementById('pxExpShared').checked = prefill?.isShared !== false; // 預設勾選
 
-    // 修改模式標題
-    const header = document.querySelector('#pxModalExpense .px-modal-header span');
-    if (header) header.textContent = _editMode ? '▶ 修改消費' : '▶ 新增消費';
-    document.getElementById('pxBtnExpense').textContent = _editMode ? '[ 確認修改 ]' : '[ 記帳！]';
-    document.getElementById('pxBtnExpense').disabled = !_editMode;
-
-    document.getElementById('pxSplitSummary').textContent = '均分（三人）';
-    pxRenderPayerBtns();
-    pxRenderSplitBtns();
-    if (_editMode) pxCheckSubmit();
-
-    // reset tag + brand + qty
-    // 標籤：編輯模式帶入已有標籤，新增模式清空
-    if (prefill?.tags) window.pxLoadTags?.(prefill.tags);
-    else window.pxResetTags?.();
-    window.pxResetBrand?.();
-    // 數量：編輯模式帶入原數量
-    if (prefill?.qty) window.pxLoadQty?.(prefill.qty);
-    else window.pxResetQty?.();
-    // 清標籤輸入欄
-    const tagInput = document.getElementById('pxTagInput');
-    if (tagInput) { tagInput.value = ''; }
-    const tagPanel = document.getElementById('pxTagPanel');
-    if (tagPanel) { tagPanel.style.maxHeight='0'; tagPanel.style.opacity='0'; tagPanel.style.marginTop='0'; }
-    const titleEl = document.getElementById('pxExpTitle');
-    if (titleEl) titleEl.value = prefill?.title || '';
-    document.getElementById('pxModalExpense').classList.add('show');
-
-  } else {
-    // 預設第一和第二個成員
-    _pxRepayFrom = prefill?.from || PX_MEMBERS[0] || '';
-    _pxRepayTo   = prefill?.to   || PX_MEMBERS[1] || '';
-
-    document.getElementById('pxRepayAmt').value  = prefill?.amount || '';
-    document.getElementById('pxRepayNote').value = prefill?.note || '';
-    document.getElementById('pxRepayDate').value = prefill?.date || pxLocalNow();
-
-    const header = document.querySelector('#pxModalRepay .px-modal-header span');
-    if (header) header.textContent = _editMode ? '▶ 修改還款' : '▶ 還錢';
-    document.getElementById('pxBtnRepay').textContent = _editMode ? '[ 確認修改 ]' : '[ 確認還款 ]';
-    document.getElementById('pxBtnRepay').disabled = !_editMode;
-
-    pxRenderScrollPicker('pxRepayFromList', _pxRepayFrom, 'from');
-    pxRenderScrollPicker('pxRepayToList',   _pxRepayTo,   'to');
-    pxValidateRepay();
-    document.getElementById('pxModalRepay').classList.add('show');
-  }
-};
-
-// ══ 修改入口（從卡片滑動後呼叫）══
-window.openEditExpense = function(rowIndex, data) {
-  _editMode     = true;
-  _editRowIndex = Number(rowIndex);
-  _editSheet    = 'expense';
-  window.openPxModal('expense', data);
-};
-
-window.openEditRepay = function(rowIndex, data) {
-  _editMode     = true;
-  _editRowIndex = Number(rowIndex);
-  _editSheet    = 'repay';
-  window.openPxModal('repay', data);
-};
-
-// ══ 刪除入口（從卡片滑動後呼叫）══
-window.pxConfirmDelete = function(rowIndex, sheet, label) {
-  // 像素風確認框
-  const overlay = document.getElementById('pxDeleteOverlay');
-  document.getElementById('pxDeleteLabel').textContent = label || '這筆記錄';
-  overlay.classList.add('show');
-  overlay._rowIndex = rowIndex;
-  overlay._sheet    = sheet;
-};
-
-window.pxExecuteDelete = function() {
-  const overlay = document.getElementById('pxDeleteOverlay');
-  const rowIndex = overlay._rowIndex;
-  const sheet    = overlay._sheet;
-  overlay.classList.remove('show');
-
-  // 立刻樂觀更新畫面
-  const type = sheet === 'expense' ? 'expense' : 'repay';
-  optimisticDelete(type, rowIndex);
-
-  // 背景送 GAS
-  deleteRowFromGAS(sheet, rowIndex)
-    .then(() => bgSync('刪除同步中…'))
-    .catch(() => setSyncState?.('local', '⚠ 刪除失敗，請重新同步'));
-};
-
-window.pxCancelDelete = function() {
-  document.getElementById('pxDeleteOverlay').classList.remove('show');
-};
-
-window.cancelPxModal = function(id) {
-  document.getElementById(id).classList.remove('show');
-  unlockBody();
-  // 重置修改狀態
-  _editMode     = false;
-  _editRowIndex = null;
-  _editSheet    = '';
-};
-window.closePxModalOutside = function(e, id) {
-  if (e.target === document.getElementById(id)) window.cancelPxModal(id);
-};
-
-// ══ 付款人 ══
-function pxRenderPayerBtns() {
-  document.getElementById('pxPayerBtns').innerHTML =
-    PX_MEMBERS.map(m => pxMemberBtnHtml(m, _pxPayer===m, 'pxSelectPayer')).join('');
-}
-window.pxSelectPayer = function(btn, name) {
-  _pxPayer = name;
-  pxRenderPayerBtns();
-  pxCheckSubmit();
-};
-
-// ══ 如何分攤 ══
-function pxRenderSplitBtns() {
-  document.getElementById('pxSplitBtns').innerHTML =
-    PX_MEMBERS.map(m => pxMemberBtnHtml(m, _pxSplitSel.has(m), 'pxToggleSplit')).join('');
-}
-window.pxToggleSplit = function(btn, name) {
-  if (_pxSplitSel.has(name) && _pxSplitSel.size <= 1) return;
-  if (_pxSplitSel.has(name)) _pxSplitSel.delete(name);
-  else _pxSplitSel.add(name);
-  _pxSplitMode = 'equal';
-  pxRenderSplitBtns();
-  pxUpdateSplitSummary();
-  pxAutoShared();
-  pxCheckSubmit();
-};
-
-window.pxUpdateSplit = function() {
-  pxAutoFillTwd(); // 金額確認後自動帶入換算台幣（空白時才填）
-  pxUpdateSplitSummary();
-  pxCheckSubmit();
-};
-
-// 分攤人數 → 自動決定共同消費勾選
-// 3人 → 勾選，1或2人 → 取消勾選
-function pxAutoShared() {
-  const el = document.getElementById('pxExpShared');
-  if (!el) return;
-  el.checked = _pxSplitSel.size === 3;
-}
-
-function pxUpdateSplitSummary() {
-  const el  = document.getElementById('pxSplitSummary');
-  if (!el) return;
-  const sel = [..._pxSplitSel];
-  const amt = parseFloat(document.getElementById('pxExpAmt').value) || 0;
-  if (_pxSplitMode === 'custom') {
-    el.textContent = sel.map(m => `${m} NT$${_pxCustomAmt[m]}`).join(' / ');
-  } else if (amt > 0) {
-    const each = Math.round(amt / sel.length);
-    el.textContent = `均分（${sel.join('、')}，各約 NT$${each}）`;
-  } else {
-    el.textContent = `均分（${sel.join('、')}）`;
-  }
-}
-
-function pxCheckSubmit() {
-  const amt = parseFloat(document.getElementById('pxExpAmt').value) || 0;
-  const cat = document.getElementById('pxExpCat').value;
-  const fuelFields = document.getElementById('pxFuelFields');
-  if (fuelFields) fuelFields.style.display = cat === '加油' ? 'block' : 'none';
-  // 品項欄：加油/停車不顯示
-  const titleField = document.getElementById('pxTitleField');
-  if (titleField) titleField.style.display = (cat === '加油' || cat === '停車費') ? 'none' : 'block';
-  // 數量欄：加油/停車不顯示
-  const hideQty = cat === '加油' || cat === '停車費';
-  const qtyField = document.getElementById('pxQtyField');
-  if (qtyField) qtyField.style.display = hideQty ? 'none' : 'block';
-  const qtyRow = document.getElementById('pxQtyRow');
-  if (qtyRow) {
-    const qtyDiv = qtyRow.querySelector('div');
-    if (qtyDiv) qtyDiv.style.display = hideQty ? 'none' : 'flex';
-  }
-
-  const disabled = !_pxPayer || amt <= 0 || !cat || _pxSplitSel.size === 0;
-  document.getElementById('pxBtnExpense').disabled = disabled;
-  const btnNext = document.getElementById('pxBtnExpenseNext');
-  if (btnNext) btnNext.disabled = disabled || _editMode; // 下一筆不支援修改模式
-}
-window.pxCheckSubmit = pxCheckSubmit;
-
-// ══ 自訂金額彈窗 ══
-window.pxOpenCustomSplit = function() {
-  const amt = parseFloat(document.getElementById('pxExpAmt').value) || 0;
-  if (amt <= 0) { alert('請先填寫金額'); return; }
-  const sel  = [..._pxSplitSel];
-  const each = Math.round((amt / sel.length) * 100) / 100;
-  sel.forEach(m => { if (!_pxCustomAmt[m]) _pxCustomAmt[m] = each; });
-
-  const box = document.getElementById('pxCustomSplitBox');
-  box.innerHTML = `
-    <div class="px-modal-header" style="position:sticky;top:0;">
-      <span>▶ 自訂金額</span>
-      <button onclick="pxCloseCustomSplit()" style="background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:8px;padding:2px 8px;cursor:pointer;">取消</button>
-    </div>
-    <div class="px-form">
-      <div style="font-size:7px;color:#2a4a1a;margin-bottom:8px;">合計應為 NT$ ${amt.toLocaleString()}</div>
-      ${PX_MEMBERS.map(m => `
-        <div class="px-split-row" style="${_pxSplitSel.has(m)?'':'opacity:.35;pointer-events:none'}">
-          <span class="px-split-name" style="display:flex;align-items:center;gap:3px;">${pxAvatarSvg(m,20)} ${m}</span>
-          <input class="px-split-input" id="pxCA${m}" type="number" inputmode="decimal"
-            value="${_pxSplitSel.has(m)?(_pxCustomAmt[m]||each):0}"
-            ${_pxSplitSel.has(m)?'':'disabled'}
-            oninput="pxUpdateCustomTotal()">
-        </div>`).join('')}
-      <div class="px-split-total" style="margin-top:6px;">
-        <span>合計</span><span id="pxCustomTotal" class="px-total-ok">0</span>
-      </div>
-      <div id="pxCustomDiffMsg" style="font-size:7px;text-align:right;margin-top:3px;min-height:12px;"></div>
-      <div class="px-form-actions" style="margin-top:8px;margin-bottom:8px;">
-        <button class="px-btn-submit" id="pxBtnCustomOk" onclick="pxConfirmCustomSplit()" style="flex:1;">[ 確認 ]</button>
-      </div>
-    </div>`;
-  document.getElementById('pxCustomSplitOverlay').classList.add('show');
-  pxUpdateCustomTotal();
-};
-
-window.pxUpdateCustomTotal = function() {
-  const amt   = parseFloat(document.getElementById('pxExpAmt').value) || 0;
-  const total = [..._pxSplitSel].reduce((s,m) => s+(parseFloat(document.getElementById('pxCA'+m)?.value)||0), 0);
-  const diff  = total - amt;
-  const el    = document.getElementById('pxCustomTotal');
-  const msg   = document.getElementById('pxCustomDiffMsg');
-  if (el) { el.textContent = 'NT$ '+total.toFixed(2); el.className = Math.abs(diff)<0.02?'px-total-ok':'px-total-err'; }
-  if (msg) {
-    if (Math.abs(diff)<0.02)   msg.textContent = '';
-    else if (diff>0)            msg.textContent = '▲ 超出 NT$'+diff.toFixed(2);
-    else                        msg.textContent = '▼ 還差 NT$'+Math.abs(diff).toFixed(2)+' 未分配';
-    msg.style.color = Math.abs(diff)<0.02?'#1a5a1a':'#8a1010';
-  }
-  const btn = document.getElementById('pxBtnCustomOk');
-  if (btn) btn.disabled = Math.abs(diff)>=0.02;
-};
-
-window.pxConfirmCustomSplit = function() {
-  PX_MEMBERS.forEach(m => {
-    const el = document.getElementById('pxCA'+m);
-    _pxCustomAmt[m] = el ? (parseFloat(el.value)||0) : 0;
-  });
-  _pxSplitMode = 'custom';
-  document.getElementById('pxCustomSplitOverlay').classList.remove('show');
-  pxUpdateSplitSummary();
-  pxCheckSubmit();
-};
-window.pxCloseCustomSplit = function() {
-  document.getElementById('pxCustomSplitOverlay').classList.remove('show');
-};
-
-// ══ 幣別切換：顯示/隱藏換算列，並自動帶入估算值 ══
-window.pxOnCurrencyChange = function() {
-  const cur    = document.getElementById('pxExpCur')?.value || 'NT';
-  const twdRow = document.getElementById('pxTwdRow');
-  if (!twdRow) return;
-  if (cur === 'NT') {
-    twdRow.style.display = 'none';
-    const twdEl = document.getElementById('pxExpTwd');
-    if (twdEl) twdEl.value = '';
-    const hintEl = document.getElementById('pxTwdRateHint');
-    if (hintEl) hintEl.textContent = '';
-  } else {
-    twdRow.style.display = 'flex';
-    pxAutoFillTwd();
-  }
-  pxUpdateSplit();
-};
-
-// 根據目前金額+幣別自動填入估算台幣（每次都覆蓋，讓使用者看到參考值再決定要不要改）
-window.pxAutoFillTwd = function() {
-  const twdEl = document.getElementById('pxExpTwd');
-  if (!twdEl) return;
-  const amt = parseFloat(document.getElementById('pxExpAmt')?.value) || 0;
-  const cur = document.getElementById('pxExpCur')?.value || 'NT';
-  if (cur === 'NT' || amt <= 0) return;
-  const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
-  const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
-  const est = cur === 'ISK' ? Math.round(amt * exISK)
-            : cur === 'EUR' ? Math.round(amt * exEUR)
-            : 0;
-  // 使用者手動改過就不覆蓋
-  if (est > 0 && !_twdManualEdited) twdEl.value = String(est);
-  // 匯率提示
-  const hintEl = document.getElementById('pxTwdRateHint');
-  if (hintEl) {
-    const rate = cur === 'ISK' ? exISK : cur === 'EUR' ? exEUR : 0;
-    hintEl.textContent = rate > 0
-      ? `參考匯率：1 ${cur} = ${rate} NT$${_twdManualEdited ? '（已手動修改）' : ''}`
-      : '';
-  }
-  // 不呼叫 pxUpdateSplit，避免與 pxUpdateSplit→pxAutoFillTwd 無限遞迴
-  pxUpdateSplitSummary();
-  pxCheckSubmit();
-};
-
-window.pxOnTwdManualEdit = function() {
-  _twdManualEdited = true;
-  const hintEl = document.getElementById('pxTwdRateHint');
-  if (hintEl && hintEl.textContent) {
-    const cur = document.getElementById('pxExpCur')?.value || '';
-    const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
-    const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
-    const rate = cur === 'ISK' ? exISK : cur === 'EUR' ? exEUR : 0;
-    if (rate > 0) hintEl.textContent = `參考匯率：1 ${cur} = ${rate} NT$（已手動修改）`;
-  }
-  pxUpdateSplit();
-};
-
-window.pxClearTwd = function() {
-  const twdEl = document.getElementById('pxExpTwd');
-  _twdManualEdited = false; // 清除後允許重新自動換算
-  if (twdEl) twdEl.value = '';
-  pxAutoFillTwd(); // 立即重新帶入匯率估算值
-};
-
-// ══ 送出記帳（新增 or 修改） ══
-window.pxSubmitExpense = async function(nextMode = false) {
-  const amt  = parseFloat(document.getElementById('pxExpAmt').value) || 0;
-  const cat  = document.getElementById('pxExpCat').value;
-  const cur  = document.getElementById('pxExpCur').value;
-  const date = document.getElementById('pxExpDate').value || pxLocalNow();
-  const loc  = document.getElementById('pxExpLoc').value;
-  const note = document.getElementById('pxExpNote').value;
-  const isShared = document.getElementById('pxExpShared').checked;
-  const sel  = [..._pxSplitSel];
-  const splits = {'花':0,'猴':0,'寧':0};
-  // 分攤基準：外幣用台幣換算值（手動填的優先），NT 直接用 amt
-  const _splitCur = document.getElementById('pxExpCur')?.value || 'NT';
-  const _twdForSplit = _splitCur === 'NT' ? amt
-    : (parseFloat(document.getElementById('pxExpTwd')?.value) || 0) || amt;
-  if (_pxSplitMode === 'custom') {
-    PX_MEMBERS.forEach(m => { splits[m] = _pxCustomAmt[m]||0; });
-  } else {
-    const each = Math.round((_twdForSplit/sel.length)*100)/100;
-    sel.forEach(m => { splits[m] = each; });
-  }
-  const fuelMileage = cat === '加油' ? (parseFloat(document.getElementById('pxFuelMileage')?.value)||0) : 0;
-  const fuelLiters  = cat === '加油' ? (parseFloat(document.getElementById('pxFuelLiters')?.value)||0)  : 0;
-  const fuelBrand   = cat === '加油' ? (window.pxGetSelectedBrand?.() || document.getElementById('pxFuelBrand')?.value||'') : '';
-  const tags        = (window.pxGetSelectedTags?.() || []).join(',');
-
-  if (_isSubmitting) return;
-  _isSubmitting = true;
-
-  // 換算台幣：優先用使用者手動填的值，否則用即時匯率估算
-  const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
-  const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
-  const twdManual = parseFloat(document.getElementById('pxExpTwd')?.value);
-  const twd = cur === 'NT' ? amt
-            : (Number.isFinite(twdManual) && twdManual > 0) ? twdManual
-            : cur === 'ISK' ? Math.round(amt * exISK)
-            : cur === 'EUR' ? Math.round(amt * exEUR)
-            : amt;
-  const total = twd;
-  const title = (document.getElementById('pxExpTitle')?.value||'').trim();
-  const qty   = parseInt(document.getElementById('pxExpQty')?.value||'1')||1;
-
-  const payload = {
-    action: _editMode ? 'editExpense' : 'addExpense',
-    rowIndex: _editMode ? _editRowIndex : undefined,
-    title, qty, category: cat, amount: amt, currency: cur,
-    twd, foreignFee: 0, total,
-    payer: _pxPayer,
-    splitMode: [..._pxSplitSel].join(','),
-    'split花': splits['花'], 'split猴': splits['猴'], 'split寧': splits['寧'],
-    date, location: loc, note, isShared,
-    fuelMileage, fuelLiters, fuelBrand, tags,
+    const msg=document.getElementById('pxMsg');
+    const openMenu=()=>window.openRadialMenu&&window.openRadialMenu();
+    if(isOver){msg.className='px-gb-msg danger';msg.onclick=openMenu;msg.textContent='✖ 超支！全員倒地！（點此記帳）';}
+    else if(pct>=70){msg.className='px-gb-msg warn';msg.onclick=openMenu;msg.textContent='！注意！剩 NT$'+remain.toLocaleString()+' 要小心了';}
+    else{msg.className='px-gb-msg safe';msg.onclick=openMenu;msg.textContent='▶ 安全！還可以花 NT$'+remain.toLocaleString();}
   };
 
-  // cancelPxModal 會 reset _editMode，先存起來
-  const wasEdit    = _editMode;
-  const editRowIdx = _editRowIndex;
 
-  // nextMode：留窗清空；否則關窗
-  if (nextMode) {
-    const btnNext = document.getElementById('pxBtnExpenseNext');
-    if (btnNext) {
-      const orig = btnNext.textContent;
-      btnNext.textContent = '✓ 已記錄！';
-      btnNext.disabled = true;
-      setTimeout(() => { btnNext.textContent = orig; pxCheckSubmit(); }, 1200);
-    }
-    document.getElementById('pxExpAmt').value  = '';
-    document.getElementById('pxExpTwd').value  = '';
-    _twdManualEdited = false;
-    pxOnCurrencyChange();
-    const titleEl = document.getElementById('pxExpTitle');
-    if (titleEl) titleEl.value = '';
-    document.getElementById('pxExpNote').value = '';
-    window.pxResetTags?.();
-    window.pxResetQty?.();
-    pxCheckSubmit();
-  } else {
-    window.cancelPxModal('pxModalExpense');
-  }
+  // ── Sprite 動畫資料（從 Aseprite 轉換）
 
-  if (wasEdit) {
-    // 修改：原卡原地轉轉，GAS 成功後立刻重拉（editExpense 有 clearCache）
-    optimisticUpdate('expense', editRowIdx, null);
-    postToGAS(payload)
-      .then(() => {
-        setSyncState?.('syncing', '更新中…');
-        window.__syncIcelandBudgetFromSheets?.();
-      })
-      .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'))
-      .finally(() => { _isSubmitting = false; });
-  } else {
-    // 新增：樂觀插入頂部
-    const optimisticItem = {
-      _rowIndex: -1,
-      category: cat, amount: amt, currency: cur, twd, total,
-      payer: _pxPayer, date, location: loc, note, isShared, title, qty,
-      splitMode: [..._pxSplitSel].join(','),
-      burden: { '花': splits['花'], '猴': splits['猴'], '寧': splits['寧'] },
-      tags,
-    };
-    optimisticUpdate('expense', null, optimisticItem);
-    postToGAS(payload)
-      .then(() => bgSync('記帳同步中…'))
-      .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'))
-      .finally(() => { _isSubmitting = false; });
-  }
-};
 
-// ══ 還錢：卷軸選擇（同圓餅圖邏輯）══
-const PICKER_ITEM_H = 88;
+  let _weatherFetched = false; // 避免重複讀取
+  let _weatherCache = null;   // 快取上次天氣結果
 
-function pxRenderScrollPicker(listId, selectedName, side) {
-  const el = document.getElementById(listId);
-  if (!el) return;
+  function updateClocks(){
+    const now = new Date();
+    const tw = new Date(now.toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const is = new Date(now.toLocaleString('en-US',{timeZone:'Atlantic/Reykjavik'}));
+    const fmt2 = n => String(n).padStart(2,'0');
+    const twEl = document.getElementById('pxTimeTW');
+    const isEl = document.getElementById('pxTimeIS');
+    if(twEl) twEl.textContent = '🇹🇼 '+fmt2(tw.getHours())+':'+fmt2(tw.getMinutes());
+    if(isEl) isEl.textContent = '🇮🇸 '+fmt2(is.getHours())+':'+fmt2(is.getMinutes());
 
-  const pad = `<div style="height:${PICKER_ITEM_H}px;flex-shrink:0;"></div>`;
-  el.innerHTML = pad + PX_MEMBERS.map(m =>
-    `<div class="px-repay-picker-item${m===selectedName?' sel':''}" data-key="${m}">
-      ${pxAvatarSvg(m, 44)}
-      <span>${m}</span>
-    </div>`
-  ).join('') + pad;
+    // 倒數計時（場景天空中央）
+    const cdEl = document.getElementById('pxCountdown');
+    if(!cdEl) return;
+    // ── 航班時間（請填入確認後的班機時間，格式：ISO 字串）
+    const DEPART      = new Date('2026-09-14T00:00:00+08:00'); // 台灣出發日
+    const ARRIVE_IS   = new Date('2026-09-15T00:00:00+00:00'); // 抵達冰島
+    const DEPART_NING = new Date('2026-09-28T14:00:00+00:00'); // 寧離開冰島 ← 填入班機時間
+    const DEPART_ALL  = new Date('2026-09-29T00:00:00+00:00'); // 花猴離開冰島 ← 填入班機時間
+    const ARRIVE_TW   = new Date('2026-09-30T00:00:00+08:00'); // 全員回台灣
 
-  const idx = PX_MEMBERS.indexOf(selectedName);
-  // 用 setTimeout 確保 modal 已顯示再設 scrollTop
-  setTimeout(() => { el.scrollTop = (idx + 1) * PICKER_ITEM_H; }, 30);
-
-  // 移除舊事件
-  if (el._pickerClick)  el.removeEventListener('click',  el._pickerClick);
-  if (el._pickerScroll) el.removeEventListener('scroll', el._pickerScroll);
-
-  el._pickerClick = e => {
-    const item = e.target.closest('.px-repay-picker-item');
-    if (!item) return;
-    const cur     = side === 'from' ? _pxRepayFrom : _pxRepayTo;
-    const curIdx  = PX_MEMBERS.indexOf(cur);
-    const nextIdx = (curIdx + 1) % PX_MEMBERS.length;
-    const nextKey = PX_MEMBERS[nextIdx];
-    if (side === 'from') _pxRepayFrom = nextKey; else _pxRepayTo = nextKey;
-    el.scrollTo({ top: (nextIdx + 1) * PICKER_ITEM_H, behavior: 'smooth' });
-    el.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === nextKey));
-    pxValidateRepay();
-  };
-
-  let _t;
-  el._pickerScroll = () => {
-    clearTimeout(_t);
-    _t = setTimeout(() => {
-      const i       = Math.round(el.scrollTop / PICKER_ITEM_H) - 1;
-      const clamped = Math.max(0, Math.min(i, PX_MEMBERS.length - 1));
-      const newKey  = PX_MEMBERS[clamped];
-      const cur     = side === 'from' ? _pxRepayFrom : _pxRepayTo;
-      if (newKey !== cur) {
-        if (side === 'from') _pxRepayFrom = newKey; else _pxRepayTo = newKey;
-        el.querySelectorAll('.px-repay-picker-item').forEach(i => i.classList.toggle('sel', i.dataset.key === newKey));
-        pxValidateRepay();
+    let cdText='';
+    if(now < DEPART){
+      const days = Math.ceil((DEPART-now)/86400000);
+      cdText = '倒數 '+days+' 天！';
+    } else if(now < ARRIVE_IS){
+      cdText = '飛往冰島中！';
+    } else {
+      const day = Math.floor((now-ARRIVE_IS)/86400000)+1;
+      let extra='';
+      // 寧回程當天（9/28）
+      // 寧/花猴回程當天：直接跟日期物件比較即可
+      const isNingDay = now >= new Date(DEPART_NING.getFullYear(),8,28) && now < new Date(DEPART_NING.getFullYear(),8,29);
+      const isAllDay  = now >= new Date(DEPART_ALL.getFullYear(),8,29)  && now < new Date(DEPART_ALL.getFullYear(),8,30);
+      if(now >= ARRIVE_TW){
+        const goneDay = Math.floor((now-ARRIVE_TW)/86400000)+1;
+        cdText = '離開冰島第 '+goneDay+' 天';
+      } else if(isAllDay && now < DEPART_ALL){
+        cdText = '在冰島第 '+day+' 天<br>01:15 大家告別冰島';
+      } else if(now >= DEPART_ALL){
+        cdText = '在冰島第 '+day+' 天<br>01:15 大家告別冰島';
+      } else if(isNingDay){
+        cdText = '在冰島第 '+day+' 天<br>14:05 憶寧要飛走了';
+      } else {
+        cdText = '在冰島第 '+day+' 天';
       }
-    }, 80);
-  };
-
-  el.addEventListener('click',  el._pickerClick);
-  el.addEventListener('scroll', el._pickerScroll, { passive: true });
-}
-
-window.pxScrollSelectFrom = function(name) { _pxRepayFrom = name; pxValidateRepay(); };
-window.pxScrollSelectTo   = function(name) { _pxRepayTo   = name; pxValidateRepay(); };
-window.pxValidateRepay = function() {
-  const amt = parseFloat(document.getElementById('pxRepayAmt').value) || 0;
-  document.getElementById('pxBtnRepay').disabled =
-    !_pxRepayFrom || !_pxRepayTo || _pxRepayFrom === _pxRepayTo || amt <= 0;
-};
-
-// ══ 送出還款（新增 or 修改）══
-window.pxSubmitRepay = async function() {
-  const amt  = parseFloat(document.getElementById('pxRepayAmt').value) || 0;
-  const date = document.getElementById('pxRepayDate').value || pxLocalNow();
-  const note = document.getElementById('pxRepayNote').value;
-  if (_isSubmitting) return;
-  _isSubmitting = true;
-
-  const wasEditRepay = _editMode;
-  const editRepayIdx = _editRowIndex;
-
-  const payload = {
-    action: wasEditRepay ? 'editRepay' : 'addRepay',
-    rowIndex: wasEditRepay ? editRepayIdx : undefined,
-    from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
-  };
-
-  window.cancelPxModal('pxModalRepay');
-
-  if (wasEditRepay) {
-    optimisticUpdate('repay', editRepayIdx, null);
-    postToGAS(payload)
-      .then(() => {
-        setSyncState?.('syncing', '更新中…');
-        window.__syncIcelandBudgetFromSheets?.();
-      })
-      .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'))
-      .finally(() => { _isSubmitting = false; });
-  } else {
-    const optimisticRepayItem = {
-      _rowIndex: -1,
-      from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
-    };
-    optimisticUpdate('repay', null, optimisticRepayItem);
-    postToGAS(payload)
-      .then(() => bgSync('還款同步中…'))
-      .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'))
-      .finally(() => { _isSubmitting = false; });
+    }
+    cdEl.innerHTML = cdText;
   }
-};
 
-// ══ 像素算盤 ══
-window.pxOpenCalc = function(targetId, cbName) {
-  _calcTarget = targetId;
-  _calcCb     = cbName;
-  _calcExpr   = '';
-  _calcPrev   = document.getElementById(targetId)?.value || '';
-  document.getElementById('pxCalcDisplay').textContent = _calcPrev || '0';
-  document.getElementById('pxCalcExpr').textContent    = '';
-  document.getElementById('pxCalcOverlay').classList.add('show');
-};
+  function windColor(speed){
+    if(speed < 8)  return '#7eb3d4'; // 微風
+    if(speed < 14) return '#ffcc00'; // 中風
+    if(speed < 20) return '#ff9e80'; // 強風
+    return '#ff3366';                // 暴風
+  }
 
-window.pxCalcInput = function(key) {
-  const disp = document.getElementById('pxCalcDisplay');
-  const expr = document.getElementById('pxCalcExpr');
-  if (key === 'C') { _calcExpr = ''; disp.textContent = '0'; expr.textContent = ''; return; }
-  _calcExpr += key;
-  expr.textContent = _calcExpr;
-  try {
-    const safe   = _calcExpr.replace(/[^0-9+\-*/.()]/g,'');
-    const result = Function('"use strict"; return (' + safe + ')')();
-    if (isFinite(result)) disp.textContent = Math.round(result*100)/100;
-  } catch(e) { disp.textContent = _calcExpr; }
-};
+  async function initWeather(){
+    if(_weatherFetched) return; // 防止 renderAll 觸發重複呼叫
+    _weatherFetched = true;
 
-window.pxCalcConfirm = function() {
-  try {
-    const safe   = _calcExpr.replace(/[^0-9+\-*/.()]/g,'');
-    const result = safe ? Function('"use strict"; return (' + safe + ')')() : parseFloat(_calcPrev)||0;
-    if (!isFinite(result)) { alert('請輸入有效金額'); return; }
-    const val = Math.round(result*100)/100;
-    const el  = document.getElementById(_calcTarget);
-    if (el) el.value = val;
-    document.getElementById('pxCalcOverlay').classList.remove('show');
-    if (_calcCb && window[_calcCb]) window[_calcCb]();
-  } catch(e) { alert('計算錯誤，請重新輸入'); }
-};
+    const loc=getLoc();
+    const locEl=document.getElementById('pxLoc');
+    const wEl=document.getElementById('pxWeather');
+    if(locEl)locEl.textContent='📍 '+loc.name;
 
-window.pxCancelCalc = function() {
-  const el = document.getElementById(_calcTarget);
-  if (el) el.value = _calcPrev;
-  document.getElementById('pxCalcOverlay').classList.remove('show');
-};
+    // ── 天氣快取（30分鐘內不重打 API）
+    const WEATHER_TTL = 30 * 60 * 1000;
+    const cached = localStorage.getItem('wx_cache');
+    if (cached) {
+      try {
+        const { ts, data } = JSON.parse(cached);
+        if (Date.now() - ts < WEATHER_TTL) {
+          const w = decodeW(data.weathercode, data.is_day === 1);
+          const temp = Math.round(data.temperature_2m);
+          const wind = Math.round(data.windspeed_10m);
+          const windDir = Math.round(data.winddirection_10m||270);
+          _weatherCache = { loc, w, temp, wind, windDir };
+          applyWeatherToDOM();
+          setSky(w.type); startParticles(w.type, wind, windDir);
+          updateClocks();
+          setInterval(updateClocks, 30000);
+          return;
+        }
+      } catch(e) { /* 快取壞了就繼續重打 */ }
+    }
+
+    try{
+      const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weathercode,is_day,windspeed_10m,winddirection_10m&timezone=Atlantic%2FReykjavik`);
+      const data=await res.json();
+      localStorage.setItem('wx_cache', JSON.stringify({ ts: Date.now(), data: data.current }));
+      const w=decodeW(data.current.weathercode,data.current.is_day===1);
+      const temp=Math.round(data.current.temperature_2m);
+      const wind=Math.round(data.current.windspeed_10m);
+      const windDir=Math.round(data.current.winddirection_10m||270);
+      _weatherCache = { loc, w, temp, wind, windDir };
+      applyWeatherToDOM();
+      setSky(w.type);startParticles(w.type, wind, windDir);
+    }catch(e){
+      if(wEl)wEl.textContent='⚠ 天氣讀取失敗';
+      setSky('cloudy');startParticles('cloudy', 8, 270); // 預設西風
+    }
+    // 時鐘每分鐘更新
+    updateClocks();
+    setInterval(updateClocks, 30000);
+  }
+
+  function applyWeatherToDOM(){
+    if(!_weatherCache) return;
+    const {loc, w, temp, wind} = _weatherCache;
+    const locEl  = document.getElementById('pxLoc');
+    const wEl    = document.getElementById('pxWeather');
+    const windEl = document.getElementById('pxWind');
+    const boxEl  = document.getElementById('pxWeatherWind');
+    if(locEl) locEl.textContent = '📍 '+loc.name;
+    if(wEl)   wEl.textContent   = w.label+'  '+temp+'°C';
+    if(windEl){
+      windEl.textContent      = '💨 '+wind+' m/s';
+      windEl.style.color      = windColor(wind);
+      windEl.style.borderTopColor = windColor(wind);
+    }
+    if(boxEl) boxEl.style.borderColor = '#ffcc00';
+  }
+
+  // ── 對話框輪播
+  const CHAR_MAP = {'花':'bubbleHana','猴':'bubbleMonkey','寧':'bubbleNing'};
+  const CHARS    = ['花','猴','寧'];
+  let _bubbleIdx  = 0;
+  let _bubbleLine = 0;
+  let _bubbleTimer = null;
+
+  function getBubbleText(name) {
+    const d     = window.APP_DATA || window.STATIC;
+    const lines = d && d.dialogLines;
+    const split = d && d.split;
+    if (!lines || !lines[name]) return null;
+    const bal   = (split && split[name] && split[name].balance) ? split[name].balance : 0;
+    let state;
+    if (Math.abs(bal) < 1) state = '打平';
+    else if (bal < 0)      state = '欠債';
+    else                   state = '債主';
+    const pool = lines[name][state];
+    if (!pool || !pool.length) return null;
+    let text = pool[_bubbleLine % pool.length] || pool[0];
+    if (state === '欠債' && split) {
+      const amt      = Math.abs(Math.round(bal)).toLocaleString('zh-TW');
+      const creditor = CHARS.filter(m => m !== name)
+        .sort((a,b) => ((split[b]&&split[b].balance)||0) - ((split[a]&&split[a].balance)||0))[0] || '？';
+      text = text.replace(/\{A\}/g, creditor).replace(/\{n\}/g, amt);
+    }
+    return { text, state };
+  }
+
+  function showNextBubble() {
+    CHARS.forEach(m => {
+      const el = document.getElementById(CHAR_MAP[m]);
+      if (el) el.classList.remove('show');
+    });
+    const name = CHARS[_bubbleIdx];
+    const el   = document.getElementById(CHAR_MAP[name]);
+    if (el) {
+      const result = getBubbleText(name);
+      if (result) {
+        const { text, state } = result;
+        const numColor = state === '債主' ? '#4caf6e' : state === '欠債' ? '#e05555' : '#f0c040';
+        el.innerHTML = text.replace(/[\d,]+/g, m => m.length > 2 ? `<span style="color:#e05555;font-weight:700">${m}</span>` : m);
+        requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+      }
+    }
+    _bubbleLine++;
+    _bubbleIdx = (_bubbleIdx + 1) % CHARS.length;
+  }
+
+  function startBubbleLoop() {
+    if (_bubbleTimer) clearInterval(_bubbleTimer);
+    showNextBubble();
+    _bubbleTimer = setInterval(showNextBubble, 4000);
+  }
+  window.startBubbleLoop = startBubbleLoop;
+
+  // 切換分頁回來時重設輪播，避免三個泡泡同時出現
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      CHARS.forEach(m => {
+        const el = document.getElementById(CHAR_MAP[m]);
+        if (el) el.classList.remove('show');
+      });
+      _bubbleIdx = 0;
+      if (_bubbleTimer) { clearInterval(_bubbleTimer); _bubbleTimer = null; }
+      setTimeout(startBubbleLoop, 400);
+      // 重啟 canvas 動畫（切回來時 rAF 已停）
+      if (_weatherCache) {
+        const { w, wind, windDir } = _weatherCache;
+        startParticles(w.type, wind, windDir);
+      }
+    } else {
+      if (_bubbleTimer) { clearInterval(_bubbleTimer); _bubbleTimer = null; }
+      // rAF 會在下一幀因 document.hidden 自動停止
+    }
+  });
+
+  // ── 立即包裝 renderAll（不等 DOMContentLoaded，確保在 init() 前生效）
+  const _origRenderAll = window.renderAll;
+  window.renderAll = function(){
+    _origRenderAll && _origRenderAll();
+    setTimeout(window.updatePixelBudget, 100);
+    applyWeatherToDOM();
+    setTimeout(startBubbleLoop, 300);
+  };
+
+  // ── 天氣、場景初始化：等 DOM ready
+  function _sceneOnReady() {
+    const doWeather = () => setTimeout(initWeather, 1500);
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(doWeather, { timeout: 3000 });
+    } else {
+      doWeather();
+    }
+    setTimeout(window.updatePixelBudget, 500);
+    setTimeout(startBubbleLoop, 1000);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _sceneOnReady);
+  } else {
+    _sceneOnReady();
+  }
+})();
+
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/iceland-budget/iceland/sw.js').catch(()=>{});
+}
