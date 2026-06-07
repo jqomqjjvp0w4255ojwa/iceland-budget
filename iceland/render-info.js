@@ -139,9 +139,9 @@ function renderInfoFlights(flights) {
               ${s.aircraft?`<div style="font-size:.6rem;color:var(--muted);font-family:sans-serif;">${s.aircraft}</div>`:''}
             </div>
             <!-- 目的地 -->
-            <div style="text-align:right;width:72px;flex-shrink:0;">
-              <div style="position:relative;text-align:right;">
-                ${s.isTransit?`<div style="font-size:.58rem;color:#ffa726;font-family:sans-serif;margin-bottom:1px;">轉機</div>`:'<div style="min-height:.75rem;"></div>'}
+            <div style="text-align:center;width:72px;flex-shrink:0;">
+              <div style="display:inline-block;text-align:right;">
+                ${s.isTransit?`<div style="font-size:.58rem;color:#ffa726;font-family:sans-serif;margin-bottom:1px;">轉機</div>`:'<div style="min-height:.8rem;"></div>'}
                 <div style="font-family:'Silkscreen',monospace;font-size:1.45rem;letter-spacing:.04em;line-height:1;color:${s.isTransit?'#ffa726':'#fff'};">${s.to}</div>
               </div>
               ${s.toTerm?`<div style="font-size:.62rem;color:var(--muted);margin-top:3px;font-family:sans-serif;">${s.toTerm}</div>`:'<div style="min-height:.8rem;"></div>'}
