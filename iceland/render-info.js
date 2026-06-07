@@ -51,16 +51,19 @@ function renderInfoFlights(flights) {
     return minToHM(total);
   }
 
-  // 段落詳情渲染（每段獨立卡片，轉機條夾中間）
   function segDetails(segs, direction, person) {
     const isGo   = direction === '去程';
     const accent  = isGo ? '#4fc3f7' : '#4caf6e';
-    const hdrbg   = isGo ? '#4fc3f7' : '#4caf6e';
-    const cardbg  = isGo ? '#071e30' : '#0a1e10';
-    const cardbor = isGo ? 'rgba(79,195,247,.3)' : 'rgba(76,175,110,.3)';
-    const arrow   = isGo ? '▶' : '◀';
+    const cardbor = isGo ? 'rgba(79,195,247,.6)' : 'rgba(76,175,110,.6)';
+    const hdrbg   = isGo ? 'rgba(79,195,247,.07)' : 'rgba(76,175,110,.07)';
+    const hdrline = isGo ? 'rgba(79,195,247,.12)' : 'rgba(76,175,110,.12)';
+    const hdrcol  = isGo ? 'rgba(79,195,247,.7)'  : 'rgba(76,175,110,.7)';
+    const dashbg  = isGo
+      ? 'repeating-linear-gradient(90deg,#4fc3f7 0,#4fc3f7 5px,transparent 5px,transparent 9px)'
+      : 'repeating-linear-gradient(90deg,#4caf6e 0,#4caf6e 5px,transparent 5px,transparent 9px)';
+    const layline = isGo ? 'rgba(255,167,38,.22)' : 'rgba(76,175,110,.2)';
+    const laycol  = isGo ? '#ffa726' : '#4caf6e';
 
-    // 角色 SVG（縮小版，放右下角）
     function charSvg(name) {
       if (typeof avatarSvg === 'function') {
         return avatarSvg(name)
@@ -70,90 +73,78 @@ function renderInfoFlights(flights) {
       return '';
     }
 
-    const charHtml = `<div style="display:flex;gap:1px;align-items:flex-end;">${charSvg(person)}</div>`;
+    const parseTime = t => {
+      if (!t) return {date:'—', time:'—'};
+      const str = String(t).replace('T',' ');
+      const parts = str.slice(0,16).split(' ');
+      return { date: parts[0]||'—', time: parts[1]||str.slice(0,5)||'—' };
+    };
 
     return segs.map((s, i) => {
-      const parseTime = t => {
-        if (!t) return {date:'—', time:'—'};
-        const str = String(t).replace('T',' ');
-        const parts = str.slice(0,16).split(' ');
-        return { date: parts[0]||'—', time: parts[1]||str.slice(0,5)||'—' };
-      };
       const dep = parseTime(s.depTime);
       const arr = parseTime(s.arrTime);
+      const segLabel = segs.length > 1 ? `第 ${i+1} 段` : direction;
 
-      // 轉機條（夾在兩卡之間，i>0 時在卡片前面輸出）
       const layoverBar = (i > 0 && s.waitTime) ? `
-        <div style="padding:8px 0;">
-          <div style="border:1px solid rgba(255,167,38,.35);border-left:3px solid #ffa726;
-                      background:rgba(255,167,38,.05);padding:5px 12px;
-                      display:flex;align-items:center;gap:8px;font-family:'Silkscreen',monospace;
-                      font-size:.42rem;color:#ffa726;">
-            <div style="width:5px;height:5px;background:#ffa726;flex-shrink:0;
-                        animation:px-blink 1.2s steps(1,end) infinite;"></div>
-            轉機等待 ${s.from} · ${s.waitTime}
-            <span style="margin-left:auto;opacity:.4;">zzz...</span>
+        <div style="display:flex;align-items:center;gap:8px;padding:13px 0;font-family:'Silkscreen',monospace;">
+          <div style="flex:1;height:1px;background:${layline};"></div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            <div style="width:5px;height:5px;background:${laycol};border-radius:1px;flex-shrink:0;"></div>
+            <span style="font-size:.52rem;color:${laycol};white-space:nowrap;">${s.from} · ${s.waitTime}</span>
           </div>
+          <div style="flex:1;height:1px;background:${layline};"></div>
         </div>` : '';
-
-      // 段號標籤（多段才顯示）
-      const segLabel = segs.length > 1 ? ` · 第 ${i+1} 段` : '';
 
       return `
         ${layoverBar}
-        <div style="margin-bottom:${i < segs.length-1 ? '0' : '4px'};">
-          <!-- 卡片 -->
-          <div style="background:${cardbg};border:2px solid ${accent};position:relative;overflow:visible;">
-            <!-- 標題列 -->
-            <div style="background:${hdrbg};padding:4px 10px;height:24px;
-                        display:flex;align-items:center;justify-content:space-between;">
-              <span style="font-family:'Silkscreen',monospace;font-size:.48rem;color:#07111f;letter-spacing:.08em;">
-                ${arrow} ${direction}${segLabel}
-              </span>
-              <span style="font-family:'Silkscreen',monospace;font-size:.42rem;color:rgba(7,17,31,.65);">
-                ${s.flightNo||''}${s.operatedBy?' · '+s.operatedBy:''}
-              </span>
+        <div style="background:var(--bg2);border:1.5px solid ${cardbor};border-radius:10px;overflow:hidden;margin-bottom:0;">
+          <!-- 標題列 -->
+          <div style="padding:5px 12px;display:flex;align-items:center;justify-content:space-between;
+                      background:${hdrbg};border-bottom:1px solid ${hdrline};">
+            <span style="font-family:'Silkscreen',monospace;font-size:.52rem;color:${hdrcol};">${segLabel}</span>
+            <span style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);">${s.flightNo||''}${s.operatedBy?' · '+s.operatedBy:''}</span>
+          </div>
+          <!-- 路線 -->
+          <div style="padding:14px 14px 8px;display:flex;align-items:center;gap:6px;">
+            <!-- 出發 -->
+            <div style="text-align:center;width:72px;flex-shrink:0;">
+              <div style="font-family:'Silkscreen',monospace;font-size:1.45rem;letter-spacing:.04em;line-height:1;color:#fff;">${s.from}</div>
+              ${s.fromTerm?`<div style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);margin-top:3px;">${s.fromTerm}</div>`:'<div style="min-height:.65rem;"></div>'}
+              <div style="font-family:'Silkscreen',monospace;font-size:.95rem;color:var(--gold);margin-top:7px;">${dep.time}</div>
+              <div style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);margin-top:3px;">${dep.date}</div>
             </div>
-            <!-- 路線區 -->
-            <div style="display:flex;align-items:center;padding:12px 14px 8px;gap:6px;">
-              <!-- 出發 -->
-              <div style="text-align:center;min-width:60px;">
-                <div style="font-family:'Silkscreen',monospace;font-size:1.2rem;color:#fff;letter-spacing:.04em;line-height:1;">${s.from}</div>
-                ${s.fromTerm?`<div style="font-family:'Silkscreen',monospace;font-size:.38rem;color:var(--muted);margin-top:2px;">${s.fromTerm}</div>`:''}
-                <div style="font-family:'Silkscreen',monospace;font-size:.82rem;color:#f0c040;margin-top:5px;">${dep.time}</div>
-                <div style="font-family:'Silkscreen',monospace;font-size:.42rem;color:var(--muted);margin-top:1px;">${dep.date}</div>
+            <!-- 軌道 -->
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 4px;">
+              <div style="font-family:'Silkscreen',monospace;font-size:.52rem;color:var(--muted);">${s.flightTime||''}</div>
+              <div style="width:100%;display:flex;align-items:center;height:16px;">
+                <div style="flex:1;height:2px;background:${dashbg};"></div>
+                <span style="font-size:.8rem;padding:0 4px;color:${accent};">✈</span>
+                <div style="flex:1;height:2px;background:${dashbg};"></div>
               </div>
-              <!-- 軌道 -->
-              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0 4px;">
-                <div style="font-family:'Silkscreen',monospace;font-size:.42rem;color:var(--muted);">${s.flightTime||''}</div>
-                <div style="width:100%;display:flex;align-items:center;height:14px;">
-                  <div style="flex:1;height:2px;background:repeating-linear-gradient(90deg,${accent} 0,${accent} 5px,transparent 5px,transparent 9px);"></div>
-                  <span style="font-size:.7rem;padding:0 3px;color:${accent};">✈</span>
-                  <div style="flex:1;height:2px;background:repeating-linear-gradient(90deg,${accent} 0,${accent} 5px,transparent 5px,transparent 9px);"></div>
-                </div>
-                ${s.aircraft?`<div style="font-family:'Silkscreen',monospace;font-size:.4rem;color:var(--muted);">${s.aircraft}</div>`:''}
-              </div>
-              <!-- 目的地 -->
-              <div style="text-align:center;min-width:60px;">
-                <div style="font-family:'Silkscreen',monospace;font-size:1.2rem;color:${s.isTransit?'#ffa726':'#fff'};letter-spacing:.04em;line-height:1;">${s.to}</div>
-                ${s.toTerm?`<div style="font-family:'Silkscreen',monospace;font-size:.38rem;color:var(--muted);margin-top:2px;">${s.toTerm}</div>`:''}
-                ${s.isTransit?`<div style="font-family:'Silkscreen',monospace;font-size:.38rem;color:#ffa726;margin-top:2px;">轉機</div>`:''}
-                <div style="font-family:'Silkscreen',monospace;font-size:.82rem;color:#f0c040;margin-top:5px;">${arr.time}</div>
-                <div style="font-family:'Silkscreen',monospace;font-size:.42rem;color:var(--muted);margin-top:1px;">${arr.date}</div>
-              </div>
+              ${s.aircraft?`<div style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);">${s.aircraft}</div>`:''}
             </div>
-            <!-- 底部：meta + 角色 -->
-            <div style="display:flex;align-items:flex-end;justify-content:space-between;padding:0 12px 8px;">
-              <div style="font-family:'Silkscreen',monospace;font-size:.42rem;color:var(--muted);">
-                ${s.operatedBy?`✈ ${s.operatedBy}`:''}
-                ${s.note?`<div style="font-size:.38rem;color:var(--muted);margin-top:2px;font-style:italic;">📌 ${s.note}</div>`:''}
+            <!-- 目的地 -->
+            <div style="text-align:center;width:72px;flex-shrink:0;">
+              <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
+                <div style="font-family:'Silkscreen',monospace;font-size:1.45rem;letter-spacing:.04em;line-height:1;color:${s.isTransit?'#ffa726':'#fff'};">${s.to}</div>
+                ${s.isTransit?`<div style="font-family:'Silkscreen',monospace;font-size:.38rem;color:#ffa726;line-height:1.2;writing-mode:vertical-rl;letter-spacing:.05em;margin-top:2px;">轉機</div>`:''}
               </div>
-              ${charHtml}
+              ${s.toTerm?`<div style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);margin-top:3px;">${s.toTerm}</div>`:'<div style="min-height:.65rem;"></div>'}
+              <div style="font-family:'Silkscreen',monospace;font-size:.95rem;color:var(--gold);margin-top:7px;">${arr.time}</div>
+              <div style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);margin-top:3px;">${arr.date}</div>
             </div>
+          </div>
+          <!-- footer -->
+          <div style="display:flex;align-items:center;justify-content:flex-end;
+                      padding:5px 12px 9px;border-top:1px solid var(--border);gap:4px;">
+            ${s.note?`<span style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);font-style:italic;margin-right:auto;">📌 ${s.note}</span>`:''}
+            ${charSvg(person)}
           </div>
         </div>`;
     }).join('');
   }
+
+  // ── 每人航班內容
 
   // 每個人的完整資訊（可能有多張票）
   const byPerson = {};
@@ -199,43 +190,47 @@ function renderInfoFlights(flights) {
         const retTransfers = retSegs.filter(s => s.isTransit).length;
         const operators = [...new Set(f.segments.map(s=>s.operatedBy).filter(Boolean))].join(' · ');
         return `
-          <!-- 機票摘要卡 -->
-          <div style="background:linear-gradient(135deg,#112a45,#0d2035);border:1px solid rgba(79,195,247,.25);
-                      border-radius:10px;padding:12px 14px;margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-              <div>
-                <div style="font-size:.9rem;color:var(--text);font-weight:600">${f.airline}</div>
-                <div style="font-size:.7rem;color:var(--muted);margin-top:2px">${f.from} → ${f.to} · ${f.type}</div>
-                ${operators?`<div style="font-size:.63rem;color:var(--muted);margin-top:2px">執飛：${operators}</div>`:''}
-              </div>
-              <div style="text-align:right">
-                <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold)">${f.totalTWD?fmt(f.totalTWD):'—'}</div>
-                <div style="font-size:.62rem;color:var(--muted)">各付各的</div>
-              </div>
+          <!-- 機票摘要（新版）-->
+          <div style="padding:0 2px;margin-bottom:24px;font-family:'Silkscreen',monospace;">
+            <!-- tag + 線 + RAV4 -->
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+              ${goTransfers>0?`<span class="tag tag-cancel" style="font-family:'Silkscreen',monospace;font-size:.5rem;padding:2px 8px;border-radius:4px;">去轉${goTransfers}次</span>`:'<span class="tag tag-paid" style="font-family:\'Silkscreen\',monospace;font-size:.5rem;padding:2px 8px;border-radius:4px;">去程直飛</span>'}
+              ${retSegs.length?(retTransfers>0?`<span class="tag tag-cancel" style="font-family:'Silkscreen',monospace;font-size:.5rem;padding:2px 8px;border-radius:4px;">回轉${retTransfers}次</span>`:'<span class="tag tag-paid" style="font-family:\'Silkscreen\',monospace;font-size:.5rem;padding:2px 8px;border-radius:4px;">回程直飛</span>'):''}
+              ${f.luggage?`<span class="tag tag-fee" style="font-family:'Silkscreen',monospace;font-size:.5rem;padding:2px 8px;border-radius:4px;">🧳 ${f.luggage}</span>`:''}
+              <div style="flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);"></div>
+              <svg width="48" height="30" viewBox="0 0 32 20" style="image-rendering:pixelated;opacity:.65;flex-shrink:0;"><rect x="5" y="5" width="1" height="1" fill="#413b3d"/><rect x="6" y="5" width="14" height="1" fill="#fefdf9"/><rect x="20" y="5" width="1" height="1" fill="#413b3d"/><rect x="4" y="6" width="2" height="1" fill="#413b3d"/><rect x="6" y="6" width="1" height="1" fill="#837d76"/><rect x="7" y="6" width="2" height="1" fill="#728494"/><rect x="9" y="6" width="1" height="1" fill="#413b3d"/><rect x="10" y="6" width="5" height="1" fill="#728494"/><rect x="15" y="6" width="1" height="1" fill="#413b3d"/><rect x="16" y="6" width="2" height="1" fill="#728494"/><rect x="18" y="6" width="2" height="1" fill="#738595"/><rect x="20" y="6" width="3" height="1" fill="#413b3d"/><rect x="3" y="7" width="2" height="1" fill="#413b3d"/><rect x="5" y="7" width="1" height="1" fill="#fdfcf6"/><rect x="6" y="7" width="1" height="1" fill="#837d76"/><rect x="9" y="7" width="1" height="1" fill="#413b3d"/><rect x="15" y="7" width="1" height="1" fill="#413b3d"/><rect x="21" y="7" width="2" height="1" fill="#413b3d"/><rect x="3" y="8" width="1" height="1" fill="#413b3d"/><rect x="4" y="8" width="1" height="1" fill="#fefdf9"/><rect x="5" y="8" width="1" height="1" fill="#fefef7"/><rect x="6" y="8" width="1" height="1" fill="#837d76"/><rect x="9" y="8" width="1" height="1" fill="#413b3d"/><rect x="15" y="8" width="1" height="1" fill="#413b3d"/><rect x="20" y="8" width="1" height="1" fill="#413b3d"/><rect x="23" y="8" width="2" height="1" fill="#413b3d"/><rect x="1" y="9" width="3" height="1" fill="#413b3d"/><rect x="4" y="9" width="2" height="1" fill="#fefdf9"/><rect x="6" y="9" width="17" height="1" fill="#404b5c"/><rect x="23" y="9" width="1" height="1" fill="#ece7e4"/><rect x="24" y="9" width="4" height="1" fill="#413b3d"/><rect x="1" y="10" width="2" height="1" fill="#020101"/><rect x="3" y="10" width="1" height="1" fill="#fefdf9"/><rect x="4" y="10" width="1" height="1" fill="#d73e48"/><rect x="5" y="10" width="2" height="1" fill="#fefdf9"/><rect x="8" y="10" width="1" height="1" fill="#847e77"/><rect x="15" y="10" width="1" height="1" fill="#847e77"/><rect x="21" y="10" width="3" height="1" fill="#847e77"/><rect x="27" y="10" width="4" height="1" fill="#413b3d"/><rect x="1" y="11" width="2" height="1" fill="#020101"/><rect x="3" y="11" width="1" height="1" fill="#fefdf9"/><rect x="4" y="11" width="1" height="1" fill="#6e1019"/><rect x="5" y="11" width="2" height="1" fill="#fefdf9"/><rect x="8" y="11" width="1" height="1" fill="#847e77"/><rect x="15" y="11" width="2" height="1" fill="#847e77"/><rect x="23" y="11" width="1" height="1" fill="#847e77"/><rect x="31" y="11" width="1" height="1" fill="#413b3d"/><rect x="1" y="12" width="2" height="1" fill="#020101"/><rect x="29" y="12" width="1" height="1" fill="#e38a1f"/><rect x="30" y="12" width="1" height="1" fill="#da6000"/><rect x="1" y="13" width="2" height="1" fill="#020101"/><rect x="2" y="14" width="1" height="1" fill="#413b3d"/><rect x="7" y="17" width="3" height="1" fill="#060405"/><rect x="25" y="17" width="3" height="1" fill="#0a0a0b"/></svg>
             </div>
-            <div style="display:flex;gap:5px;flex-wrap:wrap;">
-              ${goTransfers>0?`<span class="tag tag-cancel">去轉${goTransfers}次</span>`:'<span class="tag tag-paid">去程直飛</span>'}
-              ${retSegs.length?(retTransfers>0?`<span class="tag tag-cancel">回轉${retTransfers}次</span>`:'<span class="tag tag-paid">回程直飛</span>'):''}
-              ${f.luggage?`<span class="tag tag-fee">🧳 ${f.luggage}</span>`:''}
+            <!-- 航空公司 + 價格 -->
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+              <span style="font-size:.95rem;color:var(--text);">${f.airline}</span>
+              <span style="font-size:1.15rem;color:var(--gold);">${f.totalTWD?fmt(f.totalTWD):'—'}</span>
             </div>
+            <!-- 路線 + 各付各的 -->
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+              <span style="font-size:.72rem;color:var(--accent);">${f.from} → ${f.to} · ${f.type}</span>
+              <span style="font-size:.58rem;color:var(--muted);">各付各的</span>
+            </div>
+            <!-- 執飛 -->
+            ${operators?`<div style="font-size:.55rem;color:var(--muted);line-height:1.6;">執飛：${operators}</div>`:''}
           </div>
           <!-- 去程段落 -->
           ${goSegs.length?`
-            <div style="font-size:.82rem;font-weight:700;color:var(--accent);letter-spacing:.1em;margin:0 0 8px;
+            <div style="font-family:'Silkscreen',monospace;font-size:.65rem;color:var(--accent);
+                        letter-spacing:.06em;margin:0 0 14px;
                         display:flex;align-items:center;gap:8px;">
               ✈️ 去程
-              <span style="font-size:.68rem;color:var(--muted);font-weight:400">${totalFlightTime(goSegs)||''}</span>
+              <span style="font-size:.55rem;color:var(--muted);font-weight:400">${totalFlightTime(goSegs)||''}</span>
               <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(79,195,247,.4),transparent)"></div>
             </div>
             ${segDetails(goSegs,'去程',f.person)}`:''}
           <!-- 回程段落 -->
           ${retSegs.length?`
-            <div style="font-size:.82rem;font-weight:700;color:#a78bfa;letter-spacing:.1em;margin:18px 0 8px;
-                        padding-top:14px;border-top:1px dashed rgba(167,139,250,.3);
+            <div style="font-family:'Silkscreen',monospace;font-size:.65rem;color:var(--green);
+                        letter-spacing:.06em;margin:20px 0 14px;
                         display:flex;align-items:center;gap:8px;">
               ✈️ 回程
-              <span style="font-size:.68rem;color:var(--muted);font-weight:400">${totalFlightTime(retSegs)||''}</span>
-              <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(167,139,250,.4),transparent)"></div>
+              <span style="font-size:.55rem;color:var(--muted);font-weight:400">${totalFlightTime(retSegs)||''}</span>
+              <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(76,175,110,.4),transparent)"></div>
             </div>
             ${segDetails(retSegs,'回程',f.person)}`:''}`;
       }).join('')}
