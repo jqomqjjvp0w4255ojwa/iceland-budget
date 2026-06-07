@@ -47,7 +47,16 @@
     };
     el.style.background=skies[type]||skies.sunny;
   }
-  function startParticles(type, windSpeed){
+  function startParticles(type, windSpeed, windDir){
+    // hFactor：連續水平分量，-1(純西風往右) ~ 0(南北風不飄) ~ +1(純東風往左)
+    // -cos(windDeg)：270°西風 → -cos(270°)=0... 用 sin 更直覺：
+    // 風向 270° 西風：粒子往右，水平 = +sin(270°-90°) = +1 → 直接用 -sin(windDeg°-90°)
+    // 更簡單：水平分量 = sin(windDeg * π/180)，270°→-1(往右)，90°→+1(往左)，0°/180°→0
+    const windDeg  = windDir || 270;
+    const hFactor  = Math.sin(windDeg * Math.PI / 180); // +1=往左, -1=往右, 0=不飄
+    const spd      = Math.max((windSpeed||0)*0.18, 0.15);
+    let _rafMain   = null;
+    let _rafCloud  = null;
     const canvas=document.getElementById('pxCanvas');
     if(!canvas)return;
     const ctx=canvas.getContext('2d');
@@ -57,14 +66,14 @@
 
     if(type==='rain'||type==='drizzle'||type==='thunder'){
       for(let i=0;i<50;i++) pts.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,speed:type==='drizzle'?2:4,len:type==='drizzle'?6:12});
-      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=type==='thunder'?'rgba(150,180,220,0.7)':'rgba(120,160,200,0.6)';ctx.lineWidth=1;pts.forEach(p=>{ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-2,p.y+p.len);ctx.stroke();p.y+=p.speed;p.x-=1;if(p.y>canvas.height){p.y=0;p.x=Math.random()*canvas.width;}});if(type==='thunder'&&Math.random()<0.003){ctx.fillStyle='rgba(255,255,200,0.15)';ctx.fillRect(0,0,canvas.width,canvas.height);}requestAnimationFrame(draw);})();
+      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=type==='thunder'?'rgba(150,180,220,0.7)':'rgba(120,160,200,0.6)';ctx.lineWidth=1;pts.forEach(p=>{ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+hFactor*2,p.y+p.len);ctx.stroke();p.y+=p.speed;p.x+=hFactor;if(p.y>canvas.height){p.y=0;p.x=Math.random()*canvas.width;}});if(type==='thunder'&&Math.random()<0.003){ctx.fillStyle='rgba(255,255,200,0.15)';ctx.fillRect(0,0,canvas.width,canvas.height);}if(!document.hidden)_rafMain=requestAnimationFrame(draw);})();
     }else if(type==='snow'){
       for(let i=0;i<40;i++) pts.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,size:Math.random()*3+1,speed:0.5+Math.random()});
-      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='rgba(220,235,255,0.85)';pts.forEach(p=>{ctx.fillRect(Math.round(p.x),Math.round(p.y),Math.round(p.size),Math.round(p.size));p.y+=p.speed;p.x+=Math.sin(p.y/20)*0.5;if(p.y>canvas.height){p.y=0;p.x=Math.random()*canvas.width;}});requestAnimationFrame(draw);})();
+      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='rgba(220,235,255,0.85)';pts.forEach(p=>{ctx.fillRect(Math.round(p.x),Math.round(p.y),Math.round(p.size),Math.round(p.size));p.y+=p.speed;p.x+=hFactor*Math.abs(Math.sin(p.y/20)*0.5);if(p.y>canvas.height){p.y=0;p.x=Math.random()*canvas.width;}});if(!document.hidden)_rafMain=requestAnimationFrame(draw);})();
     }else if(type==='night'){
-      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);aOff+=0.5;[[0,255,180,0.15],[120,80,255,0.12],[0,200,255,0.10]].forEach(([r,g,b,a],i)=>{ctx.fillStyle=`rgba(${r},${g},${b},${a})`;ctx.fillRect(0,15+i*8+Math.sin((aOff+i*20)/30)*6,canvas.width,10);});ctx.fillStyle='rgba(255,255,255,0.8)';[[50,20],[120,35],[200,15],[300,28],[420,18],[520,32],[620,22]].forEach(([x,y])=>ctx.fillRect(x,y,2,2));requestAnimationFrame(draw);})();
+      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);aOff+=0.5;[[0,255,180,0.15],[120,80,255,0.12],[0,200,255,0.10]].forEach(([r,g,b,a],i)=>{ctx.fillStyle=`rgba(${r},${g},${b},${a})`;ctx.fillRect(0,15+i*8+Math.sin((aOff+i*20)/30)*6,canvas.width,10);});ctx.fillStyle='rgba(255,255,255,0.8)';[[50,20],[120,35],[200,15],[300,28],[420,18],[520,32],[620,22]].forEach(([x,y])=>ctx.fillRect(x,y,2,2));if(!document.hidden)_rafMain=requestAnimationFrame(draw);})();
     }else if(type==='sunny'){
-      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);sunP+=0.05;ctx.fillStyle=`rgba(255,220,100,${0.06+Math.sin(sunP)*0.02})`;ctx.beginPath();ctx.arc(canvas.width-50,25,35,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,220,100,0.85)';ctx.fillRect(canvas.width-58,22,14,7);requestAnimationFrame(draw);})();
+      (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);sunP+=0.05;ctx.fillStyle=`rgba(255,220,100,${0.06+Math.sin(sunP)*0.02})`;ctx.beginPath();ctx.arc(canvas.width-50,25,35,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,220,100,0.85)';ctx.fillRect(canvas.width-58,22,14,7);if(!document.hidden)_rafMain=requestAnimationFrame(draw);})();
     }else if(type==='fog'){
       const fogBalls=[
         {x:  0,y:30,w:220,h:50,spd:0.20,op:0.13},
@@ -77,8 +86,9 @@
       (function draw(){
         ctx.clearRect(0,0,canvas.width,canvas.height);
         fogBalls.forEach(f=>{
-          f.x+=f.spd;
+          f.x+=f.spd*(-hFactor||0.2);
           if(f.x>canvas.width+f.w) f.x=-f.w;
+          if(f.x<-f.w) f.x=canvas.width+f.w;
           const grd=ctx.createLinearGradient(f.x,0,f.x+f.w,0);
           grd.addColorStop(0,`rgba(200,215,225,0)`);
           grd.addColorStop(0.2,`rgba(200,215,225,${f.op})`);
@@ -87,7 +97,7 @@
           ctx.fillStyle=grd;
           ctx.fillRect(f.x,f.y,f.w,f.h);
         });
-        requestAnimationFrame(draw);
+        if(!document.hidden)_rafMain=requestAnimationFrame(draw);
       })();
     }
 
@@ -109,13 +119,14 @@
         (function drawClouds(){
           cctx.clearRect(0,0,cloudCanvas.width,cloudCanvas.height);
           clouds.forEach(c=>{
-            c.x+=spd;
+            c.x+=hFactor*spd;
             if(c.x>cloudCanvas.width+c.w) c.x=-c.w-10;
+            if(c.x<-c.w-10) c.x=cloudCanvas.width+10;
             cctx.fillStyle='rgba(255,255,255,0.28)';
             cctx.fillRect(Math.round(c.x),c.y,c.w,c.h);
             cctx.fillRect(Math.round(c.x)+4,c.y-c.thick,c.w-8,c.thick+2);
           });
-          requestAnimationFrame(drawClouds);
+          if(!document.hidden)_rafCloud=requestAnimationFrame(drawClouds);
         })();
       } else {
         cctx.clearRect(0,0,cloudCanvas.width,cloudCanvas.height);
@@ -285,9 +296,10 @@
           const w = decodeW(data.weathercode, data.is_day === 1);
           const temp = Math.round(data.temperature_2m);
           const wind = Math.round(data.windspeed_10m);
-          _weatherCache = { loc, w, temp, wind };
+          const windDir = Math.round(data.winddirection_10m||270);
+          _weatherCache = { loc, w, temp, wind, windDir };
           applyWeatherToDOM();
-          setSky(w.type); startParticles(w.type, wind);
+          setSky(w.type); startParticles(w.type, wind, windDir);
           updateClocks();
           setInterval(updateClocks, 30000);
           return;
@@ -296,18 +308,19 @@
     }
 
     try{
-      const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weathercode,is_day,windspeed_10m&timezone=Atlantic%2FReykjavik`);
+      const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weathercode,is_day,windspeed_10m,winddirection_10m&timezone=Atlantic%2FReykjavik`);
       const data=await res.json();
       localStorage.setItem('wx_cache', JSON.stringify({ ts: Date.now(), data: data.current }));
       const w=decodeW(data.current.weathercode,data.current.is_day===1);
       const temp=Math.round(data.current.temperature_2m);
       const wind=Math.round(data.current.windspeed_10m);
-      _weatherCache = { loc, w, temp, wind };
+      const windDir=Math.round(data.current.winddirection_10m||270);
+      _weatherCache = { loc, w, temp, wind, windDir };
       applyWeatherToDOM();
-      setSky(w.type);startParticles(w.type, wind);
+      setSky(w.type);startParticles(w.type, wind, windDir);
     }catch(e){
       if(wEl)wEl.textContent='⚠ 天氣讀取失敗';
-      setSky('cloudy');startParticles('cloudy', 5);
+      setSky('cloudy');startParticles('cloudy', 8, 270); // 預設西風
     }
     // 時鐘每分鐘更新
     updateClocks();
@@ -390,7 +403,6 @@
   // 切換分頁回來時重設輪播，避免三個泡泡同時出現
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      // 先隱藏全部再重新開始
       CHARS.forEach(m => {
         const el = document.getElementById(CHAR_MAP[m]);
         if (el) el.classList.remove('show');
@@ -398,9 +410,14 @@
       _bubbleIdx = 0;
       if (_bubbleTimer) { clearInterval(_bubbleTimer); _bubbleTimer = null; }
       setTimeout(startBubbleLoop, 400);
+      // 重啟 canvas 動畫（切回來時 rAF 已停）
+      if (_weatherCache) {
+        const { w, wind, windDir } = _weatherCache;
+        startParticles(w.type, wind, windDir);
+      }
     } else {
-      // 離開時暫停
       if (_bubbleTimer) { clearInterval(_bubbleTimer); _bubbleTimer = null; }
+      // rAF 會在下一幀因 document.hidden 自動停止
     }
   });
 
