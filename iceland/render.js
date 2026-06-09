@@ -76,7 +76,7 @@ function avatarSvg(name) {
 function fmtPer(n){if(!n||isNaN(n))return'—';return'NT$ '+Math.round(n/3).toLocaleString('zh-TW')+'<span style="font-size:.6em;color:var(--muted)">/人</span>';}
 function fmtOrig(n,cur){
   if(!n||isNaN(n))return'';
-  const sym={'ISK':'ISK ','EUR':'€','EU':'€','NT':'NT$'}[(cur||'').replace(/\./g,'').toUpperCase()]||(cur+' ');
+  const sym={'ISK':'ISK ','EUR':'€','EU':'€','NT':'NT$','USD':'$'}[(cur||'').replace(/\./g,'').toUpperCase()]||(cur+' ');
   return sym+parseFloat(n).toLocaleString();
 }
 
@@ -285,6 +285,7 @@ function renderAll(){
         <div class="rate-bar" style="margin-bottom:14px">
           <span>💱 <strong>ISK</strong> = ${d.exchangeISK.toFixed(4)} NT$</span>
           <span>💱 <strong>EUR</strong> = ${d.exchangeEUR.toFixed(2)} NT$</span>
+          ${d.exchangeUSD ? `<span>💱 <strong>USD</strong> = ${d.exchangeUSD.toFixed(2)} NT$</span>` : ''}
         </div>
         <div class="tabs">
           <button class="tab active" onclick="showTab('accommodation',this)">🏕 住宿</button>

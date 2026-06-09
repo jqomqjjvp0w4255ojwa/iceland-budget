@@ -44,10 +44,13 @@
     const oCells = overview?.cells ?? [];
     const iskRow = oCells.find(r => r.includes('ISK')) || [];
     const eurRow = oCells.find(r => r.includes('EUR')) || [];
+    const usdRow = oCells.find(r => r.includes('USD')) || [];
     const iskIdx = iskRow.indexOf('ISK');
     const eurIdx = eurRow.indexOf('EUR');
+    const usdIdx = usdRow.indexOf('USD');
     const exchangeISK = iskIdx >= 0 ? num(iskRow[iskIdx + 1]) : (window.STATIC?.exchangeISK ?? 0);
     const exchangeEUR = eurIdx >= 0 ? num(eurRow[eurIdx + 1]) : (window.STATIC?.exchangeEUR ?? 0);
+    const exchangeUSD = usdIdx >= 0 ? num(usdRow[usdIdx + 1]) : (window.STATIC?.exchangeUSD ?? 0);
 
     const expenseCategories = (overview?.expenseCategories || []).filter(Boolean);
     const budgetPerPerson = num(oCells?.[1]?.[9]) || 100000;
@@ -221,7 +224,7 @@
     const tagLibrary = (expense?.tagLibrary || []).filter(Boolean);
 
     return {
-      exchangeISK, exchangeEUR, expenseCategories, budgetPerPerson, tagLibrary,
+      exchangeISK, exchangeEUR, exchangeUSD, expenseCategories, budgetPerPerson, tagLibrary,
       car: carData,
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
       activity: cellsToRows(activity),

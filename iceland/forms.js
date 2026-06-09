@@ -525,15 +525,17 @@ window.pxAutoFillTwd = function() {
   if (cur === 'NT' || amt <= 0) return;
   const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
   const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
+  const exUSD = window.APP_DATA?.exchangeUSD || window.STATIC?.exchangeUSD || 0;
   const est = cur === 'ISK' ? Math.round(amt * exISK)
             : cur === 'EUR' ? Math.round(amt * exEUR)
+            : cur === 'USD' ? Math.round(amt * exUSD)
             : 0;
   // 使用者手動改過就不覆蓋
   if (est > 0 && !_twdManualEdited) twdEl.value = String(est);
   // 匯率提示
   const hintEl = document.getElementById('pxTwdRateHint');
   if (hintEl) {
-    const rate = cur === 'ISK' ? exISK : cur === 'EUR' ? exEUR : 0;
+    const rate = cur === 'ISK' ? exISK : cur === 'EUR' ? exEUR : cur === 'USD' ? exUSD : 0;
     hintEl.textContent = rate > 0
       ? `參考匯率：1 ${cur} = ${rate} NT$${_twdManualEdited ? '（已手動修改）' : ''}`
       : '';
@@ -550,7 +552,8 @@ window.pxOnTwdManualEdit = function() {
     const cur = document.getElementById('pxExpCur')?.value || '';
     const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
     const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
-    const rate = cur === 'ISK' ? exISK : cur === 'EUR' ? exEUR : 0;
+    const exUSD = window.APP_DATA?.exchangeUSD || window.STATIC?.exchangeUSD || 0;
+    const rate = cur === 'ISK' ? exISK : cur === 'EUR' ? exEUR : cur === 'USD' ? exUSD : 0;
     if (rate > 0) hintEl.textContent = `參考匯率：1 ${cur} = ${rate} NT$（已手動修改）`;
   }
   pxUpdateSplit();
@@ -595,11 +598,13 @@ window.pxSubmitExpense = async function(nextMode = false) {
   // 換算台幣：優先用使用者手動填的值，否則用即時匯率估算
   const exISK = window.APP_DATA?.exchangeISK || window.STATIC?.exchangeISK || 0;
   const exEUR = window.APP_DATA?.exchangeEUR || window.STATIC?.exchangeEUR || 0;
+  const exUSD = window.APP_DATA?.exchangeUSD || window.STATIC?.exchangeUSD || 0;
   const twdManual = parseFloat(document.getElementById('pxExpTwd')?.value);
   const twd = cur === 'NT' ? amt
             : (Number.isFinite(twdManual) && twdManual > 0) ? twdManual
             : cur === 'ISK' ? Math.round(amt * exISK)
             : cur === 'EUR' ? Math.round(amt * exEUR)
+            : cur === 'USD' ? Math.round(amt * exUSD)
             : amt;
   const total = twd;
   const title = (document.getElementById('pxExpTitle')?.value||'').trim();
