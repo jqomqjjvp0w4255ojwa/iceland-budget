@@ -101,6 +101,12 @@ function renderDaily(expenses) {
   if (activePayer !== 'all') items = items.filter(e => (e.payer||'').includes(activePayer));
   if (activeTags.length > 0) items = items.filter(e => activeTags.every(t => (e.tags||'').split(',').map(s=>s.trim()).includes(t)));
 
+  // ── 局部重繪 dailyContent
+  function _reDrawDaily() {
+    const el = document.getElementById('dailyContent');
+    if (el) { el.innerHTML = renderDaily(window.APP_DATA?.expenses || []); }
+  }
+
   // ── 付款人橫向滑動列
   const payerBar = `
     <div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch;align-items:center;">
@@ -108,21 +114,20 @@ function renderDaily(expenses) {
         const active = activePayer === p;
         const label  = p === 'all' ? '全部' : p;
         const bg     = active ? 'background:var(--green);color:#07111f;border-color:var(--green);' : 'background:var(--bg3);color:var(--muted);border-color:var(--border);';
-        return `<button onclick="window._expPayerFilter='${p}';window.renderAll&&renderAll()" style="flex-shrink:0;font-family:'Silkscreen',monospace;font-size:.52rem;padding:3px 10px;border:1px solid;border-radius:4px;cursor:pointer;${bg}">${p==='all'?'全部':avatarSvg(p)}</button>`;
+        return `<button onclick="window._expPayerFilter='${p}';(function(){var el=document.getElementById('dailyContent');if(el)el.innerHTML=renderDaily(window.APP_DATA&&window.APP_DATA.expenses||[]);})()" style="flex-shrink:0;font-family:'Silkscreen',monospace;font-size:.52rem;padding:3px 10px;border:1px solid;border-radius:4px;cursor:pointer;${bg}">${p==='all'?'全部':avatarSvg(p)}</button>`;
       }).join('')}
       ${allTags.length ? `
         <div style="flex:1;"></div>
-        <button onclick="window._showTagFilter=!window._showTagFilter;window.renderAll&&renderAll()" style="flex-shrink:0;font-family:'Silkscreen',monospace;font-size:.52rem;padding:3px 10px;border:1px solid;border-radius:4px;cursor:pointer;${activeTags.length>0?'background:var(--accent);color:#07111f;border-color:var(--accent);':'background:var(--bg3);color:var(--muted);border-color:var(--border);'}">
+        <button onclick="window._showTagFilter=!window._showTagFilter;(function(){var el=document.getElementById('dailyContent');if(el)el.innerHTML=renderDaily(window.APP_DATA&&window.APP_DATA.expenses||[]);})()" style="flex-shrink:0;font-family:'Silkscreen',monospace;font-size:.52rem;padding:3px 10px;border:1px solid;border-radius:4px;cursor:pointer;${activeTags.length>0?'background:var(--accent);color:#07111f;border-color:var(--accent);':'background:var(--bg3);color:var(--muted);border-color:var(--border);'}">
           🏷 標籤${activeTags.length>0?` · ${activeTags.length}`:''}
         </button>` : ''}
     </div>`;
 
-  // ── tag 篩選小窗
   const tagPanel = (window._showTagFilter && allTags.length) ? `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
       <div style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
         <span>▶ 標籤篩選</span>
-        ${activeTags.length>0?`<button onclick="window._expTagFilter=[];window.renderAll&&renderAll()" style="font-family:'Silkscreen',monospace;font-size:.45rem;padding:1px 8px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;">清除</button>`:''}
+        ${activeTags.length>0?`<button onclick="window._expTagFilter=[];(function(){var el=document.getElementById('dailyContent');if(el)el.innerHTML=renderDaily(window.APP_DATA&&window.APP_DATA.expenses||[]);})()" style="font-family:'Silkscreen',monospace;font-size:.45rem;padding:1px 8px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;">清除</button>`:''}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
         ${allTags.map(t => {
@@ -132,7 +137,7 @@ function renderDaily(expenses) {
             var i=tf.indexOf('${t}');
             if(i>=0)tf.splice(i,1);else tf.push('${t}');
             window._expTagFilter=[...tf];
-            window.renderAll&&renderAll();"
+            (function(){var el=document.getElementById('dailyContent');if(el)el.innerHTML=renderDaily(window.APP_DATA&&window.APP_DATA.expenses||[]);})();"
             style="font-family:'Silkscreen',monospace;font-size:.5rem;padding:2px 10px;border:1px solid;border-radius:999px;cursor:pointer;${on?'background:var(--accent);color:#07111f;border-color:var(--accent);':'background:var(--bg3);color:var(--muted);border-color:var(--border);'}">
             ${t}
           </button>`;
@@ -167,12 +172,13 @@ function renderDaily(expenses) {
         ${item.fuelEfficiency ? `<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>` : ''}
       </div>` : '';
 
+    const splitSelFromMode = (item.splitMode||'').split(',').map(s=>s.trim()).filter(s=>['猴','花','寧'].includes(s));
     const editData = JSON.stringify({
       category: item.category, amount: item.amount, currency: item.currency,
       twd: item.twd, location: item.location, note: item.note, date: item.date, payer: item.payer,
       isShared: item.isShared, title: item.title, qty: item.qty,
       splitMode: item.splitMode,
-      splitSel: Object.keys(item.burden||{}).filter(k=>(item.burden[k]||0)>0),
+      splitSel: splitSelFromMode.length ? splitSelFromMode : Object.keys(item.burden||{}).filter(k=>(item.burden[k]||0)>0),
       customAmt: item.burden||{},
       tags: item.tags||'',
     }).replace(/"/g,'&quot;');
