@@ -56,7 +56,7 @@ function renderAccom(items){
         <div class="card-body">
           ${payTag}
           <span class="tag ${a.cancel?'tag-cancel':'tag-nocancel'}">${a.cancel?'可取消':'不可退'}</span>
-          <span style="display:inline-flex;align-items:center;">${avatarSvg(a.payer)}</span>
+          ${a.payer?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(76,175,110,.12);border:1px solid rgba(76,175,110,.3);border-radius:4px;padding:1px 6px;font-size:.62rem;color:var(--green);">${avatarSvg(a.payer)} 付款</span>`:''}
           ${feeTag}
         </div>
         ${a.note?`<div class="card-note">📌 ${a.note}</div>`:''}
@@ -401,7 +401,6 @@ function renderTransport(d) {
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
                        border-radius:4px;padding:1px 6px;white-space:nowrap;">🚗 租車</span>
-          ${avatarSvg(car.payer)}
         </div>
         <div class="card-price">
           <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${fmt(car.perPerson)}/人</div>
@@ -415,6 +414,7 @@ function renderTransport(d) {
           ${car.location?`<div style="font-size:.65rem;color:var(--muted);margin-top:2px">📍 ${car.location}</div>`:''}
         </div>
         <div class="card-body" style="padding:0 0 8px;gap:5px;">
+          ${car.payer?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(76,175,110,.12);border:1px solid rgba(76,175,110,.3);border-radius:4px;padding:1px 6px;font-size:.62rem;color:var(--green);">${avatarSvg(car.payer)} 付款</span>`:''}
           <span class="tag tag-paid">${car.days} 天</span>
           ${isUsedModel?'<span class="tag" style="background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border)">Used Model</span>':''}
           ${car.startMileage?`<span class="tag" style="background:rgba(79,195,247,.1);color:var(--accent);border:1px solid rgba(79,195,247,.25);">取車 ${car.startMileage.toLocaleString()} km</span>`:''}
