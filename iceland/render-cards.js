@@ -145,9 +145,15 @@ function renderDaily(expenses) {
       </div>
     </div>` : '';
 
-  // ── 結果數提示
+  // ── 結果數＋篩選金額提示
   const resultNote = (activePayer !== 'all' || activeTags.length > 0)
-    ? `<div style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);margin-bottom:8px;">顯示 ${items.length} / ${allItems.length} 筆</div>`
+    ? (() => {
+        const total = items.reduce((s, e) => s + (e.total || e.twd || 0), 0);
+        return `<div style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between;">
+          <span>顯示 ${items.length} / ${allItems.length} 筆</span>
+          <span style="color:var(--gold);">合計 NT$ ${Math.round(total).toLocaleString('zh-TW')}</span>
+        </div>`;
+      })()
     : '';
 
   const html = items.map(item => {
