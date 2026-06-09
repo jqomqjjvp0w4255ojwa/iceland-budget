@@ -16,7 +16,7 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses, carTotal
   const expBurdenByPerson = {};
   (expenses||[]).forEach(e=>{
     if(e.burden){
-      ['花','猴','寧'].forEach(m=>{
+      (window.TRIP_MEMBERS || ['花','猴','寧']).forEach(m=>{
         expBurdenByPerson[m] = (expBurdenByPerson[m]||0) + (e.burden[m]||0);
       });
     }
@@ -119,16 +119,14 @@ function initDonutPicker(){
   const PICKER_OPTIONS=[
     {key:'none',  gray:true },
     {key:'equal', gray:false},
-    {key:'花'},
-    {key:'猴'},
-    {key:'寧'},
+    ...(window.TRIP_MEMBERS || ['花','猴','寧']).map(name => ({key: name})),
   ];
   const ITEM_H = 58;
   const list = document.getElementById('donutPickerList');
   if(!list) return;
 
   function itemIcon(opt){
-    if(opt.key==='花'||opt.key==='猴'||opt.key==='寧'){
+    if((window.TRIP_MEMBERS || ['花','猴','寧']).includes(opt.key)){
       return `<div style="transform:scale(1.05);transform-origin:center;line-height:0">${avatarSvg(opt.key)}</div>`;
     }
     if(opt.gray){

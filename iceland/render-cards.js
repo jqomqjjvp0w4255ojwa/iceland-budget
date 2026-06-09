@@ -56,7 +56,7 @@ function renderAccom(items){
         <div class="card-body">
           ${payTag}
           <span class="tag ${a.cancel?'tag-cancel':'tag-nocancel'}">${a.cancel?'可取消':'不可退'}</span>
-          ${a.payer?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(76,175,110,.12);border:1px solid rgba(76,175,110,.3);border-radius:4px;padding:1px 6px;font-size:.62rem;color:var(--green);">${avatarSvg(a.payer)} 付款</span>`:''}
+          <span style="display:inline-flex;align-items:center;">${avatarSvg(a.payer)}</span>
           ${feeTag}
         </div>
         ${a.note?`<div class="card-note">📌 ${a.note}</div>`:''}
@@ -89,7 +89,7 @@ function renderDaily(expenses) {
   const activeTags  = window._expTagFilter   || [];
 
   // ── 付款人清單（從資料動態取）
-  const payers = ['all', ...['猴','花','寧'].filter(m => allItems.some(e => (e.payer||'').includes(m)))];
+  const payers = ['all', ...(window.TRIP_MEMBERS || ['猴','花','寧']).filter(m => allItems.some(e => (e.payer||'').includes(m)))];
 
   // ── 所有 tag 庫
   const tagSet = {};
@@ -162,7 +162,7 @@ function renderDaily(expenses) {
     const label = `${item.category||'開銷'} ${item.location||''} NT$${Math.round(item.total||item.twd||0).toLocaleString()}`;
     const sheet = 'expense';
 
-    const burdenTags = ['猴','花','寧']
+    const burdenTags = (window.TRIP_MEMBERS || ['猴','花','寧'])
       .filter(m => (item.burden?.[m]||0) > 0)
       .map(m => `<span style="display:inline-flex;align-items:center;gap:2px;font-size:.62rem;
                    background:var(--bg3);border:1px solid var(--border);
@@ -178,7 +178,7 @@ function renderDaily(expenses) {
         ${item.fuelEfficiency ? `<span>🔁 ${Number(item.fuelEfficiency).toFixed(1)} km/L</span>` : ''}
       </div>` : '';
 
-    const splitSelFromMode = (item.splitMode||'').split(',').map(s=>s.trim()).filter(s=>['猴','花','寧'].includes(s));
+    const splitSelFromMode = (item.splitMode||'').split(',').map(s=>s.trim()).filter(s=>(window.TRIP_MEMBERS||['猴','花','寧']).includes(s));
     const editData = JSON.stringify({
       category: item.category, amount: item.amount, currency: item.currency,
       twd: item.twd, location: item.location, note: item.note, date: item.date, payer: item.payer,
@@ -312,7 +312,7 @@ function renderRepay(items, splitData) {
   // 債主（to）每還一筆：結算 -amount（應收減少）
   // 初始值用「還款前結算」= 總付出 - 總負擔，不用 balance（balance 已含還款，會重複計算）
   const runningBalance = {};
-  ['猴','花','寧'].forEach(m => {
+  (window.TRIP_MEMBERS || ['猴','花','寧']).forEach(m => {
     const paid   = splitData?.[m]?.paid   ?? 0;
     const burden = splitData?.[m]?.burden ?? 0;
     runningBalance[m] = paid - burden;
@@ -401,6 +401,7 @@ function renderTransport(d) {
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);
                        border-radius:4px;padding:1px 6px;white-space:nowrap;">🚗 租車</span>
+          ${avatarSvg(car.payer)}
         </div>
         <div class="card-price">
           <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${fmt(car.perPerson)}/人</div>
@@ -414,7 +415,6 @@ function renderTransport(d) {
           ${car.location?`<div style="font-size:.65rem;color:var(--muted);margin-top:2px">📍 ${car.location}</div>`:''}
         </div>
         <div class="card-body" style="padding:0 0 8px;gap:5px;">
-          ${car.payer?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(76,175,110,.12);border:1px solid rgba(76,175,110,.3);border-radius:4px;padding:1px 6px;font-size:.62rem;color:var(--green);">${avatarSvg(car.payer)} 付款</span>`:''}
           <span class="tag tag-paid">${car.days} 天</span>
           ${isUsedModel?'<span class="tag" style="background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border)">Used Model</span>':''}
           ${car.startMileage?`<span class="tag" style="background:rgba(79,195,247,.1);color:var(--accent);border:1px solid rgba(79,195,247,.25);">取車 ${car.startMileage.toLocaleString()} km</span>`:''}
@@ -473,7 +473,7 @@ function renderTransport(d) {
   function transportItemCard(item, icon, emptyMsg) {
     const date = String(item.date||'').split('T')[0] || '—';
     const isFuel = item.category === '加油';
-    const burdenTags = ['猴','花','寧'].filter(m=>(item.burden?.[m]||0)>0)
+    const burdenTags = (window.TRIP_MEMBERS || ['猴','花','寧']).filter(m=>(item.burden?.[m]||0)>0)
       .map(m=>`<span style="display:inline-flex;align-items:center;gap:2px;font-size:.62rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted)">${avatarSvg(m)} NT$${Math.round(item.burden[m]).toLocaleString()}</span>`).join('');
     const label = `${item.category||''} ${item.location||''} NT$${Math.round(item.total||item.twd||0).toLocaleString()}`;
     const editData = JSON.stringify({
