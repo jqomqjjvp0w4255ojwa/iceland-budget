@@ -81,8 +81,69 @@ function catLabel(c){ return CAT_LABEL[c] || c || '📦 其他'; }
 
 function renderDaily(expenses) {
   const TRANSPORT_CATS = ['加油','停車費'];
-  const items = (expenses||[]).filter(e => !TRANSPORT_CATS.includes(e.category)).slice().sort((a,b)=>parseDateForSort(b.date).localeCompare(parseDateForSort(a.date)));
-  if (!items.length) return `<div class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div>`;
+  const allItems = (expenses||[]).filter(e => !TRANSPORT_CATS.includes(e.category)).slice().sort((a,b)=>parseDateForSort(b.date).localeCompare(parseDateForSort(a.date)));
+  if (!allItems.length) return `<div class="empty">🛒 旅途中新增的日常開銷會顯示在這裡</div>`;
+
+  // ── 篩選狀態
+  const activePayer = window._expPayerFilter || 'all';
+  const activeTags  = window._expTagFilter   || [];
+
+  // ── 付款人清單（從資料動態取）
+  const payers = ['all', ...['猴','花','寧'].filter(m => allItems.some(e => (e.payer||'').includes(m)))];
+
+  // ── 所有 tag 庫
+  const tagSet = {};
+  allItems.forEach(e => (e.tags||'').split(',').forEach(t => { t = t.trim(); if(t) tagSet[t] = true; }));
+  const allTags = Object.keys(tagSet);
+
+  // ── 套用篩選
+  let items = allItems;
+  if (activePayer !== 'all') items = items.filter(e => (e.payer||'').includes(activePayer));
+  if (activeTags.length > 0) items = items.filter(e => activeTags.every(t => (e.tags||'').split(',').map(s=>s.trim()).includes(t)));
+
+  // ── 付款人橫向滑動列
+  const payerBar = `
+    <div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch;align-items:center;">
+      ${payers.map(p => {
+        const active = activePayer === p;
+        const label  = p === 'all' ? '全部' : p;
+        const bg     = active ? 'background:var(--green);color:#07111f;border-color:var(--green);' : 'background:var(--bg3);color:var(--muted);border-color:var(--border);';
+        return `<button onclick="window._expPayerFilter='${p}';window.renderAll&&renderAll()" style="flex-shrink:0;font-family:'Silkscreen',monospace;font-size:.52rem;padding:3px 10px;border:1px solid;border-radius:4px;cursor:pointer;${bg}">${p==='all'?'全部':avatarSvg(p)}</button>`;
+      }).join('')}
+      ${allTags.length ? `
+        <div style="flex:1;"></div>
+        <button onclick="window._showTagFilter=!window._showTagFilter;window.renderAll&&renderAll()" style="flex-shrink:0;font-family:'Silkscreen',monospace;font-size:.52rem;padding:3px 10px;border:1px solid;border-radius:4px;cursor:pointer;${activeTags.length>0?'background:var(--accent);color:#07111f;border-color:var(--accent);':'background:var(--bg3);color:var(--muted);border-color:var(--border);'}">
+          🏷 標籤${activeTags.length>0?` · ${activeTags.length}`:''}
+        </button>` : ''}
+    </div>`;
+
+  // ── tag 篩選小窗
+  const tagPanel = (window._showTagFilter && allTags.length) ? `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+      <div style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <span>▶ 標籤篩選</span>
+        ${activeTags.length>0?`<button onclick="window._expTagFilter=[];window.renderAll&&renderAll()" style="font-family:'Silkscreen',monospace;font-size:.45rem;padding:1px 8px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;">清除</button>`:''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${allTags.map(t => {
+          const on = activeTags.includes(t);
+          return `<button onclick="
+            var tf=window._expTagFilter||[];
+            var i=tf.indexOf('${t}');
+            if(i>=0)tf.splice(i,1);else tf.push('${t}');
+            window._expTagFilter=[...tf];
+            window.renderAll&&renderAll();"
+            style="font-family:'Silkscreen',monospace;font-size:.5rem;padding:2px 10px;border:1px solid;border-radius:999px;cursor:pointer;${on?'background:var(--accent);color:#07111f;border-color:var(--accent);':'background:var(--bg3);color:var(--muted);border-color:var(--border);'}">
+            ${t}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  // ── 結果數提示
+  const resultNote = (activePayer !== 'all' || activeTags.length > 0)
+    ? `<div style="font-family:'Silkscreen',monospace;font-size:.48rem;color:var(--muted);margin-bottom:8px;">顯示 ${items.length} / ${allItems.length} 筆</div>`
+    : '';
 
   const html = items.map(item => {
     const date  = item.date ? String(item.date).split('T')[0] : '—';
@@ -161,7 +222,7 @@ function renderDaily(expenses) {
     const el = document.getElementById('dailyContent');
     if (el) window.initSwipeCards(el);
   }, 50);
-  return html;
+  return payerBar + tagPanel + resultNote + (items.length ? html : `<div class="empty">沒有符合條件的項目</div>`);
 }
 
 
