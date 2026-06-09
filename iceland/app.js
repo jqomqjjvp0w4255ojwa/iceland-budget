@@ -1,5 +1,7 @@
 (function () {
-  const API_BASE = "https://script.google.com/macros/s/AKfycbwK9MlKsP_Xd2pjGxmtSRgHp3KzCfgAYSiY16Ua3kqbHTBvgvd5wUcOehjG-hoRfEc/exec";
+  const API_BASE = (window.TRIP_CONFIG && window.TRIP_CONFIG.apiBase) ||
+    "https://script.google.com/macros/s/AKfycbwK9MlKsP_Xd2pjGxmtSRgHp3KzCfgAYSiY16Ua3kqbHTBvgvd5wUcOehjG-hoRfEc/exec";
+  const CACHE_KEY = (window.TRIP_CONFIG && window.TRIP_CONFIG.cacheKey) || 'cached_iceland_budget';
   window._GAS_BASE = API_BASE;
   const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
 
@@ -105,10 +107,11 @@
 
     const splitRows = cellsToRows(split, true);
     const splitData = {};
+    const _members = window.TRIP_MEMBERS || ['猴','花','寧'];
     splitRows
-      .filter(row => ['猴','花','寧'].some(m => String(row['成員'] ?? '').includes(m)))
+      .filter(row => _members.some(m => String(row['成員'] ?? '').includes(m)))
       .forEach(row => {
-        const name = ['猴','花','寧'].find(m => String(row['成員'] ?? '').includes(m));
+        const name = _members.find(m => String(row['成員'] ?? '').includes(m));
         if (!name) return;
         splitData[name] = {
           paid:     num(pick(row, ['總付出 (代墊)', '總付出'])),
@@ -161,7 +164,7 @@
         total:      num(pick(row, ['合計'])),
         payer:      String(row['付款人'] ?? '').trim(),
         splitMode:  String(row['如何分'] ?? '').trim(),
-        burden:     { '猴': num(row['猴負擔']), '花': num(row['花負擔']), '寧': num(row['寧負擔']) },
+        burden:     Object.fromEntries((window.TRIP_MEMBERS||['猴','花','寧']).map(m=>[m, num(row[m+'負擔'])])),
         note:       String(row['備註']   ?? '').trim(),
         title:      String(row['品項']   ?? '').trim(),
         qty:        num(pick(row, ['數量'], 1)) || 1,
@@ -234,7 +237,7 @@
 
   window.__syncIcelandBudgetFromSheets = async function () {
     if (!navigator.onLine) {
-      const cachedData = localStorage.getItem('cached_iceland_budget');
+      const cachedData = localStorage.getItem(CACHE_KEY);
       if (cachedData) {
         window.APP_DATA = JSON.parse(cachedData);
         window.renderAll?.();
@@ -247,7 +250,7 @@
       return;
     }
 
-    const hasCached = !!localStorage.getItem('cached_iceland_budget');
+    const hasCached = !!localStorage.getItem(CACHE_KEY);
     if (!hasCached) window.setSyncState?.('syncing', '同步中…');
 
     try {
@@ -259,13 +262,13 @@
 
       const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
       window.APP_DATA = newData;
-      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+      localStorage.setItem(CACHE_KEY, JSON.stringify(window.APP_DATA));
       window.renderAll?.();
       window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
 
     } catch (error) {
       console.error(error);
-      const cachedData = localStorage.getItem('cached_iceland_budget');
+      const cachedData = localStorage.getItem(CACHE_KEY);
       if (cachedData) {
         window.APP_DATA = JSON.parse(cachedData);
         window.setSyncState?.('local', '⚠ 雲端讀取失敗，使用上次同步資料');
