@@ -182,16 +182,20 @@
 
     // 付款多的站前面
     const d2=window.APP_DATA||window.STATIC;
-    const paid2={'花':0,'猴':0,'寧':0};
+    const _members = window.TRIP_MEMBERS || ['花','猴','寧'];
+    const _memberCfg = (window.TRIP_CONFIG && window.TRIP_CONFIG.members) || [];
+    const paid2 = Object.fromEntries(_members.map(m=>[m,0]));
     (d2.accommodation||[]).forEach(a=>{
       if(!a.payer||!a.twd)return;
-      for(const m of ['花','猴','寧']){if(a.payer.includes(m)){paid2[m]+=a.twd;break;}}
+      for(const m of _members){if(a.payer.includes(m)){paid2[m]+=a.twd;break;}}
     });
     if(d2.car&&d2.car.totalTWD&&d2.car.payer){
-      for(const m of ['花','猴','寧']){if(d2.car.payer.includes(m)){paid2[m]+=d2.car.totalTWD;break;}}
+      for(const m of _members){if(d2.car.payer.includes(m)){paid2[m]+=d2.car.totalTWD;break;}}
     }
-    const membersSorted=[...['花','猴','寧']].sort((a,b)=>paid2[b]-paid2[a]);
-    const idMap={'花':'pxHana','猴':'pxMonkey','寧':'pxNing'};
+    const membersSorted=[..._members].sort((a,b)=>paid2[b]-paid2[a]);
+    const idMap = _memberCfg.length
+      ? Object.fromEntries(_memberCfg.map(m=>[m.name, m.charId]))
+      : {'花':'pxHana','猴':'pxMonkey','寧':'pxNing'};
     const posIsOver = posPerPerson >= budget;
     membersSorted.forEach((name,i)=>{
       const el=document.getElementById(idMap[name]);
@@ -234,12 +238,12 @@
     // 倒數計時（場景天空中央）
     const cdEl = document.getElementById('pxCountdown');
     if(!cdEl) return;
-    // ── 航班時間（請填入確認後的班機時間，格式：ISO 字串）
-    const DEPART      = new Date('2026-09-14T00:00:00+08:00'); // 台灣出發日
-    const ARRIVE_IS   = new Date('2026-09-15T00:00:00+00:00'); // 抵達冰島
-    const DEPART_NING = new Date('2026-09-28T14:00:00+00:00'); // 寧離開冰島 ← 填入班機時間
-    const DEPART_ALL  = new Date('2026-09-29T00:00:00+00:00'); // 花猴離開冰島 ← 填入班機時間
-    const ARRIVE_TW   = new Date('2026-09-30T00:00:00+08:00'); // 全員回台灣
+    const _d = (window.TRIP_CONFIG && window.TRIP_CONFIG.dates) || {};
+    const DEPART      = new Date(_d.depart     || '2026-09-14T00:00:00+08:00');
+    const ARRIVE_IS   = new Date(_d.arrive     || '2026-09-15T00:00:00+00:00');
+    const DEPART_NING = new Date(_d.returnNing || '2026-09-28T14:00:00+00:00');
+    const DEPART_ALL  = new Date(_d.returnAll  || '2026-09-29T00:00:00+00:00');
+    const ARRIVE_TW   = new Date(_d.arriveTW   || '2026-09-30T00:00:00+08:00');
 
     let cdText='';
     if(now < DEPART){
@@ -345,8 +349,11 @@
   }
 
   // ── 對話框輪播
-  const CHAR_MAP = {'花':'bubbleHana','猴':'bubbleMonkey','寧':'bubbleNing'};
-  const CHARS    = ['花','猴','寧'];
+  const _bubbleCfg = (window.TRIP_CONFIG && window.TRIP_CONFIG.members) || [];
+  const CHAR_MAP = _bubbleCfg.length
+    ? Object.fromEntries(_bubbleCfg.map(m=>[m.name, m.bubbleId]))
+    : {'花':'bubbleHana','猴':'bubbleMonkey','寧':'bubbleNing'};
+  const CHARS = (window.TRIP_MEMBERS) || ['花','猴','寧'];
   let _bubbleIdx  = 0;
   let _bubbleLine = 0;
   let _bubbleTimer = null;

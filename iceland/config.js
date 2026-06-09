@@ -19,9 +19,9 @@ window.TRIP_CONFIG = {
   // name:      用於比對 Google Sheet 欄位名稱（如「猴負擔」「花負擔」）
   // spriteKey: 對應 window.SPRITES 裡的 key（由 sprites.js 定義）
   members: [
-    { name: '花', spriteKey: 'FLOWER_FRAMES' },
-    { name: '猴', spriteKey: 'MONKEY_FRAMES' },
-    { name: '寧', spriteKey: 'NING_FRAMES'   },
+    { name: '花', spriteKey: 'FLOWER_FRAMES', sceneId: 'svgHana',   charId: 'pxHana',   bubbleId: 'bubbleHana'   },
+    { name: '猴', spriteKey: 'MONKEY_FRAMES', sceneId: 'svgMonkey', charId: 'pxMonkey', bubbleId: 'bubbleMonkey' },
+    { name: '寧', spriteKey: 'NING_FRAMES',   sceneId: 'svgNing',   charId: 'pxNing',   bubbleId: 'bubbleNing'   },
   ],
 
   // ── 使用幣別
@@ -36,6 +36,7 @@ window.TRIP_CONFIG = {
     arrive:     '2026-09-15T00:00:00+00:00',
     returnNing: '2026-09-28T14:00:00+00:00',
     returnAll:  '2026-09-29T00:00:00+00:00',
+    arriveTW:   '2026-09-30T00:00:00+08:00',
   },
 
 };

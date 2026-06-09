@@ -134,9 +134,7 @@ window.SPRITES = {
     members.forEach(function(m) {
       var frames = window.SPRITES && window.SPRITES[m.spriteKey];
       if (!frames || frames.length <= 1) return;
-      // 場景裡的角色 SVG（id 由 scene.js 建立）
-      var sceneId = 'svg' + m.name;
-      var el = document.getElementById(sceneId);
+      var el = document.getElementById(m.sceneId);
       if (el) el.innerHTML = frames[frame % frames.length];
     });
     frame++;
