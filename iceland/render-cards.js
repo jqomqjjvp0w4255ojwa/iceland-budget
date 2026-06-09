@@ -145,6 +145,16 @@ function renderDaily(expenses) {
       </div>
     </div>` : '';
 
+  // ── 分頁設定
+  const PAGE_SIZE = 15;
+  // 篩選條件改變時重置頁碼
+  const filterKey = activePayer + '|' + activeTags.join(',');
+  if (window._expFilterKey !== filterKey) { window._expPage = 0; window._expFilterKey = filterKey; }
+  const currentPage  = window._expPage || 0;
+  const totalPages   = Math.ceil(items.length / PAGE_SIZE) || 1;
+  const pagedItems   = items.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  const pageTotal    = pagedItems.reduce((s, e) => s + (e.total || e.twd || 0), 0);
+
   // ── 結果數＋篩選金額提示
   const resultNote = (activePayer !== 'all' || activeTags.length > 0)
     ? (() => {
@@ -156,7 +166,27 @@ function renderDaily(expenses) {
       })()
     : '';
 
-  const html = items.map(item => {
+  // ── 分頁列（上下各一個函式，切頁只更新 #dailyCards）
+  function buildPager(pos) {
+    if (totalPages <= 1) return '';
+    const from = currentPage * PAGE_SIZE + 1;
+    const to   = Math.min((currentPage + 1) * PAGE_SIZE, items.length);
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;margin-${pos==='top'?'bottom':'top'}:8px;">
+        <button onclick="window._expGotoPage(${currentPage - 1})"
+          style="font-family:'Silkscreen',monospace;font-size:.5rem;padding:4px 10px;border:1px solid var(--border);background:transparent;color:${currentPage===0?'var(--border)':'var(--muted)'};cursor:${currentPage===0?'default':'pointer'};"
+          ${currentPage===0?'disabled':''}>‹ 上一頁</button>
+        <span style="font-family:'Silkscreen',monospace;font-size:.5rem;color:var(--muted);">
+          ${from}–${to} / ${items.length} 筆 &nbsp;·&nbsp; 第 ${currentPage+1} / ${totalPages} 頁
+          ${pos==='bottom'?`<span style="color:var(--gold);"> · NT$ ${Math.round(pageTotal).toLocaleString('zh-TW')}</span>`:''}
+        </span>
+        <button onclick="window._expGotoPage(${currentPage + 1})"
+          style="font-family:'Silkscreen',monospace;font-size:.5rem;padding:4px 10px;border:1px solid var(--border);background:transparent;color:${currentPage>=totalPages-1?'var(--border)':'var(--muted)'};cursor:${currentPage>=totalPages-1?'default':'pointer'};"
+          ${currentPage>=totalPages-1?'disabled':''}>下一頁 ›</button>
+      </div>`;
+  }
+
+  const html = pagedItems.map(item => {
     const date  = item.date ? String(item.date).split('T')[0] : '—';
     const isFuel = item.category === '加油';
     const label = `${item.category||'開銷'} ${item.location||''} NT$${Math.round(item.total||item.twd||0).toLocaleString()}`;
@@ -230,11 +260,49 @@ function renderDaily(expenses) {
       </div>`;
   }).join('');
 
+  // ── 切頁函式（只重繪卡片區，不重建整個 dailyContent）
+  window._expGotoPage = function(page) {
+    const expenses = window.APP_DATA?.expenses || [];
+    window._expPage = Math.max(0, Math.min(page, totalPages - 1));
+    const el = document.getElementById('dailyContent');
+    if (!el) return;
+    // fade out → 換內容 → fade in
+    const cards = el.querySelector('#dailyCards');
+    if (cards) {
+      cards.style.opacity = '0';
+      cards.style.transform = 'translateY(4px)';
+      setTimeout(() => {
+        el.innerHTML = renderDaily(expenses);
+        const newCards = el.querySelector('#dailyCards');
+        if (newCards) {
+          newCards.style.opacity = '0';
+          newCards.style.transform = 'translateY(4px)';
+          requestAnimationFrame(() => {
+            newCards.style.transition = 'opacity .18s ease, transform .18s ease';
+            newCards.style.opacity = '1';
+            newCards.style.transform = 'translateY(0)';
+          });
+        }
+        window.initSwipeCards(el);
+      }, 140);
+    } else {
+      el.innerHTML = renderDaily(expenses);
+      window.initSwipeCards(el);
+    }
+  };
+
   setTimeout(() => {
     const el = document.getElementById('dailyContent');
     if (el) window.initSwipeCards(el);
   }, 50);
-  return payerBar + tagPanel + resultNote + (items.length ? html : `<div class="empty">沒有符合條件的項目</div>`);
+
+  const cardsHtml = `<div id="dailyCards" style="transition:opacity .18s ease,transform .18s ease;">
+    ${buildPager('top')}
+    ${pagedItems.length ? html : `<div class="empty">沒有符合條件的項目</div>`}
+    ${buildPager('bottom')}
+  </div>`;
+
+  return payerBar + tagPanel + resultNote + cardsHtml;
 }
 
 
