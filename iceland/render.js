@@ -88,22 +88,9 @@ function setSyncState(state,msg){
   if(state==='cloud'){dot.classList.add('dot-cloud');icon.innerHTML='☁';icon.classList.remove('spin-icon');label.textContent='雲端';}
   else if(state==='syncing'){dot.classList.add('dot-syncing');icon.innerHTML='<span class="spin-icon">↻</span>';label.textContent='同步中';}
   else if(state==='offline'){dot.classList.add('dot-offline');icon.innerHTML='📵';icon.classList.remove('spin-icon');label.textContent='離線';}
-  else if(state==='pending'){dot.classList.add('dot-pending');icon.innerHTML='📝';icon.classList.remove('spin-icon');label.textContent='待同步';}
   else{dot.classList.add('dot-local');icon.innerHTML='💾';icon.classList.remove('spin-icon');label.textContent='本地';}
   if(msg) status.textContent=msg;
 }
-
-// ── 待同步佇列數量徽章
-window.updateSyncPendingBadge = function(count) {
-  const badge = document.getElementById('pendingBadge');
-  if (!badge) return;
-  if (count > 0) {
-    badge.textContent = count;
-    badge.classList.add('show');
-  } else {
-    badge.classList.remove('show');
-  }
-};
 
 // ── 住宿卡片渲染
 
@@ -413,14 +400,10 @@ async function init(){
     setSyncState('local', '載入本地資料中…');
   }
 
-  // ── 待同步佇列徽章（離線記帳）
-  window.updateSyncPendingBadge?.(window.getPendingCount?.() || 0);
-
   // ── 事件監聽
   window.addEventListener('offline',()=>{
     document.getElementById('offlineBadge').classList.add('show');
-    const n = window.getPendingCount?.() || 0;
-    setSyncState('offline', n > 0 ? `📵 離線模式（${n} 筆記帳待同步）` : '離線模式');
+    setSyncState('offline','離線模式');
   });
   window.addEventListener('online',()=>{
     document.getElementById('offlineBadge').classList.remove('show');
@@ -428,8 +411,6 @@ async function init(){
   });
   if(!navigator.onLine) {
     document.getElementById('offlineBadge').classList.add('show');
-    const n = window.getPendingCount?.() || 0;
-    if (n > 0) setSyncState('offline', `📵 離線模式（${n} 筆記帳待同步）`);
     return;
   }
 

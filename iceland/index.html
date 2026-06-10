@@ -51,11 +51,7 @@
     .dot-cloud{background:var(--green);}
     .dot-syncing{background:var(--accent);animation:pulse .8s ease-in-out infinite;}
     .dot-offline{background:var(--aurora3);}
-    .dot-pending{background:#ff9800;animation:pulse .8s ease-in-out infinite;}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-    .pending-badge{display:none;min-width:14px;height:14px;padding:0 3px;border-radius:7px;
-      background:#ff9800;color:#fff;font-size:.6rem;line-height:14px;text-align:center;font-weight:700;}
-    .pending-badge.show{display:inline-block;}
     .sync-icon{font-size:.9rem;line-height:1;}
     .spin-icon{display:inline-block;animation:spin .7s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg)}}
@@ -387,7 +383,6 @@
         <span class="dot dot-local" id="syncDot"></span>
         <span class="sync-icon" id="syncIcon">☁</span>
         <span id="syncLabel">同步</span>
-        <span class="pending-badge" id="pendingBadge" title="離線記帳待同步筆數"></span>
       </button>
     </div>
   </header>

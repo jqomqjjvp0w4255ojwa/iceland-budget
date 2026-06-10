@@ -29,7 +29,6 @@ function getPendingQueue() {
 }
 function setPendingQueue(queue) {
   localStorage.setItem(PENDING_KEY, JSON.stringify(queue));
-  window.updateSyncPendingBadge?.(queue.length);
 }
 function queuePayload(payload) {
   const queue = getPendingQueue();
@@ -47,18 +46,17 @@ function isNetworkError(e) {
 }
 
 // 送出 GAS 請求；離線或網路錯誤時改放入待同步佇列，稍後自動重送
+// 排進佇列的項目卡片上會顯示「⏳ 未上傳」標記（_rowIndex 為 -1）
 async function sendOrQueue(payload) {
   if (!navigator.onLine) {
-    const n = queuePayload(payload);
-    setSyncState?.('pending', `📝 離線記帳，已存入待同步佇列（${n} 筆）`);
+    queuePayload(payload);
     return { ok: true, queued: true };
   }
   try {
     return await postToGAS(payload);
   } catch (e) {
     if (isNetworkError(e)) {
-      const n = queuePayload(payload);
-      setSyncState?.('pending', `📝 離線記帳，已存入待同步佇列（${n} 筆）`);
+      queuePayload(payload);
       return { ok: true, queued: true };
     }
     throw e;
@@ -93,7 +91,7 @@ window.__flushPendingQueue = async function() {
     await new Promise(r => setTimeout(r, 1000));
     return true;
   } catch (e) {
-    setSyncState?.('pending', `⚠ 離線記帳尚未同步（剩 ${getPendingQueue().length} 筆），點同步鈕重試`);
+    setSyncState?.('local', `⚠ 還有 ${getPendingQueue().length} 筆未上傳，點同步鈕重試`);
     return false;
   } finally {
     _flushing = false;

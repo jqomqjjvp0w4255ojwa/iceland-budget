@@ -5,6 +5,13 @@ function parseDateForSort(d) {
   return String(d||'').replace(/(\d{4}-\d{2}-\d{2}) (\d):/, '$1 0$2:');
 }
 
+// 還沒寫進 Google Sheet 的卡片（離線記帳或上傳中）標記
+function pendingTag(item){
+  return (item._rowIndex === -1 || item._rowIndex == null)
+    ? `<span style="font-size:.6rem;padding:1px 6px;border-radius:4px;white-space:nowrap;background:rgba(255,152,0,.15);color:#ffb74d;border:1px solid rgba(255,152,0,.4);">⏳ 未上傳</span>`
+    : '';
+}
+
 function renderAccom(items){
   const show=currentFilter==='all'?items:currentFilter==='paid'?items.filter(a=>a.paid):items.filter(a=>!a.paid);
   const total=items.reduce((s,a)=>s+(a.twd||0),0);
@@ -239,6 +246,7 @@ function renderDaily(expenses) {
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
               <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${item.category||'雜支'}</span>
               <span style="font-size:.6rem;padding:1px 6px;border-radius:4px;white-space:nowrap;${item.isShared?'background:rgba(78,195,121,.18);color:var(--green);border:1px solid rgba(78,195,121,.4);':'background:rgba(79,195,247,.08);color:var(--muted);border:1px solid var(--border);'}">${item.isShared?'共同':'個人'}</span>
+              ${pendingTag(item)}
               <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
               <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);white-space:nowrap;">NT$ ${Math.round(item.total||item.twd||0).toLocaleString()}</span>
               ${item.currency&&item.currency!=='NT'?`<div style="font-size:.6rem;color:var(--muted);margin-top:1px">${item.amount} ${item.currency}</div>`:''} 
@@ -422,6 +430,7 @@ function renderRepay(items, splitData) {
                 <span style="font-size:.8rem;color:var(--muted)">→</span>
                 ${avatarSvg(r.to)}
                 <span style="font-size:.75rem;color:var(--muted)">${r.from} 還給 ${r.to}</span>
+                ${pendingTag(r)}
               </div>
             </div>
             <div class="card-price">
@@ -574,6 +583,7 @@ function renderTransport(d) {
             <!-- 第一行：[類別] ---- NT金額 -->
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
               <span style="font-size:.6rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${icon}</span>
+              ${pendingTag(item)}
               <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
               <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);white-space:nowrap;">${fmt(item.total||item.twd)}</span>
             </div>
