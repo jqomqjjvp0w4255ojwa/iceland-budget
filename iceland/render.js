@@ -378,7 +378,11 @@ function switchMainTab(key, btn){
 // ── 同步邏輯
 async function syncFromCloud(){
   // 先把離線記帳的待同步佇列送出，避免雲端資料覆蓋掉尚未上傳的本地新增
-  await window.__flushPendingQueue?.();
+  if (window.__flushPendingQueue) {
+    const flushed = await window.__flushPendingQueue();
+    // 佇列還有未送出的記帳時，絕不拉雲端資料覆蓋本地畫面
+    if (!flushed && (window.getPendingCount?.() || 0) > 0) return;
+  }
   if (window.__syncIcelandBudgetFromSheets) {
     return window.__syncIcelandBudgetFromSheets();
   }

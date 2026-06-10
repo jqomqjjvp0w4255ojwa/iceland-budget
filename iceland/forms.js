@@ -66,25 +66,38 @@ async function sendOrQueue(payload) {
 }
 
 // 依序重送待同步佇列；全部成功後再做一次完整同步
+let _flushing = false;
 window.__flushPendingQueue = async function() {
   if (!navigator.onLine) return false;
+  if (_flushing) return false; // 已有另一個 flush 在跑，避免重複送出
   let queue = getPendingQueue();
   if (!queue.length) return true;
 
-  setSyncState?.('syncing', `📤 同步離線記帳中…（剩 ${queue.length} 筆）`);
-  while (queue.length) {
-    try {
-      await postToGAS(queue[0]);
+  _flushing = true;
+  try {
+    setSyncState?.('syncing', `📤 同步離線記帳中…（剩 ${queue.length} 筆）`);
+    while (queue.length) {
+      try {
+        await postToGAS(queue[0]);
+      } catch (e) {
+        // 剛恢復連線時網路常常還沒就緒，等 2 秒重試一次
+        if (!isNetworkError(e)) throw e;
+        await new Promise(r => setTimeout(r, 2000));
+        await postToGAS(queue[0]);
+      }
       queue = queue.slice(1);
       setPendingQueue(queue);
       if (queue.length) setSyncState?.('syncing', `📤 同步離線記帳中…（剩 ${queue.length} 筆）`);
-    } catch (e) {
-      setPendingQueue(queue);
-      setSyncState?.('pending', `⚠ 待同步佇列同步失敗，剩 ${queue.length} 筆`);
-      return false;
     }
+    // 等 GAS 端快取更新，避免緊接著的重拉拿到舊資料
+    await new Promise(r => setTimeout(r, 1000));
+    return true;
+  } catch (e) {
+    setSyncState?.('pending', `⚠ 離線記帳尚未同步（剩 ${getPendingQueue().length} 筆），點同步鈕重試`);
+    return false;
+  } finally {
+    _flushing = false;
   }
-  return true;
 };
 
 
