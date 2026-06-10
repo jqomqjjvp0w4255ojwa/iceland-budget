@@ -20,18 +20,95 @@ function bgSync(label) {
   }, 3000);
 }
 
+// ══ 離線記帳：待同步佇列 ══
+const PENDING_KEY = 'pending_iceland_ops';
+
+function getPendingQueue() {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY)) || []; }
+  catch (e) { return []; }
+}
+function setPendingQueue(queue) {
+  localStorage.setItem(PENDING_KEY, JSON.stringify(queue));
+}
+function queuePayload(payload) {
+  const queue = getPendingQueue();
+  queue.push(payload);
+  setPendingQueue(queue);
+  return queue.length;
+}
+window.getPendingCount = () => getPendingQueue().length;
+
+// 判斷錯誤是否為「離線/網路無法連線」造成（GAS 請求被 Service Worker 攔截後會回 503）
+function isNetworkError(e) {
+  return !navigator.onLine
+    || e instanceof TypeError
+    || /回應錯誤：503/.test(String(e?.message || ''));
+}
+
+// 送出 GAS 請求；離線或網路錯誤時改放入待同步佇列，稍後自動重送
+// 排進佇列的項目卡片上會顯示「⏳ 未上傳」標記（_rowIndex 為 -1）
+async function sendOrQueue(payload) {
+  if (!navigator.onLine) {
+    queuePayload(payload);
+    return { ok: true, queued: true };
+  }
+  try {
+    return await postToGAS(payload);
+  } catch (e) {
+    if (isNetworkError(e)) {
+      queuePayload(payload);
+      return { ok: true, queued: true };
+    }
+    throw e;
+  }
+}
+
+// 依序重送待同步佇列；全部成功後再做一次完整同步
+let _flushing = false;
+window.__flushPendingQueue = async function() {
+  if (!navigator.onLine) return false;
+  if (_flushing) return false; // 已有另一個 flush 在跑，避免重複送出
+  let queue = getPendingQueue();
+  if (!queue.length) return true;
+
+  _flushing = true;
+  try {
+    setSyncState?.('syncing', `📤 同步離線記帳中…（剩 ${queue.length} 筆）`);
+    while (queue.length) {
+      try {
+        await postToGAS(queue[0]);
+      } catch (e) {
+        // 剛恢復連線時網路常常還沒就緒，等 2 秒重試一次
+        if (!isNetworkError(e)) throw e;
+        await new Promise(r => setTimeout(r, 2000));
+        await postToGAS(queue[0]);
+      }
+      queue = queue.slice(1);
+      setPendingQueue(queue);
+      if (queue.length) setSyncState?.('syncing', `📤 同步離線記帳中…（剩 ${queue.length} 筆）`);
+    }
+    // 等 GAS 端快取更新，避免緊接著的重拉拿到舊資料
+    await new Promise(r => setTimeout(r, 1000));
+    return true;
+  } catch (e) {
+    setSyncState?.('local', `⚠ 還有 ${getPendingQueue().length} 筆未上傳，點同步鈕重試`);
+    return false;
+  } finally {
+    _flushing = false;
+  }
+};
+
 
 function optimisticDelete(type, rowIndex) {
   if (!window.APP_DATA) return;
   if (type === 'expense') {
     window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e => Number(e._rowIndex) !== Number(rowIndex));
-    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
-    _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
   } else if (type === 'repay') {
     window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => Number(r._rowIndex) !== Number(rowIndex));
-    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
   }
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+  // 整頁重繪，讓總覽的總額/圓餅也立即反映（renderAll 會保留目前分頁）
+  window.renderAll?.();
 }
 
 // 修改模式：原卡原地半透明 + 像素風轉圈，不重建區塊
@@ -86,21 +163,19 @@ function optimisticUpdate(type, rowIndex, newItem) {
   if (type === 'expense') {
     if (isEdit) {
       mutateCardInPlace('expense', rowIndex);
-    } else {
-      window.APP_DATA.expenses = [newItem, ...(window.APP_DATA.expenses||[])];
-      _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses));
-      _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
-      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+      return;
     }
+    window.APP_DATA.expenses = [newItem, ...(window.APP_DATA.expenses||[])];
   } else if (type === 'repay') {
     if (isEdit) {
       mutateCardInPlace('repay', rowIndex);
-    } else {
-      window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory||[]), newItem];
-      _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory, window.APP_DATA.split||{}));
-      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+      return;
     }
+    window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory||[]), newItem];
   }
+  localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+  // 整頁重繪，讓總覽的總額/圓餅也立即反映（renderAll 會保留目前分頁）
+  window.renderAll?.();
 }
 
 // 只更新指定區塊，不重建整頁
@@ -145,8 +220,8 @@ async function postToGAS(payload) {
 }
 
 async function deleteRowFromGAS(sheet, rowIndex) {
-  if (sheet === 'expense') return postToGAS({ action: 'deleteExpense', rowIndex });
-  if (sheet === 'repay')   return postToGAS({ action: 'deleteRepay',   rowIndex });
+  if (sheet === 'expense') return sendOrQueue({ action: 'deleteExpense', rowIndex });
+  if (sheet === 'repay')   return sendOrQueue({ action: 'deleteRepay',   rowIndex });
   throw new Error('未知的 sheet：' + sheet);
 }
 
@@ -330,7 +405,7 @@ window.pxExecuteDelete = function() {
 
   // 背景送 GAS
   deleteRowFromGAS(sheet, rowIndex)
-    .then(() => bgSync('刪除同步中…'))
+    .then((result) => { if (!result?.queued) bgSync('刪除同步中…'); })
     .catch(() => setSyncState?.('local', '⚠ 刪除失敗，請重新同步'));
 };
 
@@ -655,11 +730,14 @@ window.pxSubmitExpense = async function(nextMode = false) {
   if (wasEdit) {
     // 修改：GAS 成功後延遲 800ms 再重拉（確保 GAS cache 已清）
     optimisticUpdate('expense', editRowIdx, null);
-    postToGAS(payload)
-      .then(() => setTimeout(() => {
-        setSyncState?.('syncing', '更新中…');
-        window.__syncIcelandBudgetFromSheets?.();
-      }, 800))
+    sendOrQueue(payload)
+      .then((result) => {
+        if (result?.queued) return;
+        setTimeout(() => {
+          setSyncState?.('syncing', '更新中…');
+          window.__syncIcelandBudgetFromSheets?.();
+        }, 800);
+      })
       .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'))
       .finally(() => { _isSubmitting = false; });
   } else {
@@ -673,8 +751,8 @@ window.pxSubmitExpense = async function(nextMode = false) {
       tags,
     };
     optimisticUpdate('expense', null, optimisticItem);
-    postToGAS(payload)
-      .then(() => bgSync('記帳同步中…'))
+    sendOrQueue(payload)
+      .then((result) => { if (!result?.queued) bgSync('記帳同步中…'); })
       .catch(() => setSyncState?.('local', '⚠ 記帳失敗，請重新同步'))
       .finally(() => { _isSubmitting = false; });
   }
@@ -766,11 +844,14 @@ window.pxSubmitRepay = async function() {
 
   if (wasEditRepay) {
     optimisticUpdate('repay', editRepayIdx, null);
-    postToGAS(payload)
-      .then(() => setTimeout(() => {
-        setSyncState?.('syncing', '更新中…');
-        window.__syncIcelandBudgetFromSheets?.();
-      }, 800))
+    sendOrQueue(payload)
+      .then((result) => {
+        if (result?.queued) return;
+        setTimeout(() => {
+          setSyncState?.('syncing', '更新中…');
+          window.__syncIcelandBudgetFromSheets?.();
+        }, 800);
+      })
       .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'))
       .finally(() => { _isSubmitting = false; });
   } else {
@@ -779,8 +860,8 @@ window.pxSubmitRepay = async function() {
       from: _pxRepayFrom, to: _pxRepayTo, amount: amt, date, note,
     };
     optimisticUpdate('repay', null, optimisticRepayItem);
-    postToGAS(payload)
-      .then(() => bgSync('還款同步中…'))
+    sendOrQueue(payload)
+      .then((result) => { if (!result?.queued) bgSync('還款同步中…'); })
       .catch(() => setSyncState?.('local', '⚠ 還款記錄失敗，請重新同步'))
       .finally(() => { _isSubmitting = false; });
   }

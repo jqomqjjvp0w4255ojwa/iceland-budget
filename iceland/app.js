@@ -236,6 +236,11 @@
   }
 
   window.__syncIcelandBudgetFromSheets = async function () {
+    // 還有離線記帳未送出時，先送佇列再同步，避免雲端舊資料覆蓋本地新增
+    if (window.getPendingCount?.() > 0) {
+      const flushed = await window.__flushPendingQueue?.();
+      if (!flushed && window.getPendingCount?.() > 0) return;
+    }
     if (!navigator.onLine) {
       const cachedData = localStorage.getItem(CACHE_KEY);
       if (cachedData) {
