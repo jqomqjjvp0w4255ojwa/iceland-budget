@@ -103,13 +103,12 @@ function optimisticDelete(type, rowIndex) {
   if (!window.APP_DATA) return;
   if (type === 'expense') {
     window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e => Number(e._rowIndex) !== Number(rowIndex));
-    _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses||[]));
-    _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
   } else if (type === 'repay') {
     window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => Number(r._rowIndex) !== Number(rowIndex));
-    _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory||[], window.APP_DATA.split||{}));
   }
   localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+  // 整頁重繪，讓總覽的總額/圓餅也立即反映（renderAll 會保留目前分頁）
+  window.renderAll?.();
 }
 
 // 修改模式：原卡原地半透明 + 像素風轉圈，不重建區塊
@@ -164,21 +163,19 @@ function optimisticUpdate(type, rowIndex, newItem) {
   if (type === 'expense') {
     if (isEdit) {
       mutateCardInPlace('expense', rowIndex);
-    } else {
-      window.APP_DATA.expenses = [newItem, ...(window.APP_DATA.expenses||[])];
-      _refreshSection('dailyContent', () => renderDaily(window.APP_DATA.expenses));
-      _refreshSection('carContent',   () => renderTransport(window.APP_DATA));
-      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+      return;
     }
+    window.APP_DATA.expenses = [newItem, ...(window.APP_DATA.expenses||[])];
   } else if (type === 'repay') {
     if (isEdit) {
       mutateCardInPlace('repay', rowIndex);
-    } else {
-      window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory||[]), newItem];
-      _refreshSection('repayContent', () => renderRepay(window.APP_DATA.repayHistory, window.APP_DATA.split||{}));
-      localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+      return;
     }
+    window.APP_DATA.repayHistory = [...(window.APP_DATA.repayHistory||[]), newItem];
   }
+  localStorage.setItem('cached_iceland_budget', JSON.stringify(window.APP_DATA));
+  // 整頁重繪，讓總覽的總額/圓餅也立即反映（renderAll 會保留目前分頁）
+  window.renderAll?.();
 }
 
 // 只更新指定區塊，不重建整頁
