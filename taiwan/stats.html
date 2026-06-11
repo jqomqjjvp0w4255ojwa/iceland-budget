@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>足跡回顧</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#fff3d6">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="sprites.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#fff6e3;
+  --panel:#fffaf0;
+  --panel2:#fff0d4;
+  --border:#f2cf8d;
+  --border2:#e0b35e;
+  --text:#5a4632;
+  --muted:#b3946a;
+  --accent:#ff5d5d;
+  --accent2:#58b368;
+  --mango:#ffb627;
+  --lychee:#f4538a;
+  --px:'Silkscreen',monospace;
+  --radius:8px;
+}
+body{
+  background:var(--bg);
+  font-family:var(--px);
+  min-height:100vh;
+  color:var(--text);
+}
+.topbar{
+  background:var(--panel);
+  border-bottom:2px solid var(--border);
+  padding:10px 14px;
+  display:flex;align-items:center;gap:10px;
+  position:sticky;top:0;z-index:100;
+}
+.topbar a{color:var(--muted);text-decoration:none;font-size:14px;}
+.topbar-title{font-size:11px;letter-spacing:1px;flex:1;}
+
+.wrap{max-width:880px;margin:0 auto;padding:14px;display:flex;flex-direction:column;gap:14px;}
+@media (min-width:900px){
+  .wrap{flex-direction:row;align-items:flex-start;}
+  .col-map{flex:0 0 360px;position:sticky;top:64px;}
+  .col-list{flex:1;min-width:0;}
+}
+.col-map,.col-list{display:flex;flex-direction:column;gap:14px;}
+
+.panel{
+  background:var(--panel);
+  border:2px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px;
+}
+.panel-title{font-size:10px;letter-spacing:1px;color:var(--muted);margin-bottom:10px;}
+
+/* 像素台灣 */
+#twmap{width:100%;max-width:320px;margin:0 auto;display:block;}
+#twmap rect{stroke:#fff6e3;stroke-width:0.15;cursor:pointer;}
+.tw-legend{display:flex;gap:8px;justify-content:center;margin-top:8px;font-size:8px;color:var(--muted);flex-wrap:wrap;}
+.tw-legend span{display:flex;align-items:center;gap:4px;}
+.tw-legend i{width:10px;height:10px;border-radius:2px;display:inline-block;}
+#countyInfo{text-align:center;font-size:9px;color:var(--text);margin-top:8px;min-height:14px;}
+
+/* 數字總覽 */
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.stat-cell{
+  background:#fffdf7;border:1.5px solid var(--border);
+  border-radius:6px;padding:10px 6px;text-align:center;
+}
+.stat-num{font-size:16px;color:var(--accent);}
+.stat-lbl{font-size:8px;color:var(--muted);margin-top:4px;}
+
+/* 成員統計 */
+.member-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.member-row:last-child{border-bottom:none;}
+.member-spr{width:24px;height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:center;image-rendering:pixelated;}
+.member-spr svg{width:100%;height:100%;image-rendering:pixelated;}
+.member-name{font-size:10px;width:40px;}
+.member-bar-wrap{flex:1;height:14px;background:var(--panel2);border-radius:4px;overflow:hidden;}
+.member-bar{height:100%;border-radius:4px;}
+.member-count{font-size:9px;color:var(--muted);width:46px;text-align:right;}
+
+/* 旅程回顧 */
+.trip-card{
+  background:#fffdf7;border:1.5px solid var(--border);
+  border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;
+}
+.trip-card-head{display:flex;align-items:center;gap:8px;}
+.trip-card-name{font-size:10px;flex:1;}
+.trip-card-date{font-size:8px;color:var(--muted);}
+.trip-card-meta{font-size:8px;color:var(--muted);margin-top:4px;line-height:1.6;}
+
+/* 月曆式回顧 */
+.month-block{margin-bottom:14px;}
+.month-title{font-size:10px;color:var(--mango);margin-bottom:6px;letter-spacing:1px;}
+.review-item{
+  display:flex;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border);
+  font-size:9px;align-items:center;
+}
+.review-item:last-child{border-bottom:none;}
+.review-thumb{
+  width:36px;height:36px;border:1px solid var(--border);border-radius:4px;
+  background:var(--panel2);flex-shrink:0;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;image-rendering:pixelated;
+}
+.review-thumb svg,.review-thumb img{width:100%;height:100%;image-rendering:pixelated;}
+.review-info{flex:1;min-width:0;}
+.review-name{color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.review-meta{font-size:8px;color:var(--muted);margin-top:2px;}
+.empty{text-align:center;padding:20px;font-size:9px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="index.html">←</a>
+  <div class="topbar-title">🍉 足跡回顧</div>
+</div>
+
+<div class="wrap">
+  <div class="col-map">
+    <div class="panel">
+      <div class="panel-title">🗺 縣市踩點圖</div>
+      <svg id="twmap" viewBox="0 0 9 17"></svg>
+      <div class="tw-legend">
+        <span><i style="background:#f5e7c8;"></i>未踩點</span>
+        <span><i style="background:#ffd23f;"></i>1-2 次</span>
+        <span><i style="background:#ffb627;"></i>3-5 次</span>
+        <span><i style="background:#ff5d5d;"></i>6 次以上</span>
+      </div>
+      <div id="countyInfo">點縣市看打卡數</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">📊 數字總覽</div>
+      <div class="stat-grid" id="statGrid"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">👣 成員腳印</div>
+      <div id="memberStats"></div>
+    </div>
+  </div>
+
+  <div class="col-list">
+    <div class="panel">
+      <div class="panel-title">🧳 小旅程回顧</div>
+      <div id="tripList"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">📅 足跡時間軸</div>
+      <div id="timeline"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── config 防呆：逐欄位預設值 ──
+const CFG_DEFAULTS = {
+  apiBase: '',
+  members: [{ name:'我', icon:'🐾', color:'#ff5d5d' }],
+};
+const RAW = window.TW_CONFIG || {};
+const CFG = {};
+for (const k in CFG_DEFAULTS) {
+  CFG[k] = (RAW[k] !== undefined && RAW[k] !== null && RAW[k] !== '') ? RAW[k] : CFG_DEFAULTS[k];
+}
+if (!Array.isArray(CFG.members) || !CFG.members.length) CFG.members = CFG_DEFAULTS.members;
+
+function spriteSvg(m) {
+  const frames = window.SPRITES?.[m.spriteKey];
+  if (frames?.[0]) return `<svg viewBox="0 0 16 28" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;image-rendering:pixelated;display:block;">${frames[0]}</svg>`;
+  return `<span style="font-size:16px;">${m.icon||'📍'}</span>`;
+}
+
+// ══════════════════════════════════════════
+//  縣市資料：像素版位置（col,row,w,h，9x17 格）＋分類錨點
+//  分類採「最近錨點」近似法，沿海/縣界附近可能有誤差
+// ══════════════════════════════════════════
+const COUNTIES = [
+  { name:'連江縣', px:[0,1,1,1],  anchors:[[26.16,119.95]] },
+  { name:'金門縣', px:[0,4,1,1],  anchors:[[24.44,118.33]] },
+  { name:'澎湖縣', px:[0,8,1,1],  anchors:[[23.57,119.58]] },
+  { name:'基隆市', px:[7,0,1,1],  anchors:[[25.13,121.74]] },
+  { name:'台北市', px:[6,1,1,1],  anchors:[[25.04,121.56]] },
+  { name:'新北市', px:[5,0,2,1],  anchors:[[25.01,121.46],[25.10,121.73],[24.93,121.37]] },
+  { name:'桃園市', px:[4,1,2,1],  anchors:[[24.99,121.30],[25.05,121.20]] },
+  { name:'宜蘭縣', px:[7,1,1,3],  anchors:[[24.70,121.74],[24.45,121.65]] },
+  { name:'新竹市', px:[3,2,1,1],  anchors:[[24.80,120.97]] },
+  { name:'新竹縣', px:[4,2,2,1],  anchors:[[24.70,121.10],[24.60,121.25]] },
+  { name:'苗栗縣', px:[3,3,3,1],  anchors:[[24.49,120.82],[24.40,120.95]] },
+  { name:'台中市', px:[3,4,3,1],  anchors:[[24.15,120.68],[24.25,120.95],[24.20,120.55]] },
+  { name:'彰化縣', px:[2,5,2,1],  anchors:[[24.00,120.49],[23.90,120.40]] },
+  { name:'南投縣', px:[4,5,2,2],  anchors:[[23.91,120.97],[23.75,120.85],[23.85,121.05]] },
+  { name:'雲林縣', px:[2,6,2,1],  anchors:[[23.71,120.43],[23.70,120.25]] },
+  { name:'嘉義市', px:[2,7,1,1],  anchors:[[23.48,120.45]] },
+  { name:'嘉義縣', px:[3,7,2,1],  anchors:[[23.45,120.25],[23.42,120.55]] },
+  { name:'台南市', px:[2,8,2,2],  anchors:[[23.00,120.20],[23.15,120.30],[22.99,120.35]] },
+  { name:'高雄市', px:[3,10,2,2], anchors:[[22.63,120.30],[22.75,120.35],[22.90,120.55],[23.05,120.70]] },
+  { name:'屏東縣', px:[4,12,1,3], anchors:[[22.55,120.55],[22.30,120.60],[22.00,120.74],[21.95,120.80]] },
+  { name:'花蓮縣', px:[6,4,1,4],  anchors:[[23.98,121.60],[23.70,121.43],[23.40,121.35],[24.20,121.55]] },
+  { name:'台東縣', px:[5,8,1,4],  anchors:[[22.76,121.14],[22.95,121.10],[23.10,121.20],[22.60,120.95]] },
+];
+
+// 最近錨點分類（>0.9 度視為台灣以外，不計入）
+function classifyCounty(lat, lng) {
+  let best = null, bestD = Infinity;
+  COUNTIES.forEach(c => c.anchors.forEach(a => {
+    const d = (a[0]-lat)*(a[0]-lat) + (a[1]-lng)*(a[1]-lng);
+    if (d < bestD) { bestD = d; best = c.name; }
+  }));
+  return bestD <= 0.81 ? best : null;
+}
+
+function heatColor(n) {
+  if (!n) return '#f5e7c8';
+  if (n <= 2) return '#ffd23f';
+  if (n <= 5) return '#ffb627';
+  return '#ff5d5d';
+}
+
+// ══════════════════════════════════════════
+//  載入資料＋渲染（純被動統計，無通知無 streak）
+// ══════════════════════════════════════════
+let checkins = [], trips = [];
+
+async function load() {
+  if (CFG.apiBase) {
+    try {
+      const res = await fetch(CFG.apiBase + '?sheet=all', { cache:'no-store' });
+      const data = await res.json();
+      if (Array.isArray(data.checkins)) checkins = data.checkins;
+      if (Array.isArray(data.trips)) trips = data.trips;
+    } catch(e) { console.warn('資料載入失敗', e); }
+  }
+  render();
+}
+
+function render() {
+  const visits = checkins.filter(c => c.type === 'checkin');
+
+  // 縣市計數
+  const countyCount = {};
+  visits.forEach(c => {
+    const county = classifyCounty(parseFloat(c.lat), parseFloat(c.lng));
+    if (county) countyCount[county] = (countyCount[county]||0) + 1;
+  });
+
+  // 像素台灣
+  const svg = document.getElementById('twmap');
+  svg.innerHTML = COUNTIES.map(c => {
+    const [x,y,w,h] = c.px;
+    const n = countyCount[c.name] || 0;
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="0.15" fill="${heatColor(n)}"
+      onclick="showCounty('${c.name}',${n})"><title>${c.name}：${n} 次</title></rect>`;
+  }).join('');
+
+  // 數字總覽
+  const countiesVisited = Object.keys(countyCount).length;
+  const wishes = checkins.filter(c=>c.type==='wish').length;
+  document.getElementById('statGrid').innerHTML = `
+    <div class="stat-cell"><div class="stat-num">${visits.length}</div><div class="stat-lbl">打卡</div></div>
+    <div class="stat-cell"><div class="stat-num">${countiesVisited}<span style="font-size:9px;color:var(--muted)">/22</span></div><div class="stat-lbl">縣市踩點</div></div>
+    <div class="stat-cell"><div class="stat-num">${trips.length}</div><div class="stat-lbl">小旅程</div></div>
+    <div class="stat-cell"><div class="stat-num">${wishes}</div><div class="stat-lbl">想去</div></div>
+    <div class="stat-cell"><div class="stat-num">${visits.filter(c=>c.tripId).length}</div><div class="stat-lbl">出遊打卡</div></div>
+    <div class="stat-cell"><div class="stat-num">${visits.filter(c=>!c.tripId).length}</div><div class="stat-lbl">日常紀錄</div></div>
+  `;
+
+  // 成員腳印
+  const max = Math.max(1, ...CFG.members.map(m => visits.filter(c=>c.who===m.name).length));
+  document.getElementById('memberStats').innerHTML = CFG.members.map(m => {
+    const n = visits.filter(c=>c.who===m.name).length;
+    return `<div class="member-row">
+      <div class="member-spr">${spriteSvg(m)}</div>
+      <div class="member-name">${m.name}</div>
+      <div class="member-bar-wrap"><div class="member-bar" style="width:${Math.round(n/max*100)}%;background:${m.color||'#ff5d5d'};"></div></div>
+      <div class="member-count">${n} 次</div>
+    </div>`;
+  }).join('');
+
+  // 小旅程回顧
+  document.getElementById('tripList').innerHTML = trips.map(t => {
+    const items = checkins.filter(c=>c.tripId===t.id);
+    const counties = [...new Set(items.map(c=>classifyCounty(parseFloat(c.lat),parseFloat(c.lng))).filter(Boolean))];
+    const dates = [t.dateStart, t.dateEnd].filter(Boolean).join(' ~ ');
+    return `<div class="trip-card">
+      <div class="trip-card-head">
+        <span>🧳</span>
+        <span class="trip-card-name">${t.name}</span>
+        <span class="trip-card-date">${dates}</span>
+      </div>
+      <div class="trip-card-meta">
+        ${(t.members||[]).join('、')} · ${items.length} 筆紀錄${counties.length?` · 踩點：${counties.join('、')}`:''}
+      </div>
+    </div>`;
+  }).join('') || `<div class="empty">還沒有小旅程</div>`;
+
+  // 時間軸（按月分組，新到舊；想去達成後就在這裡）
+  const byMonth = {};
+  [...checkins].filter(c=>c.type==='checkin').forEach(c => {
+    const key = (c.date||'').slice(0,7) || '未知日期';
+    (byMonth[key] = byMonth[key] || []).push(c);
+  });
+  const monthKeys = Object.keys(byMonth).sort().reverse();
+  document.getElementById('timeline').innerHTML = monthKeys.map(mk => `
+    <div class="month-block">
+      <div class="month-title">${mk}</div>
+      ${byMonth[mk].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(c => {
+        const county = classifyCounty(parseFloat(c.lat), parseFloat(c.lng));
+        const trip = trips.find(t=>t.id===c.tripId);
+        const g = c.svgGrid || 16;
+        const thumb = c.svgData
+          ? `<svg viewBox="0 0 ${g} ${g}">${c.svgData}</svg>`
+          : c.imageUrl ? `<img src="${c.imageUrl}" alt="">` : '🐾';
+        return `<div class="review-item">
+          <div class="review-thumb">${thumb}</div>
+          <div class="review-info">
+            <div class="review-name">${c.name||''}</div>
+            <div class="review-meta">${c.date||''} · ${c.who||''}${county?` · ${county}`:''}${trip?` · 🧳 ${trip.name}`:''}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('') || `<div class="empty">還沒有足跡，去地圖打卡吧！</div>`;
+}
+
+function showCounty(name, n) {
+  document.getElementById('countyInfo').textContent = `${name}：${n ? n + ' 次打卡' : '尚未踩點'}`;
+}
+
+load();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
