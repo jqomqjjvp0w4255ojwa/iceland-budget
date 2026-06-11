@@ -247,7 +247,7 @@ body{
   border-radius:4px;
   border:1px solid var(--border);
   flex-shrink:0;
-  background:var(--bg);
+  background:#faf6ee;
   image-rendering:pixelated;
   overflow:hidden;
   display:flex;align-items:center;justify-content:center;
@@ -293,7 +293,7 @@ body{
 .popup-title{font-size:10px;color:var(--text);flex:1;}
 .popup-img{
   width:100%;aspect-ratio:1;
-  background:var(--bg);
+  background:#faf6ee;
   border-radius:4px;
   border:1px solid var(--border);
   image-rendering:pixelated;
@@ -438,7 +438,7 @@ body{
   width:64px;height:64px;
   border:2px solid var(--border);
   border-radius:6px;
-  background:var(--bg);
+  background:#faf6ee;
   image-rendering:pixelated;
   overflow:hidden;
   display:flex;align-items:center;justify-content:center;
@@ -523,24 +523,17 @@ body{
 .leaflet-control-attribution a{color:var(--accent2) !important;}
 .leaflet-marker-icon{transition:none !important;}
 
-/* ── 自訂 cluster */
+/* ── 自訂 cluster（無泡泡，數字直接顯示在下方） */
 .px-cluster{
-  background:var(--panel);
-  border:2px solid var(--border);
-  border-radius:6px;
   display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  box-shadow:2px 2px 0 rgba(0,0,0,0.3);
-  overflow:hidden;
+  align-items:center;justify-content:flex-end;
   image-rendering:pixelated;
+  filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.45));
 }
 .px-cluster-count{
-  font-family:var(--px);font-size:7px;
-  color:var(--muted);
-  background:var(--bg);
-  width:100%;text-align:center;
-  padding:1px 0;
-  border-top:1px solid var(--border);
+  font-family:var(--px);font-size:9px;
+  color:#fff;line-height:1;margin-top:2px;
+  text-shadow:1px 1px 0 #1a2026,-1px 1px 0 #1a2026,1px -1px 0 #1a2026,-1px -1px 0 #1a2026;
 }
 
 /* ── 畫板（v11 風格，配合暗色主題） */
@@ -653,12 +646,12 @@ body{
 <div class="modal-overlay" id="checkinModal">
   <div class="modal-box">
     <div class="modal-header">
-      <div class="modal-title">新增紀錄</div>
+      <div class="modal-title" id="checkinModalTitle">新增紀錄</div>
       <button class="modal-close" onclick="closeCheckin()">✕</button>
     </div>
     <div class="modal-body">
       <!-- Step 1: 類型 -->
-      <div class="step-row">
+      <div class="step-row" id="stepType">
         <div class="step-label"><div class="step-num">1</div>選擇類型</div>
         <div class="type-row" id="typeRow">
           <button class="type-chip on" data-type="checkin" onclick="selectType('checkin')">🐾 打卡</button>
@@ -668,7 +661,7 @@ body{
       </div>
 
       <!-- Step 2: 地點 -->
-      <div class="step-row">
+      <div class="step-row" id="stepLocation">
         <div class="step-label"><div class="step-num">2</div>選擇地點</div>
         <div class="location-card" id="locationCard" onclick="pickLocation()">
           <div style="font-size:18px;">📍</div>
@@ -682,7 +675,7 @@ body{
       </div>
 
       <!-- Step 3: 角色 -->
-      <div class="step-row">
+      <div class="step-row" id="stepMember">
         <div class="step-label"><div class="step-num">3</div>選擇角色</div>
         <div class="member-grid" id="memberGrid"></div>
       </div>
@@ -897,11 +890,11 @@ const clusterGroup = L.markerClusterGroup({
       inner = `<div style="font-size:18px;line-height:36px;">${o.fallbackIcon||'📍'}</div>`;
     }
     return L.divIcon({
-      html:`<div class="px-cluster" style="width:44px;height:52px;border-color:${o.memberColor||'#8a95a4'};">
+      html:`<div class="px-cluster" style="width:44px;height:56px;">
         ${inner}
-        <div class="px-cluster-count">+${count}</div>
+        <div class="px-cluster-count">${count}</div>
       </div>`,
-      className:'', iconSize:[44,52], iconAnchor:[22,26],
+      className:'', iconSize:[44,56], iconAnchor:[22,28],
     });
   }
 });
@@ -939,7 +932,7 @@ function makeMarkerIcon(item, zoom) {
   if (zoom >= 10 && item.svgData) {
     const g = item.svgGrid || 16;
     return L.divIcon({
-      html:`<div style="width:40px;height:40px;border:2px solid ${m.color};border-radius:4px;background:#2b3440;overflow:hidden;box-shadow:2px 2px 0 rgba(0,0,0,0.3);image-rendering:pixelated;">
+      html:`<div style="width:40px;height:40px;border:2px solid ${m.color};border-radius:4px;background:#faf6ee;overflow:hidden;box-shadow:2px 2px 0 rgba(0,0,0,0.3);image-rendering:pixelated;">
         <svg width="40" height="40" viewBox="0 0 ${g} ${g}" style="image-rendering:pixelated;display:block;">${item.svgData}</svg>
       </div>`,
       className:'', iconSize:[40,40], iconAnchor:[20,20],
@@ -1039,6 +1032,10 @@ function buildPopupContent(item) {
     <div class="popup-actions">
       <button class="popup-action-btn" onclick="openComments('${item.id}')">💬 查看留言（${item.comments?.length||0}）</button>
       <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
+    </div>
+    <div class="popup-actions" style="border-top:none;padding-top:0;margin-top:6px;">
+      <button class="popup-action-btn" onclick="startEditCheckin('${item.id}')">✎ 編輯</button>
+      <button class="popup-action-btn" style="color:#e08090;" onclick="deleteCheckin('${item.id}')">🗑 刪除</button>
     </div>
   `;
   return el;
@@ -1185,9 +1182,19 @@ function selectMember(name) {
   checkSubmitReady();
 }
 
+let editingId = null;
+
+function setStepsVisible(showAll) {
+  ['stepType','stepLocation','stepMember'].forEach(id =>
+    document.getElementById(id).style.display = showAll ? '' : 'none');
+}
+
 function openCheckin() {
+  editingId = null;
   pendingCheckin = { type:'checkin', lat:null, lng:null, who:null, text:'', svgData:null, svgGrid:16, pngBlob:null };
   selectType('checkin');
+  setStepsVisible(true);
+  document.getElementById('checkinModalTitle').textContent = '新增紀錄';
   document.getElementById('locationName').textContent = '點地圖選擇地點';
   document.getElementById('locationCoord').textContent = '';
   document.getElementById('placeName').value = '';
@@ -1197,11 +1204,76 @@ function openCheckin() {
   document.getElementById('submitBtn').disabled = true;
   buildMemberGrid();
   document.getElementById('checkinModal').classList.add('show');
+  tryGPS();
+}
+
+// 開啟打卡時預設抓 GPS 定位（點地點卡片仍可改成手動選點）
+function tryGPS() {
+  if (!navigator.geolocation) return;
+  document.getElementById('locationName').textContent = '📡 定位中…';
+  document.getElementById('locationCoord').textContent = '點此可改手動選點';
+  navigator.geolocation.getCurrentPosition(pos => {
+    // 使用者已手動選點或進入編輯就不覆蓋
+    if (editingId || pendingCheckin.lat) return;
+    pendingCheckin.lat = pos.coords.latitude;
+    pendingCheckin.lng = pos.coords.longitude;
+    document.getElementById('locationName').textContent =
+      `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+    document.getElementById('locationCoord').textContent = '目前位置（GPS）· 點此可改手動選點';
+    checkSubmitReady();
+  }, () => {
+    if (!pendingCheckin.lat) {
+      document.getElementById('locationName').textContent = '點地圖選擇地點';
+      document.getElementById('locationCoord').textContent = '（無法取得定位）';
+    }
+  }, { enableHighAccuracy:true, timeout:8000, maximumAge:60000 });
+}
+
+// 編輯既有打卡（只能改日記與塗鴉，地點/角色/類型固定）
+function startEditCheckin(id) {
+  const item = checkins.find(c=>c.id===id);
+  if (!item) return;
+  map.closePopup();
+  editingId = id;
+  pendingCheckin = {
+    type:item.type, lat:item.lat, lng:item.lng, who:item.who,
+    text:item.note||'', svgData:item.svgData||null, svgGrid:item.svgGrid||16, pngBlob:null,
+  };
+  setStepsVisible(false);
+  document.getElementById('checkinModalTitle').textContent = '編輯：' + (item.name||'');
+  document.getElementById('diaryText').value = item.note||'';
+  document.getElementById('charCount').textContent = String((item.note||'').length);
+  document.getElementById('drawThumb').innerHTML = item.svgData
+    ? `<svg viewBox="0 0 ${item.svgGrid||16} ${item.svgGrid||16}" style="image-rendering:pixelated;width:100%;height:100%;">${item.svgData}</svg>`
+    : '🖼';
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('checkinModal').classList.add('show');
+}
+
+// 刪除打卡
+async function deleteCheckin(id) {
+  const item = checkins.find(c=>c.id===id);
+  if (!item) return;
+  if (!confirm(`刪除「${item.name}」這筆紀錄？`)) return;
+  map.closePopup();
+  checkins = checkins.filter(c=>c.id!==id);
+  renderMarkers();
+  const gasBase = TRIP_CONFIG.apiBase || '';
+  if (gasBase && item._rowIndex) {
+    try {
+      await fetch(gasBase, { method:'POST', body: JSON.stringify({
+        action:'deleteCheckin', rowIndex:item._rowIndex,
+      })});
+      // 刪行後其他列的 rowIndex 會位移，重新載入校正
+      loadCheckins();
+    } catch(e) { console.warn('雲端刪除失敗', e); }
+  }
 }
 
 function closeCheckin() {
   document.getElementById('checkinModal').classList.remove('show');
   pickingLocation = false;
+  editingId = null;
   map.getContainer().style.cursor = '';
 }
 
@@ -1237,6 +1309,45 @@ async function submitCheckin() {
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
   btn.textContent = '送出中…';
+
+  // ── 編輯模式：更新日記與塗鴉
+  if (editingId) {
+    try {
+      const item = checkins.find(c=>c.id===editingId);
+      if (item) {
+        let imageUrl = item.imageUrl || '';
+        if (pendingCheckin.pngBlob) {
+          try { imageUrl = await uploadImageToR2(pendingCheckin.pngBlob); }
+          catch(e) { console.warn('圖片上傳失敗', e); }
+        }
+        item.note     = pendingCheckin.text;
+        item.svgData  = pendingCheckin.svgData;
+        item.svgGrid  = pendingCheckin.svgGrid;
+        item.imageUrl = imageUrl;
+        const gasBase = TRIP_CONFIG.apiBase || '';
+        if (gasBase && item._rowIndex) {
+          await fetch(gasBase, { method:'POST', body: JSON.stringify({
+            action:   'editCheckin',
+            rowIndex: item._rowIndex,
+            note:     item.note,
+            imageUrl: imageUrl,
+            svgData:  item.svgData || '',
+            svgGrid:  item.svgGrid || 16,
+          })});
+        }
+      }
+      editingId = null;
+      closeCheckin();
+      renderMarkers();
+    } catch(e) {
+      console.error('編輯送出失敗', e);
+      alert('送出失敗，請稍後再試');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = typeMeta(pendingCheckin.type).icon + ' 儲存';
+    }
+    return;
+  }
 
   try {
     const now = new Date();
@@ -1292,6 +1403,8 @@ async function submitCheckin() {
     closeCheckin();
     renderMarkers();
     map.flyTo([item.lat, item.lng], 12);
+    // 重新載入以取得雲端 rowIndex（編輯/刪除需要）
+    if (gasBase) loadCheckins();
 
   } catch(e) {
     console.error('打卡送出失敗', e);
@@ -1492,11 +1605,11 @@ function pdBldSwatches(){
 function pdIc(){pdC=PD_DS/pdG;pdcv.width=PD_DS;pdcv.height=PD_DS;pdcv.style.width=PD_DS+'px';pdcv.style.height=PD_DS+'px';pdPx=Array(pdG).fill(null).map(()=>Array(pdG).fill(null));pdX=0;pdY=0;pdHist=[];pdFut=[];pdDraw();}
 function pdSg(n){pdG=n;document.querySelectorAll('.pd-smbtn').forEach(b=>b.classList.toggle('on',+b.textContent===n));pdIc();}
 function pdDraw(){
-  pdctx.clearRect(0,0,PD_DS,PD_DS);pdctx.fillStyle='#3a4450';pdctx.fillRect(0,0,PD_DS,PD_DS);
+  pdctx.clearRect(0,0,PD_DS,PD_DS);pdctx.fillStyle='#faf6ee';pdctx.fillRect(0,0,PD_DS,PD_DS);
   for(let y=0;y<pdG;y++)for(let x=0;x<pdG;x++)if(pdPx[y][x]){pdctx.fillStyle=pdPx[y][x];pdctx.fillRect(x*pdC,y*pdC,pdC,pdC);}
-  pdctx.strokeStyle='rgba(140,150,165,0.35)';pdctx.lineWidth=0.5;
+  pdctx.strokeStyle='rgba(150,140,125,0.4)';pdctx.lineWidth=0.5;
   for(let i=0;i<=pdG;i++){pdctx.beginPath();pdctx.moveTo(i*pdC,0);pdctx.lineTo(i*pdC,PD_DS);pdctx.stroke();pdctx.beginPath();pdctx.moveTo(0,i*pdC);pdctx.lineTo(PD_DS,i*pdC);pdctx.stroke();}
-  pdctx.strokeStyle=pdTool==='eye'?'#d05868':'#e8e4dc';pdctx.lineWidth=2;pdctx.strokeRect(pdX*pdC,pdY*pdC,pdC,pdC);
+  pdctx.strokeStyle=pdTool==='eye'?'#d05868':'#3a3530';pdctx.lineWidth=2;pdctx.strokeRect(pdX*pdC,pdY*pdC,pdC,pdC);
   document.getElementById('pd-pos').textContent=`(${pdX},${pdY})`;
 }
 function pdSh(){pdHist.push(pdPx.map(r=>[...r]));if(pdHist.length>50)pdHist.shift();pdFut=[];}
