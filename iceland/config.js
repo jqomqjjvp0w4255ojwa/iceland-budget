@@ -15,13 +15,21 @@ window.TRIP_CONFIG = {
   // ── Google Apps Script API
   apiBase: 'https://script.google.com/macros/s/AKfycbwK9MlKsP_Xd2pjGxmtSRgHp3KzCfgAYSiY16Ua3kqbHTBvgvd5wUcOehjG-hoRfEc/exec',
 
+  // ── Cloudflare R2 圖片上傳 Worker
+  r2Worker: 'https://worker-little-field-805c.xfish7.workers.dev',
+
+  // ── 腳印地圖（map.html）
+  mapCenter: [64.9, -19],
+  mapZoom:   6,
+
   // ── 成員設定
   // name:      用於比對 Google Sheet 欄位名稱（如「猴負擔」「花負擔」）
   // spriteKey: 對應 window.SPRITES 裡的 key（由 sprites.js 定義）
+  // icon/color: 腳印地圖頭像與標記顏色
   members: [
-    { name: '花', spriteKey: 'FLOWER_FRAMES', sceneId: 'svgHana',   charId: 'pxHana',   bubbleId: 'bubbleHana'   },
-    { name: '猴', spriteKey: 'MONKEY_FRAMES', sceneId: 'svgMonkey', charId: 'pxMonkey', bubbleId: 'bubbleMonkey' },
-    { name: '寧', spriteKey: 'NING_FRAMES',   sceneId: 'svgNing',   charId: 'pxNing',   bubbleId: 'bubbleNing'   },
+    { name: '花', icon: '🌸', color: '#cc4488', spriteKey: 'FLOWER_FRAMES', sceneId: 'svgHana',   charId: 'pxHana',   bubbleId: 'bubbleHana'   },
+    { name: '猴', icon: '🐒', color: '#c07020', spriteKey: 'MONKEY_FRAMES', sceneId: 'svgMonkey', charId: 'pxMonkey', bubbleId: 'bubbleMonkey' },
+    { name: '寧', icon: '🐱', color: '#7755bb', spriteKey: 'NING_FRAMES',   sceneId: 'svgNing',   charId: 'pxNing',   bubbleId: 'bubbleNing'   },
   ],
 
   // ── 使用幣別

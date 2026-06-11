@@ -592,8 +592,8 @@ let markers = {};
 //  地圖初始化
 // ══════════════════════════════════════════
 const map = L.map('map', {
-  center: TRIP_CONFIG.mapCenter,
-  zoom: TRIP_CONFIG.mapZoom,
+  center: TRIP_CONFIG.mapCenter || [64.9, -19],
+  zoom: TRIP_CONFIG.mapZoom || 6,
   zoomControl: true,
 });
 
@@ -654,7 +654,8 @@ map.on('click', e => {
 //  Marker 圖示
 // ══════════════════════════════════════════
 function getMemberByName(name) {
-  return members.find(m=>m.name===name) || { name, color:'#8a8078', icon:'📍' };
+  const m = members.find(mm=>mm.name===name);
+  return { name, color:'#8a8078', icon:'📍', ...(m||{}) };
 }
 
 function makeMarkerIcon(item, zoom) {
@@ -1094,6 +1095,8 @@ buildTopbarMembers();
 buildTabs();
 renderMarkers();
 loadCheckins();
+// 修正容器尺寸計算延遲導致 tile 不載入
+setTimeout(() => map.invalidateSize(), 200);
 </script>
 <!-- 畫板 Modal -->
 <div class="modal-overlay" id="drawModal">
