@@ -809,6 +809,16 @@ function spriteSvg(m, attrs) {
   return `<span style="font-size:16px;">${m.icon||'📍'}</span>`;
 }
 
+// 成員小圖示（spritetool 綁定的 iconKey 單格圖；沒有就用 emoji）
+function iconSvg(m) {
+  const frame = m.iconKey && window.SPRITES?.[m.iconKey];
+  if (frame) {
+    const g = m.iconGrid || 16;
+    return `<svg viewBox="0 0 ${g} ${g}" style="width:100%;height:100%;image-rendering:pixelated;display:block;">${frame}</svg>`;
+  }
+  return `<span style="font-size:16px;">${m.icon||'📍'}</span>`;
+}
+
 // ══════════════════════════════════════════
 //  住宿點（從 APP_DATA 讀，或用預設值）
 // ══════════════════════════════════════════
@@ -1272,6 +1282,8 @@ async function submitCheckin() {
           name:     item.name,
           note:     item.note,
           imageUrl: item.imageUrl,
+          svgData:  item.svgData || '',
+          svgGrid:  item.svgGrid || 16,
         }),
       });
     }
@@ -1399,7 +1411,8 @@ async function loadCheckins() {
     if (data.checkins && Array.isArray(data.checkins)) {
       checkins = data.checkins.map(c => ({
         ...c,
-        svgData: null, // SVG 暫不從 GAS 讀，用 imageUrl 顯示
+        svgData: c.svgData || null,
+        svgGrid: c.svgGrid || 16,
       }));
       renderMarkers();
     }
