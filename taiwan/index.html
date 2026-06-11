@@ -435,17 +435,17 @@ body{
 .leaflet-control-attribution a{color:var(--accent2) !important;}
 .leaflet-marker-icon{transition:none !important;}
 
+/* cluster：無泡泡，數字直接顯示在下方 */
 .px-cluster{
-  background:var(--panel);border:2px solid var(--border2);
-  border-radius:6px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  box-shadow:2px 2px 0 rgba(180,130,60,0.3);
-  overflow:hidden;image-rendering:pixelated;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-end;
+  image-rendering:pixelated;
+  filter:drop-shadow(1px 1px 0 rgba(120,90,40,0.45));
 }
 .px-cluster-count{
-  font-family:var(--px);font-size:7px;color:var(--muted);
-  background:var(--panel2);width:100%;text-align:center;
-  padding:1px 0;border-top:1px solid var(--border);
+  font-family:var(--px);font-size:9px;
+  color:#fff;line-height:1;margin-top:2px;
+  text-shadow:1px 1px 0 #8a6a3a,-1px 1px 0 #8a6a3a,1px -1px 0 #8a6a3a,-1px -1px 0 #8a6a3a;
 }
 
 /* ── 畫板（沿用 v11，亮色化） */
@@ -556,11 +556,11 @@ body{
 <div class="modal-overlay" id="checkinModal">
   <div class="modal-box">
     <div class="modal-header">
-      <div class="modal-title">新增紀錄</div>
+      <div class="modal-title" id="checkinModalTitle">新增紀錄</div>
       <button class="modal-close" onclick="closeCheckin()">✕</button>
     </div>
     <div class="modal-body">
-      <div class="step-row">
+      <div class="step-row" id="stepType">
         <div class="step-label"><div class="step-num">1</div>選擇類型</div>
         <div class="type-row" id="typeRow">
           <button class="type-chip on" data-type="checkin" onclick="selectType('checkin')">🐾 打卡</button>
@@ -568,7 +568,7 @@ body{
         </div>
       </div>
 
-      <div class="step-row">
+      <div class="step-row" id="stepLocation">
         <div class="step-label"><div class="step-num">2</div>選擇地點</div>
         <div class="location-card" id="locationCard" onclick="pickLocation()">
           <div style="font-size:18px;">📍</div>
@@ -581,7 +581,7 @@ body{
         <input class="name-input" id="placeName" placeholder="地點名稱（選填，預設用座標）" maxlength="40">
       </div>
 
-      <div class="step-row">
+      <div class="step-row" id="stepMember">
         <div class="step-label"><div class="step-num">3</div>選擇角色</div>
         <div class="member-grid" id="memberGrid"></div>
       </div>
@@ -827,11 +827,11 @@ const clusterGroup = L.markerClusterGroup({
       inner = `<div style="font-size:18px;line-height:36px;">${o.fallbackIcon||'📍'}</div>`;
     }
     return L.divIcon({
-      html:`<div class="px-cluster" style="width:44px;height:52px;border-color:${o.memberColor||'#e0b35e'};">
+      html:`<div class="px-cluster" style="width:44px;height:56px;">
         ${inner}
-        <div class="px-cluster-count">+${count}</div>
+        <div class="px-cluster-count">${count}</div>
       </div>`,
-      className:'', iconSize:[44,52], iconAnchor:[22,26],
+      className:'', iconSize:[44,56], iconAnchor:[22,28],
     });
   }
 });
@@ -944,6 +944,10 @@ function buildPopupContent(item) {
       ${item.type==='wish'?`<button class="popup-action-btn go" onclick="checkinFromWish('${item.id}')">🐾 去過了，打卡！</button>`:''}
       <button class="popup-action-btn" onclick="openComments('${item.id}')">💬 留言（${item.comments?.length||0}）</button>
       <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
+    </div>
+    <div class="popup-actions" style="border-top:none;padding-top:0;margin-top:6px;">
+      <button class="popup-action-btn" onclick="startEditCheckin('${item.id}')">✎ 編輯</button>
+      <button class="popup-action-btn" style="color:#d84848;" onclick="removeCheckin('${item.id}')">🗑 刪除</button>
     </div>
   `;
   return el;
@@ -1094,10 +1098,20 @@ function buildTripSelect() {
   el.value = pendingCheckin.tripId || (tripFilter || '');
 }
 
+let editingId = null;
+
+function setStepsVisible(showAll) {
+  ['stepType','stepLocation','stepMember'].forEach(id =>
+    document.getElementById(id).style.display = showAll ? '' : 'none');
+}
+
 function openCheckin(prefill) {
+  editingId = null;
   pendingCheckin = { type:'checkin', lat:null, lng:null, who:null, text:'', svgData:null, svgGrid:16, pngBlob:null, tripId:'' };
   pendingWishId = null;
   selectType('checkin');
+  setStepsVisible(true);
+  document.getElementById('checkinModalTitle').textContent = '新增紀錄';
   document.getElementById('locationName').textContent = '點地圖選擇地點';
   document.getElementById('locationCoord').textContent = '';
   document.getElementById('placeName').value = '';
@@ -1116,6 +1130,65 @@ function openCheckin(prefill) {
   buildTripSelect();
   document.getElementById('checkinModal').classList.add('show');
   checkSubmitReady();
+  if (!prefill) tryGPS();
+}
+
+// 開啟打卡時預設抓 GPS 定位（點地點卡片仍可改成手動選點）
+function tryGPS() {
+  if (!navigator.geolocation) return;
+  document.getElementById('locationName').textContent = '📡 定位中…';
+  document.getElementById('locationCoord').textContent = '點此可改手動選點';
+  navigator.geolocation.getCurrentPosition(pos => {
+    // 使用者已手動選點或進入編輯就不覆蓋
+    if (editingId || pendingCheckin.lat) return;
+    pendingCheckin.lat = pos.coords.latitude;
+    pendingCheckin.lng = pos.coords.longitude;
+    document.getElementById('locationName').textContent =
+      `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+    document.getElementById('locationCoord').textContent = '目前位置（GPS）· 點此可改手動選點';
+    checkSubmitReady();
+  }, () => {
+    if (!pendingCheckin.lat) {
+      document.getElementById('locationName').textContent = '點地圖選擇地點';
+      document.getElementById('locationCoord').textContent = '（無法取得定位）';
+    }
+  }, { enableHighAccuracy:true, timeout:8000, maximumAge:60000 });
+}
+
+// 編輯既有紀錄（可改日記、塗鴉與所屬旅程；地點/角色/類型固定）
+function startEditCheckin(id) {
+  const item = checkins.find(c=>c.id===id);
+  if (!item) return;
+  map.closePopup();
+  editingId = id;
+  pendingWishId = null;
+  pendingCheckin = {
+    type:item.type, lat:item.lat, lng:item.lng, who:item.who,
+    text:item.note||'', svgData:item.svgData||null, svgGrid:item.svgGrid||16, pngBlob:null,
+    tripId:item.tripId||'',
+  };
+  setStepsVisible(false);
+  document.getElementById('checkinModalTitle').textContent = '編輯：' + (item.name||'');
+  document.getElementById('diaryText').value = item.note||'';
+  document.getElementById('charCount').textContent = String((item.note||'').length);
+  document.getElementById('drawThumb').innerHTML = item.svgData
+    ? `<svg viewBox="0 0 ${item.svgGrid||16} ${item.svgGrid||16}" style="image-rendering:pixelated;width:100%;height:100%;">${item.svgData}</svg>`
+    : '🖼';
+  buildTripSelect();
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('checkinModal').classList.add('show');
+}
+
+// 刪除紀錄（台灣版 GAS 用打卡 ID 定位，不怕列位移）
+async function removeCheckin(id) {
+  const item = checkins.find(c=>c.id===id);
+  if (!item) return;
+  if (!confirm(`刪除「${item.name}」這筆紀錄？`)) return;
+  map.closePopup();
+  checkins = checkins.filter(c=>c.id!==id);
+  renderMarkers();
+  try { await gasPost({ action:'deleteCheckin', id }); }
+  catch(e) { console.warn('雲端刪除失敗', e); }
 }
 
 // 想去 → 打卡（打卡成功後自動移除想去項目，併入回顧）
@@ -1130,6 +1203,7 @@ function checkinFromWish(wishId) {
 function closeCheckin() {
   document.getElementById('checkinModal').classList.remove('show');
   pickingLocation = false;
+  editingId = null;
   map.getContainer().style.cursor = '';
 }
 
@@ -1171,6 +1245,45 @@ async function submitCheckin() {
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
   btn.textContent = '送出中…';
+
+  // ── 編輯模式：更新日記、塗鴉與所屬旅程
+  if (editingId) {
+    try {
+      const item = checkins.find(c=>c.id===editingId);
+      if (item) {
+        let imageUrl = item.imageUrl || '';
+        if (pendingCheckin.pngBlob) {
+          try { imageUrl = await uploadImageToR2(pendingCheckin.pngBlob); }
+          catch(e) { console.warn('圖片上傳失敗', e); }
+        }
+        item.note     = pendingCheckin.text;
+        item.svgData  = pendingCheckin.svgData;
+        item.svgGrid  = pendingCheckin.svgGrid;
+        item.imageUrl = imageUrl;
+        item.tripId   = document.getElementById('tripSelect').value || '';
+        await gasPost({
+          action:   'editCheckin',
+          id:       item.id,
+          note:     item.note,
+          imageUrl: imageUrl,
+          svgData:  item.svgData || '',
+          svgGrid:  item.svgGrid || 16,
+          tripId:   item.tripId,
+        });
+      }
+      editingId = null;
+      closeCheckin();
+      renderMarkers();
+    } catch(e) {
+      console.error('編輯送出失敗', e);
+      alert('送出失敗，請稍後再試');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = typeMeta(pendingCheckin.type).icon + ' 儲存';
+    }
+    return;
+  }
+
   try {
     const now = new Date();
     const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
