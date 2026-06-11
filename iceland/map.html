@@ -289,8 +289,8 @@ body{
   padding:1px 8px;cursor:pointer;line-height:1.4;
 }
 .popup-more:active{color:var(--text);background:var(--panel2);}
-/* 「…」下拉選單（貼著按鈕展開） */
-.popup-header{position:relative;}
+/* 「…」下拉選單（貼著按鈕展開，蓋在塗鴉之上） */
+.popup-header{position:relative;z-index:30;}
 .popup-extra{
   display:none;
   position:absolute;top:26px;right:0;
@@ -624,13 +624,16 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
       <!-- Step 2: 地點 -->
       <div class="step-row" id="stepLocation">
         <div class="step-label"><div class="step-num">2</div>選擇地點</div>
-        <div class="location-card" id="locationCard" onclick="pickLocation()">
-          <div style="font-size:18px;">📍</div>
-          <div style="flex:1;">
-            <div class="location-name" id="locationName">點地圖選擇地點</div>
-            <div class="location-coord" id="locationCoord"></div>
+        <div style="display:flex;gap:8px;">
+          <div class="location-card" id="locationCard" onclick="pickLocation()" style="flex:1;">
+            <div style="font-size:18px;">📍</div>
+            <div style="flex:1;">
+              <div class="location-name" id="locationName">點地圖選擇地點</div>
+              <div class="location-coord" id="locationCoord"></div>
+            </div>
+            <div class="location-edit">✎</div>
           </div>
-          <div class="location-edit">✎</div>
+          <button class="type-chip" style="flex:0 0 auto;padding:10px 12px;" onclick="tryGPS(true)" title="用目前位置">📡<br>GPS</button>
         </div>
         <input class="name-input" id="placeName" placeholder="地點名稱（選填，預設用座標）" maxlength="40">
       </div>
@@ -781,7 +784,8 @@ const stayLine = L.polyline(
 
 // Cluster group
 const clusterGroup = L.markerClusterGroup({
-  maxClusterRadius: 48,
+  maxClusterRadius: 36,
+  disableClusteringAtZoom: 11,
   iconCreateFunction: cluster => {
     const children = cluster.getAllChildMarkers();
     // 取時間最新的一筆當代表縮圖
@@ -870,8 +874,8 @@ function getMemberByName(name) {
 function makeMarkerIcon(item, zoom) {
   const m = getMemberByName(item.who);
 
-  // 大縮放且有畫圖 → 顯示像素圖
-  if (zoom >= 10 && item.svgData) {
+  // 稍微放大就顯示塗鴉（讓地圖長滿塗鴉的感覺）
+  if (zoom >= 7 && item.svgData) {
     const g = item.svgGrid || 16;
     return L.divIcon({
       html:`<div style="width:40px;height:40px;border:2px solid ${m.color};border-radius:4px;background:#faf6ee;overflow:hidden;box-shadow:2px 2px 0 rgba(0,0,0,0.3);image-rendering:pixelated;">
@@ -1165,13 +1169,14 @@ function openCheckin() {
 }
 
 // 開啟打卡時預設抓 GPS 定位（點地點卡片仍可改成手動選點）
-function tryGPS() {
+// force=true：使用者按 GPS 鈕，即使已手動選點也覆蓋
+function tryGPS(force) {
   if (!navigator.geolocation) return;
   document.getElementById('locationName').textContent = '📡 定位中…';
   document.getElementById('locationCoord').textContent = '點此可改手動選點';
   navigator.geolocation.getCurrentPosition(pos => {
-    // 使用者已手動選點或進入編輯就不覆蓋
-    if (editingId || pendingCheckin.lat) return;
+    // 非強制時：使用者已手動選點或進入編輯就不覆蓋
+    if (!force && (editingId || pendingCheckin.lat)) return;
     pendingCheckin.lat = pos.coords.latitude;
     pendingCheckin.lng = pos.coords.longitude;
     document.getElementById('locationName').textContent =

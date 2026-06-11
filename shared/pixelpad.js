@@ -55,7 +55,7 @@ const PAD_CSS = `
 .pd-slrow{display:flex;align-items:center;gap:4px;width:100%;}
 .pd-sllbl{font-size:10px;color:var(--muted,#6a6058);width:12px;flex-shrink:0;}
 .pd-slval{font-size:10px;color:var(--text,#3a3530);width:22px;text-align:right;flex-shrink:0;}
-.pd-app input[type=range]{flex:1;min-width:0;height:4px;-webkit-appearance:none;appearance:none;border-radius:2px;outline:none;cursor:pointer;}
+.pd-app input[type=range]{flex:1;min-width:0;height:4px;-webkit-appearance:none;appearance:none;border-radius:2px;outline:none;cursor:pointer;touch-action:none;}
 .pd-app input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--text,#5a5248);border:2px solid var(--bg,#d6d0c8);cursor:pointer;}
 .pd-navrow{display:flex;gap:3px;align-items:center;justify-content:center;}
 .pd-navbtn{width:36px;height:36px;background:var(--panel2,#ece8e0);border:1.5px solid var(--border,#b8b0a6);color:var(--text,#5a5248);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;border-radius:2px;flex-shrink:0;touch-action:manipulation;}
@@ -187,8 +187,12 @@ window.pdSg=function(n){pdG=n;padRoot.querySelectorAll('.pd-smbtn').forEach(b=>b
 
 function pdDraw(){
   if(!pdctx)return;
-  pdctx.clearRect(0,0,PD_DS,PD_DS);pdctx.fillStyle='#faf6ee';pdctx.fillRect(0,0,PD_DS,PD_DS);
-  for(let y=0;y<pdG;y++)for(let x=0;x<pdG;x++)if(pdPx[y][x]){pdctx.fillStyle=pdPx[y][x];pdctx.fillRect(x*pdC,y*pdC,pdC,pdC);}
+  pdctx.clearRect(0,0,PD_DS,PD_DS);
+  // 空白格畫淡棋盤格（透明示意），白色顏料才不會跟底色混淆
+  for(let y=0;y<pdG;y++)for(let x=0;x<pdG;x++){
+    pdctx.fillStyle = pdPx[y][x] || ((x+y)%2 ? '#e9e5db' : '#f3efe6');
+    pdctx.fillRect(x*pdC,y*pdC,pdC,pdC);
+  }
   pdctx.strokeStyle='rgba(150,140,125,0.4)';pdctx.lineWidth=0.5;
   for(let i=0;i<=pdG;i++){pdctx.beginPath();pdctx.moveTo(i*pdC,0);pdctx.lineTo(i*pdC,PD_DS);pdctx.stroke();pdctx.beginPath();pdctx.moveTo(0,i*pdC);pdctx.lineTo(PD_DS,i*pdC);pdctx.stroke();}
   pdctx.strokeStyle=pdTool==='eye'?'#d05868':'#3a3530';pdctx.lineWidth=2;pdctx.strokeRect(pdX*pdC,pdY*pdC,pdC,pdC);
