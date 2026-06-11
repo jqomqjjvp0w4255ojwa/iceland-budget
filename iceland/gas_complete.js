@@ -287,7 +287,7 @@ function doPost(e) {
       var now = new Date().toISOString();
       var row = [
         id,
-        now,
+        payload.time || now,   // B 時間戳：可由前端指定（補登舊日期）
         payload.type     || 'checkin',
         payload.who      || '',
         payload.name     || '',
@@ -315,6 +315,7 @@ function doPost(e) {
       var sheet = ss.getSheetByName(SHEET_NAMES.checkin);
       if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.checkin);
       if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      if (payload.time     !== undefined) sheet.getRange(payload.rowIndex, 2).setValue(payload.time);
       if (payload.note     !== undefined) sheet.getRange(payload.rowIndex, 8).setValue(payload.note);
       if (payload.imageUrl !== undefined) sheet.getRange(payload.rowIndex, 9).setValue(payload.imageUrl);
       if (payload.comments !== undefined) sheet.getRange(payload.rowIndex, 10).setValue(JSON.stringify(payload.comments));

@@ -82,7 +82,7 @@ body{
 
 /* ── 地圖上的浮動按鈕 */
 .map-fab{position:absolute;z-index:500;}
-.map-fab.layers{bottom:80px;left:12px;}
+.map-fab.layers{top:84px;left:12px;}   /* 縮放 +/− 正下方 */
 .map-fab.checkin{bottom:16px;right:12px;}
 
 .fab-btn{
@@ -103,8 +103,16 @@ body{
   background:var(--accent);
   border-color:var(--accent);
   color:#fff;
-  font-size:11px;
-  padding:10px 18px;
+  width:56px;height:56px;
+  border-radius:50%;
+  font-size:24px;
+  padding:0;
+  justify-content:center;
+}
+.fab-btn.square{
+  width:34px;height:34px;
+  padding:0;justify-content:center;
+  font-size:15px;
 }
 .fab-btn:active{transform:translate(1px,1px);}
 
@@ -112,7 +120,7 @@ body{
 .layers-menu{
   display:none;
   position:absolute;
-  bottom:124px;left:12px;
+  top:124px;left:12px;
   z-index:600;
   background:var(--panel);
   border:2px solid var(--border);
@@ -329,7 +337,8 @@ body{
 }
 .popup-more:active{color:var(--text);background:var(--panel2);}
 /* 「…」下拉選單（貼著按鈕展開，蓋在塗鴉之上） */
-.popup-header{position:relative;z-index:30;}
+.popup-header{position:relative;z-index:100;}
+.popup-img{position:relative;z-index:0;}
 .popup-extra{
   display:none;
   position:absolute;top:26px;right:0;
@@ -339,7 +348,7 @@ body{
   border-radius:6px;
   padding:6px;
   min-width:100px;
-  z-index:20;
+  z-index:999;
   box-shadow:2px 2px 0 rgba(0,0,0,0.35);
 }
 .popup-extra .popup-action-btn{background:transparent;border:none;justify-content:flex-start;padding:7px 10px;}
@@ -581,7 +590,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
   display:flex;flex-direction:column;overflow:hidden;
 }
 #checkinModal .modal-box.tall{height:92vh;}
-#checkinModal .modal-header{flex-shrink:0;position:static;}
+#checkinModal .modal-header{flex-shrink:0;position:static;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;}
 #checkinModal .modal-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
 .sheet-pill{
   height:18px;display:flex;align-items:center;justify-content:center;
@@ -608,7 +617,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
 
     <!-- 圖層按鈕 -->
     <div class="map-fab layers">
-      <button class="fab-btn" onclick="toggleLayers()">⊞ 圖層</button>
+      <button class="fab-btn square" onclick="toggleLayers()" title="圖層">⊞</button>
     </div>
 
     <!-- 圖層選單 -->
@@ -627,7 +636,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
 
     <!-- 打卡按鈕 -->
     <div class="map-fab checkin" id="checkinFab">
-      <button class="fab-btn primary" onclick="openCheckin()">🐾 打卡</button>
+      <button class="fab-btn primary" onclick="openCheckin()" title="打卡">🐾</button>
     </div>
 
     <!-- 時間軸滑桿 -->
@@ -685,6 +694,12 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
           <button class="type-chip" style="flex:0 0 auto;padding:10px 14px;font-size:18px;" onclick="tryGPS(true)" title="用目前位置">⌖</button>
         </div>
         <input class="name-input" id="placeName" placeholder="地點名稱（選填，預設用座標）" maxlength="40">
+      </div>
+
+      <!-- 日期（編輯時也會顯示） -->
+      <div class="step-row" id="stepDate">
+        <div class="step-label"><div class="step-num">📅</div>日期</div>
+        <input type="date" class="name-input" id="checkinDate" style="margin-top:0;color-scheme:dark;">
       </div>
 
       <!-- Step 3: 角色 -->
@@ -1276,6 +1291,10 @@ function openCheckin() {
   setStepsVisible(true);
   document.getElementById('checkinSheet').classList.remove('tall');
   document.getElementById('checkinModalTitle').textContent = '新增紀錄';
+  // 日期預設今天
+  const now = new Date();
+  document.getElementById('checkinDate').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   document.getElementById('locationName').textContent = '點地圖選擇地點';
   document.getElementById('locationCoord').textContent = '';
   document.getElementById('placeName').value = '';
@@ -1324,6 +1343,8 @@ function startEditCheckin(id) {
   setStepsVisible(false);
   document.getElementById('checkinSheet').classList.remove('tall');
   document.getElementById('checkinModalTitle').textContent = '編輯：' + (item.name||'');
+  // 顯示原日期，可修改
+  document.getElementById('checkinDate').value = (item.date||'').replace(/\//g,'-');
   document.getElementById('diaryText').value = item.note||'';
   document.getElementById('charCount').textContent = String((item.note||'').length);
   document.getElementById('drawThumb').innerHTML = item.svgData
@@ -1364,30 +1385,36 @@ function closeCheckin() {
 function toggleCheckinHeight() {
   document.getElementById('checkinSheet').classList.toggle('tall');
 }
+// pill 和整條標題列都是拉桿（按鈕除外）
 (function(){
-  const pill  = document.getElementById('sheetPill');
   const sheet = document.getElementById('checkinSheet');
-  let startY = null, dragged = false;
-  pill.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    startY = e.clientY; dragged = false;
-    pill.setPointerCapture(e.pointerId);
+  const zones = [
+    document.getElementById('sheetPill'),
+    document.querySelector('#checkinSheet .modal-header'),
+  ];
+  zones.forEach(zone => {
+    let startY = null, dragged = false;
+    zone.addEventListener('pointerdown', e => {
+      if (e.target.closest('button')) return;   // ✕ 等按鈕照常運作
+      e.preventDefault();
+      startY = e.clientY; dragged = false;
+      zone.setPointerCapture(e.pointerId);
+    });
+    zone.addEventListener('pointermove', e => {
+      if (startY === null) return;
+      const dy = e.clientY - startY;
+      if (dy < -20) { sheet.classList.add('tall');    dragged = true; startY = e.clientY; }
+      if (dy >  20) { sheet.classList.remove('tall'); dragged = true; startY = e.clientY; }
+    });
+    // iOS 上 pointer capture 會吃掉 click，改在 pointerup 判斷「沒拖就是點」
+    zone.addEventListener('pointerup', e => {
+      if (startY !== null && !dragged && !e.target.closest('button')) toggleCheckinHeight();
+      startY = null; dragged = false;
+    });
+    zone.addEventListener('pointercancel', () => { startY = null; dragged = false; });
+    // iOS：拖的時候不讓整頁跟著捲
+    zone.addEventListener('touchmove', e => e.preventDefault(), { passive:false });
   });
-  pill.addEventListener('pointermove', e => {
-    if (startY === null) return;
-    const dy = e.clientY - startY;
-    if (dy < -20) { sheet.classList.add('tall');    dragged = true; startY = e.clientY; }
-    if (dy >  20) { sheet.classList.remove('tall'); dragged = true; startY = e.clientY; }
-  });
-  // iOS 上 pointer capture 會吃掉 click，改在 pointerup 判斷「沒拖就是點」
-  pill.addEventListener('pointerup', () => {
-    if (startY !== null && !dragged) toggleCheckinHeight();
-    startY = null; dragged = false;
-  });
-  pill.addEventListener('pointercancel', () => { startY = null; dragged = false; });
-  // iOS：拖 pill 時不讓整頁跟著捲
-  pill.addEventListener('touchstart', e => e.preventDefault(), { passive:false });
-  pill.addEventListener('touchmove',  e => e.preventDefault(), { passive:false });
 })();
 
 function pickLocation() {
@@ -1437,12 +1464,19 @@ async function submitCheckin() {
         item.svgData  = pendingCheckin.svgData;
         item.svgGrid  = pendingCheckin.svgGrid;
         item.imageUrl = imageUrl;
+        // 日期若有改，更新 date 與 time
+        const picked = document.getElementById('checkinDate').value;
+        if (picked && picked.replace(/-/g,'/') !== item.date) {
+          item.date = picked.replace(/-/g,'/');
+          item.time = new Date(picked + 'T12:00:00').toISOString();
+        }
         const gasBase = TRIP_CONFIG.apiBase || '';
         if (gasBase && item._rowIndex) {
           await fetch(gasBase, { method:'POST', body: JSON.stringify({
             action:   'editCheckin',
             rowIndex: item._rowIndex,
             note:     item.note,
+            time:     item.time,
             imageUrl: imageUrl,
             svgData:  item.svgData || '',
             svgGrid:  item.svgGrid || 16,
@@ -1464,7 +1498,13 @@ async function submitCheckin() {
 
   try {
     const now = new Date();
-    const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
+    // 用使用者選的日期（預設今天）；選今天就帶現在時刻，補登舊日期則取當天中午
+    const picked = document.getElementById('checkinDate').value;   // YYYY-MM-DD
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const timeISO = (!picked || picked === todayStr)
+      ? now.toISOString()
+      : new Date(picked + 'T12:00:00').toISOString();
+    const dateStr = (picked || todayStr).replace(/-/g,'/');
 
     // 若有畫圖，先上傳到 R2
     let imageUrl = '';
@@ -1485,6 +1525,7 @@ async function submitCheckin() {
       lng:      pendingCheckin.lng,
       name:     customName || document.getElementById('locationName').textContent,
       date:     dateStr,
+      time:     timeISO,
       note:     pendingCheckin.text,
       comments: [],
       imageUrl: imageUrl,
@@ -1505,6 +1546,7 @@ async function submitCheckin() {
           lng:      item.lng,
           name:     item.name,
           note:     item.note,
+          time:     item.time,
           imageUrl: item.imageUrl,
           svgData:  item.svgData || '',
           svgGrid:  item.svgGrid || 16,
