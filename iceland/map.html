@@ -145,6 +145,36 @@ body{
 .style-opt .layer-check{border-radius:50%;}
 .style-opt.on .layer-check::after{content:'●';font-size:7px;}
 
+/* ── 時間軸滑桿 */
+.time-bar{
+  position:absolute;left:12px;right:12px;bottom:16px;
+  z-index:600;
+  display:flex;align-items:center;gap:10px;
+  background:var(--panel);
+  border:2px solid var(--border);
+  border-radius:var(--radius);
+  padding:8px 12px;
+  box-shadow:2px 2px 0 rgba(0,0,0,0.3);
+}
+.time-play{
+  flex-shrink:0;width:30px;height:30px;
+  background:var(--accent);border:none;border-radius:6px;
+  color:#fff;font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  touch-action:manipulation;
+}
+.time-bar input[type=range]{
+  flex:1;min-width:0;height:4px;
+  -webkit-appearance:none;appearance:none;
+  background:var(--border);border-radius:2px;outline:none;cursor:pointer;
+  touch-action:none;
+}
+.time-bar input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  background:var(--gold);border:2px solid var(--bg);cursor:pointer;
+}
+.time-label{font-size:8px;color:var(--muted);white-space:nowrap;flex-shrink:0;}
+
 /* ── 底部卡片區（抽屜式） */
 .card-drawer{
   background:var(--panel);
@@ -580,6 +610,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
       <div class="layer-opt on" id="lo-wish" onclick="toggleFilter('wish')"><span class="layer-check"></span>💗 想去</div>
       <div class="layer-opt on" id="lo-stay" onclick="toggleFilter('stay')"><span class="layer-check"></span>🏠 住宿</div>
       <div class="layer-opt on" id="lo-trail" onclick="toggleFilter('trail')"><span class="layer-check"></span>〰 足跡連線</div>
+      <div class="layer-opt" id="lo-timebar" onclick="toggleTimeBar()"><span class="layer-check"></span>⏳ 時間軸</div>
       <div class="layers-section">地圖風格</div>
       <div class="layer-opt style-opt on" id="ls-retro" onclick="setMapStyle('retro')"><span class="layer-check"></span>復古</div>
       <div class="layer-opt style-opt" id="ls-light" onclick="setMapStyle('light')"><span class="layer-check"></span>明亮</div>
@@ -587,8 +618,15 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
     </div>
 
     <!-- 打卡按鈕 -->
-    <div class="map-fab checkin">
+    <div class="map-fab checkin" id="checkinFab">
       <button class="fab-btn primary" onclick="openCheckin()">🐾 打卡</button>
+    </div>
+
+    <!-- 時間軸滑桿 -->
+    <div class="time-bar" id="timeBar" style="display:none;">
+      <button class="time-play" id="timePlay" onclick="playTimeline()">▶</button>
+      <input type="range" id="timeRange" min="0" max="100" step="1" value="100" oninput="stopTimePlay();setTimeFilter(this.value)">
+      <span class="time-label" id="timeLabel"></span>
     </div>
   </div>
 
@@ -1043,8 +1081,69 @@ function getVisible() {
     if (!filters[item.type]) return false;
     if (currentTab !== 'all' && item.type !== currentTab) return false;
     if (memberFilter && item.who !== memberFilter) return false;
+    if (timeFilterTs && itemTs(item) > timeFilterTs) return false;
     return true;
   });
+}
+
+// ══════════════════════════════════════════
+//  時間軸滑桿（拖到哪、看到哪之前的足跡；▶ 縮時播放）
+// ══════════════════════════════════════════
+let timeFilterTs = null;
+let timeBarOn = false;
+let tlMin = 0, tlMax = 0, tlTimer = null;
+
+function toggleTimeBar() {
+  if (!timeBarOn) {
+    const ts = checkins.map(itemTs).filter(Boolean);
+    if (ts.length < 2) { alert('紀錄還太少，多打幾次卡再來玩時間軸吧'); return; }
+    tlMin = Math.min(...ts); tlMax = Math.max(...ts);
+    timeBarOn = true;
+    document.getElementById('timeBar').style.display = 'flex';
+    document.getElementById('checkinFab').style.display = 'none';
+    document.getElementById('timeRange').value = 100;
+    setTimeFilter(100);
+  } else {
+    timeBarOn = false;
+    stopTimePlay();
+    timeFilterTs = null;
+    document.getElementById('timeBar').style.display = 'none';
+    document.getElementById('checkinFab').style.display = '';
+    renderMarkers();
+  }
+  document.getElementById('lo-timebar').classList.toggle('on', timeBarOn);
+  closeLayers();
+}
+
+function setTimeFilter(pct) {
+  pct = +pct;
+  timeFilterTs = pct >= 100 ? null : tlMin + (tlMax - tlMin) * pct / 100;
+  const d = new Date(pct >= 100 ? tlMax : timeFilterTs);
+  document.getElementById('timeLabel').textContent =
+    pct >= 100 ? '全部'
+    : `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  renderMarkers();
+}
+
+function playTimeline() {
+  if (tlTimer) { stopTimePlay(); return; }
+  const r = document.getElementById('timeRange');
+  r.value = 0;
+  setTimeFilter(0);
+  document.getElementById('timePlay').textContent = '⏸';
+  tlTimer = setInterval(() => {
+    const v = Math.min(100, +r.value + 2);
+    r.value = v;
+    setTimeFilter(v);
+    if (v >= 100) stopTimePlay();
+  }, 150);
+}
+
+function stopTimePlay() {
+  if (!tlTimer) return;
+  clearInterval(tlTimer);
+  tlTimer = null;
+  document.getElementById('timePlay').textContent = '▶';
 }
 
 function renderCards() {
