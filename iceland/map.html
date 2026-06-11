@@ -27,6 +27,7 @@
   --radius:8px;
 }
 
+html,body{overscroll-behavior:none;}
 body{
   background:var(--bg);
   font-family:var(--px);
@@ -543,7 +544,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
 }
 #checkinModal .modal-box.tall{height:92vh;}
 #checkinModal .modal-header{flex-shrink:0;position:static;}
-#checkinModal .modal-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#checkinModal .modal-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
 .sheet-pill{
   height:18px;display:flex;align-items:center;justify-content:center;
   cursor:grab;flex-shrink:0;touch-action:none;
@@ -633,7 +634,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
             </div>
             <div class="location-edit">✎</div>
           </div>
-          <button class="type-chip" style="flex:0 0 auto;padding:10px 12px;" onclick="tryGPS(true)" title="用目前位置">📡<br>GPS</button>
+          <button class="type-chip" style="flex:0 0 auto;padding:10px 14px;font-size:18px;" onclick="tryGPS(true)" title="用目前位置">⌖</button>
         </div>
         <input class="name-input" id="placeName" placeholder="地點名稱（選填，預設用座標）" maxlength="40">
       </div>
@@ -1265,6 +1266,9 @@ function toggleCheckinHeight() {
     startY = null; dragged = false;
   });
   pill.addEventListener('pointercancel', () => { startY = null; dragged = false; });
+  // iOS：拖 pill 時不讓整頁跟著捲
+  pill.addEventListener('touchstart', e => e.preventDefault(), { passive:false });
+  pill.addEventListener('touchmove',  e => e.preventDefault(), { passive:false });
 })();
 
 function pickLocation() {
