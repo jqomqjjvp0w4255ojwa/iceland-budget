@@ -69,7 +69,12 @@ body{
 
 /* ── 地圖 */
 .map-wrap{flex:1;position:relative;min-height:0;}
-#map{width:100%;height:100%;}
+#map{
+  width:100%;height:100%;
+  /* 防止 iOS 長按出現放大鏡/選取/拷貝選單 */
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+}
+#map *{-webkit-touch-callout:none;}
 /* 復古地圖色調 */
 #map.retro .leaflet-tile-pane{filter:sepia(.35) saturate(.75) hue-rotate(-8deg) brightness(.96);}
 #map.dark .leaflet-tile-pane{filter:none;}
@@ -284,6 +289,21 @@ body{
   padding:1px 8px;cursor:pointer;line-height:1.4;
 }
 .popup-more:active{color:var(--text);background:var(--panel2);}
+/* 「…」下拉選單（貼著按鈕展開） */
+.popup-header{position:relative;}
+.popup-extra{
+  display:none;
+  position:absolute;top:26px;right:0;
+  flex-direction:column;gap:4px;
+  background:var(--panel2);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:6px;
+  min-width:100px;
+  z-index:20;
+  box-shadow:2px 2px 0 rgba(0,0,0,0.35);
+}
+.popup-extra .popup-action-btn{background:transparent;border:none;justify-content:flex-start;padding:7px 10px;}
 
 /* ── Modal 共用 */
 .modal-overlay{
@@ -513,13 +533,17 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
 #checkinModal{background:transparent;pointer-events:none;}
 #checkinModal .modal-box{
   pointer-events:auto;
-  max-height:52vh;
+  height:52vh;
   border:2px solid var(--border);
   border-bottom:none;
   box-shadow:0 -6px 20px rgba(0,0,0,0.5);
-  transition:max-height .25s ease;
+  transition:height .25s ease;
+  /* pill 與標題固定在頂部，只有內容捲動 */
+  display:flex;flex-direction:column;overflow:hidden;
 }
-#checkinModal .modal-box.tall{max-height:92vh;}
+#checkinModal .modal-box.tall{height:92vh;}
+#checkinModal .modal-header{flex-shrink:0;position:static;}
+#checkinModal .modal-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .sheet-pill{
   height:18px;display:flex;align-items:center;justify-content:center;
   cursor:grab;flex-shrink:0;touch-action:none;
@@ -969,17 +993,17 @@ function buildPopupContent(item) {
         </div>
       </div>
       <button class="popup-more" title="更多"
-        onclick="const x=this.closest('.popup-inner').querySelector('.popup-extra');x.style.display=x.style.display==='flex'?'none':'flex';">…</button>
+        onclick="const x=this.closest('.popup-header').querySelector('.popup-extra');x.style.display=x.style.display==='flex'?'none':'flex';">…</button>
+      <div class="popup-extra">
+        <button class="popup-action-btn" onclick="startEditCheckin('${item.id}')">✎ 編輯</button>
+        <button class="popup-action-btn" style="color:#e08090;" onclick="deleteCheckin('${item.id}')">🗑 刪除</button>
+      </div>
     </div>
     ${itemImgHtml(item)}
     ${item.note?`<div class="popup-note">${item.note}</div>`:''}
     <div class="popup-actions">
       <button class="popup-action-btn" onclick="openComments('${item.id}')">💬 查看留言（${item.comments?.length||0}）</button>
       <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
-    </div>
-    <div class="popup-actions popup-extra" style="display:none;border-top:none;padding-top:0;margin-top:6px;">
-      <button class="popup-action-btn" onclick="startEditCheckin('${item.id}')">✎ 編輯</button>
-      <button class="popup-action-btn" style="color:#e08090;" onclick="deleteCheckin('${item.id}')">🗑 刪除</button>
     </div>
   `;
   return el;
@@ -1126,6 +1150,7 @@ function openCheckin() {
   pendingCheckin = { type:'checkin', lat:null, lng:null, who:null, text:'', svgData:null, svgGrid:16, pngBlob:null };
   selectType('checkin');
   setStepsVisible(true);
+  document.getElementById('checkinSheet').classList.remove('tall');
   document.getElementById('checkinModalTitle').textContent = '新增紀錄';
   document.getElementById('locationName').textContent = '點地圖選擇地點';
   document.getElementById('locationCoord').textContent = '';
@@ -1172,6 +1197,7 @@ function startEditCheckin(id) {
     text:item.note||'', svgData:item.svgData||null, svgGrid:item.svgGrid||16, pngBlob:null,
   };
   setStepsVisible(false);
+  document.getElementById('checkinSheet').classList.remove('tall');
   document.getElementById('checkinModalTitle').textContent = '編輯：' + (item.name||'');
   document.getElementById('diaryText').value = item.note||'';
   document.getElementById('charCount').textContent = String((item.note||'').length);
@@ -1218,17 +1244,22 @@ function toggleCheckinHeight() {
   const sheet = document.getElementById('checkinSheet');
   let startY = null, dragged = false;
   pill.addEventListener('pointerdown', e => {
+    e.preventDefault();
     startY = e.clientY; dragged = false;
     pill.setPointerCapture(e.pointerId);
   });
   pill.addEventListener('pointermove', e => {
     if (startY === null) return;
     const dy = e.clientY - startY;
-    if (dy < -25) { sheet.classList.add('tall');    startY = null; dragged = true; }
-    if (dy >  25) { sheet.classList.remove('tall'); startY = null; dragged = true; }
+    if (dy < -20) { sheet.classList.add('tall');    dragged = true; startY = e.clientY; }
+    if (dy >  20) { sheet.classList.remove('tall'); dragged = true; startY = e.clientY; }
   });
-  pill.addEventListener('pointerup', () => { startY = null; });
-  pill.addEventListener('click', () => { if (!dragged) toggleCheckinHeight(); dragged = false; });
+  // iOS 上 pointer capture 會吃掉 click，改在 pointerup 判斷「沒拖就是點」
+  pill.addEventListener('pointerup', () => {
+    if (startY !== null && !dragged) toggleCheckinHeight();
+    startY = null; dragged = false;
+  });
+  pill.addEventListener('pointercancel', () => { startY = null; dragged = false; });
 })();
 
 function pickLocation() {
@@ -1504,7 +1535,7 @@ loadCheckins();
 setTimeout(() => map.invalidateSize(), 200);
 </script>
 
-<script src="pixelpad.js"></script>
+<script src="../shared/pixelpad.js"></script>
 <script>
 // ══════════════════════════════════════════
 //  畫板掛載（共用 pixelpad.js）

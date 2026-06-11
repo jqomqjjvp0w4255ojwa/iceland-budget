@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════╗
 // ║  sprites.js － 角色、車輛、背景資料       ║
-// ║  更新角色：用 sprite-converter.html 轉換  ║
-// ║  新增成員：用 sprite-manager.html 綁定    ║
+// ║  更新角色：用 shared/spritetool.html 轉換 ║
+// ║  新增成員：用 shared/spritetool.html 綁定 ║
 // ╚══════════════════════════════════════════╝
 
 // ── 背景 SVG 內容（注入到 #pxBgSvg）

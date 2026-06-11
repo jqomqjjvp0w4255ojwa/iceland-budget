@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'iceland-budget-v23.12'
+const CACHE_NAME = 'iceland-budget-v23.13'
 
 const ASSETS = [
   '/iceland-budget/iceland/',
@@ -14,6 +14,8 @@ const ASSETS = [
   '/iceland-budget/iceland/render-ledger.js',
   '/iceland-budget/iceland/scene.js',
   '/iceland-budget/iceland/forms.js',
+  '/iceland-budget/iceland/map.html',
+  '/iceland-budget/shared/pixelpad.js',
 ];
 
 self.addEventListener('install', (event) => {
