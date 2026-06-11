@@ -362,6 +362,7 @@ textarea { width: 100%; height: 160px; background: #131d2e; border: 2px solid va
       <button class="btn btn-ghost" id="libFilterAll"  onclick="setLibFilter('all')"  style="font-size:11px;padding:5px 12px;border-color:var(--accent);color:var(--accent);">全部</button>
       <button class="btn btn-ghost" id="libFilterChar" onclick="setLibFilter('char')" style="font-size:11px;padding:5px 12px;">🧑 人物</button>
       <button class="btn btn-ghost" id="libFilterObj"  onclick="setLibFilter('obj')"  style="font-size:11px;padding:5px 12px;">🚗 物件</button>
+      <button class="btn btn-ghost" id="libFilterIcon" onclick="setLibFilter('icon')" style="font-size:11px;padding:5px 12px;">🔖 小圖示</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
       <button class="btn btn-ghost" onclick="document.getElementById('libImportFile').click()">📂 匯入 JSON 角色庫</button>
@@ -591,6 +592,10 @@ textarea { width: 100%; height: 160px; background: #131d2e; border: 2px solid va
       <button id="saveTypeObj" onclick="setSaveType('obj')"
         style="flex:1;font-family:var(--px);font-size:11px;padding:8px;border:2px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">
         🚗 物件
+      </button>
+      <button id="saveTypeIcon" onclick="setSaveType('icon')"
+        style="flex:1;font-family:var(--px);font-size:11px;padding:8px;border:2px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">
+        🔖 小圖示
       </button>
     </div>
     <div class="btn-row" style="margin-top:0;">
@@ -843,12 +848,17 @@ window.downloadCode = function() {
 let _saveType = 'char';
 window.setSaveType = function(t) {
   _saveType = t;
-  document.getElementById('saveTypeChar').style.borderColor  = t==='char' ? 'var(--green)' : 'var(--border)';
-  document.getElementById('saveTypeChar').style.background   = t==='char' ? 'rgba(6,214,160,.12)' : 'transparent';
-  document.getElementById('saveTypeChar').style.color        = t==='char' ? 'var(--green)' : 'var(--muted)';
-  document.getElementById('saveTypeObj').style.borderColor   = t==='obj'  ? 'var(--accent)' : 'var(--border)';
-  document.getElementById('saveTypeObj').style.background    = t==='obj'  ? 'rgba(0,229,255,.1)' : 'transparent';
-  document.getElementById('saveTypeObj').style.color         = t==='obj'  ? 'var(--accent)' : 'var(--muted)';
+  const styles = {
+    char: { id:'saveTypeChar', color:'var(--green)',  bg:'rgba(6,214,160,.12)' },
+    obj:  { id:'saveTypeObj',  color:'var(--accent)', bg:'rgba(0,229,255,.1)' },
+    icon: { id:'saveTypeIcon', color:'var(--gold)',   bg:'rgba(255,209,102,.1)' },
+  };
+  Object.keys(styles).forEach(k => {
+    const s = styles[k], el = document.getElementById(s.id);
+    el.style.borderColor = t===k ? s.color : 'var(--border)';
+    el.style.background  = t===k ? s.bg : 'transparent';
+    el.style.color       = t===k ? s.color : 'var(--muted)';
+  });
 };
 
 // ── 存入角色庫
@@ -908,7 +918,7 @@ function spriteSvgTag(sp, extraStyle, cls, dataKey) {
 let _libFilter = 'all';
 window.setLibFilter = function(f) {
   _libFilter = f;
-  ['all','char','obj'].forEach(k => {
+  ['all','char','obj','icon'].forEach(k => {
     const btn = document.getElementById('libFilter' + k.charAt(0).toUpperCase() + k.slice(1));
     if (!btn) return;
     const active = k === f;
@@ -931,7 +941,7 @@ function renderLibrary() {
     grid.innerHTML = '<div class="lib-empty">沒有符合的項目</div>';
     return;
   }
-  const usedKeys = new Set(members.map(m=>m.spriteKey).filter(Boolean));
+  const usedKeys = new Set(members.flatMap(m=>[m.spriteKey, m.iconKey]).filter(Boolean));
   grid.innerHTML = keys.map(key => {
     const sp = library[key];
     const inUse = usedKeys.has(key);
@@ -940,7 +950,7 @@ function renderLibrary() {
       ${inUse?'<span class="lib-in-use">IN USE</span>':''}
       ${spriteSvgTag(sp, '', 'lib-anim', key)}
       <div class="lib-name">${sp.name}</div>
-      <div style="font-size:10px;color:${sp.type==='obj'?'var(--accent)':'var(--muted)'};">${sp.type==='obj'?'🚗 物件':'🧑 人物'}</div>
+      <div style="font-size:10px;color:${sp.type==='obj'?'var(--accent)':sp.type==='icon'?'var(--gold)':'var(--muted)'};">${sp.type==='obj'?'🚗 物件':sp.type==='icon'?'🔖 小圖示':'🧑 人物'}</div>
     </div>`;
   }).join('');
   startLibAnim();
@@ -1014,21 +1024,29 @@ function renderMembers() {
   }
   list.innerHTML = members.map(m => {
     const sp = m.spriteKey ? library[m.spriteKey] : null;
-    return `<div class="member-row ${sp?'bound':'unbound'}">
-      <div class="sprite-preview" onclick="openBindModal('${m.id}')" title="點擊選角">
+    const ic = m.iconKey   ? library[m.iconKey]   : null;
+    return `<div class="member-row ${sp?'bound':'unbound'}" style="grid-template-columns:auto auto 1fr auto auto;">
+      <div class="sprite-preview" onclick="openBindModal('${m.id}','sprite')" title="點擊選角">
         ${sp
           ? `${spriteSvgTag(sp, '')}<span class="bound-dot"></span>`
           : '<div class="no-sprite">點擊<br>選角</div>'}
+      </div>
+      <div class="sprite-preview" style="width:34px;height:34px;" onclick="openBindModal('${m.id}','icon')" title="點擊選小圖示">
+        ${ic
+          ? `${spriteSvgTag(ic, '')}<span class="bound-dot"></span>`
+          : '<div class="no-sprite" style="font-size:12px;">icon</div>'}
       </div>
       <div class="member-info">
         <input class="member-name-input" value="${m.name}"
           onblur="updateMemberName('${m.id}',this.value)"
           onkeydown="if(event.key==='Enter')this.blur()">
         <div class="member-sub ${sp?'bound':''}">
-          ${sp ? `角色：${sp.name}` : '— 未綁定角色'}
+          ${sp ? `角色：${sp.name}` : '— 未綁定角色'}${ic ? `　icon：${ic.name}` : ''}
         </div>
       </div>
-      <button class="btn btn-ghost" style="font-size:12px;padding:5px 10px;" onclick="openBindModal('${m.id}')">選角</button>
+      <input type="color" value="${m.color||'#cc4488'}" title="代表色"
+        style="width:30px;height:30px;border:1px solid var(--border);background:transparent;cursor:pointer;padding:0;"
+        onchange="updateMemberColor('${m.id}',this.value)">
       <button class="btn btn-danger" style="font-size:12px;padding:5px 8px;" onclick="removeMember('${m.id}')">✕</button>
     </div>`;
   }).join('');
@@ -1070,24 +1088,43 @@ window.updateMemberName = function(id, name) {
   if (m && name.trim()) { m.name = name.trim(); saveState(); }
 };
 
-window.openBindModal = function(memberId) {
+window.updateMemberColor = function(id, color) {
+  const m = members.find(m=>m.id===id);
+  if (m) { m.color = color; saveState(); }
+};
+
+let bindingSlot = 'sprite'; // 'sprite' = 像素角色, 'icon' = 小圖示
+
+window.openBindModal = function(memberId, slot) {
   bindingMemberId = memberId;
+  bindingSlot = slot || 'sprite';
   const member = members.find(m=>m.id===memberId);
-  document.getElementById('modalSub').textContent = `為「${member?.name||'成員'}」選擇角色`;
+  const isIcon = bindingSlot === 'icon';
+  document.getElementById('modalSub').textContent =
+    `為「${member?.name||'成員'}」選擇${isIcon?'小圖示':'角色'}`;
   const grid = document.getElementById('modalGrid');
-  const keys = Object.keys(library);
+  // icon 槽優先列出「小圖示」類型；若庫裡還沒有 icon 類型則列出全部
+  let keys = Object.keys(library);
+  if (isIcon) {
+    const iconKeys = keys.filter(k => library[k].type === 'icon');
+    if (iconKeys.length) keys = iconKeys;
+  } else {
+    keys = keys.filter(k => library[k].type !== 'icon');
+    if (!keys.length) keys = Object.keys(library);
+  }
+  const boundKey = isIcon ? member?.iconKey : member?.spriteKey;
   if (!keys.length) {
     grid.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:20px;text-align:center;grid-column:1/-1;letter-spacing:1px;">角色庫是空的<br>請先在「轉換」頁存入角色</div>';
   } else {
     grid.innerHTML = keys.map(key => {
       const sp = library[key];
-      const isCurrent = member?.spriteKey === key;
+      const isCurrent = boundKey === key;
       return `<div class="lib-card ${isCurrent?'selected':''}" onclick="bindSprite('${key}')" style="cursor:pointer;${isCurrent?'border-color:var(--green);background:rgba(6,214,160,.08);':''}">
         ${spriteSvgTag(sp, '')}
         <div class="lib-name">${sp.name}</div>
         ${isCurrent?'<div style="font-size:14px;color:var(--green);">使用中</div>':''}
       </div>`;
-    }).join('') + (member?.spriteKey
+    }).join('') + (boundKey
       ? `<div class="lib-card" onclick="bindSprite(null)" style="cursor:pointer;border-color:rgba(255,77,109,.4);">
           <div style="font-size:20px;margin-bottom:4px;">✕</div>
           <div class="lib-name" style="color:var(--red);">解除綁定</div>
@@ -1098,7 +1135,11 @@ window.openBindModal = function(memberId) {
 
 window.bindSprite = function(key) {
   const m = members.find(m=>m.id===bindingMemberId);
-  if (m) { m.spriteKey = key; saveState(); }
+  if (m) {
+    if (bindingSlot === 'icon') m.iconKey = key;
+    else m.spriteKey = key;
+    saveState();
+  }
   closeModal(); renderMembers(); renderLibrary();
 };
 
@@ -1133,6 +1174,19 @@ window.generateCode = function() {
     lines.push('');
   });
 
+  // 成員小圖示（單格，地圖 marker / 留言用）
+  const iconMembers = members.filter(m => m.iconKey && library[m.iconKey]);
+  if (iconMembers.length) {
+    lines.push('// ── 成員小圖示');
+    iconMembers.forEach(m => {
+      const ic = library[m.iconKey];
+      const varName = toVarName(library[m.spriteKey].name) + '_ICON';
+      lines.push(`// ${m.name} 的小圖示「${ic.name}」（${ic.fw||16}×${ic.fh||16}）`);
+      lines.push(`const ${varName} = \`${ic.frames[0]}\`;`);
+      lines.push('');
+    });
+  }
+
   // 物件 frames（如 CAR_FRAME）
   if (objSprites.length) {
     lines.push('// ── 場景物件');
@@ -1147,6 +1201,7 @@ window.generateCode = function() {
   members.forEach(m => {
     const sp = library[m.spriteKey];
     lines.push(`  ${toVarName(sp.name)}_FRAMES,`);
+    if (m.iconKey && library[m.iconKey]) lines.push(`  ${toVarName(sp.name)}_ICON,`);
   });
   lines.push('};');
   lines.push('');
@@ -1158,7 +1213,10 @@ window.generateCode = function() {
   members.forEach(m => {
     const sp = library[m.spriteKey];
     const vn = toVarName(sp.name) + '_FRAMES';
-    lines.push(`  { name: '${m.name}', spriteKey: '${vn}', sceneId: 'svg${m.name}', charId: 'px${m.name}', bubbleId: 'bubble${m.name}' },`);
+    const iconPart = (m.iconKey && library[m.iconKey])
+      ? ` iconKey: '${toVarName(sp.name)}_ICON', iconGrid: ${library[m.iconKey].fw||16},`
+      : '';
+    lines.push(`  { name: '${m.name}', color: '${m.color||'#cc4488'}',${iconPart} spriteKey: '${vn}', sceneId: 'svg${m.name}', charId: 'px${m.name}', bubbleId: 'bubble${m.name}' },`);
   });
   lines.push('],');
 

@@ -61,11 +61,11 @@ function readSheet(sheet) {
 
 // ── 打卡 sheet 專用讀取（轉成物件陣列，前端好處理）──────
 // 打卡 sheet 欄位：
-//   A(1) 打卡ID  B(2) 類型  C(3) 成員  D(4) 地點名稱
-//   E(5) 緯度    F(6) 經度  G(7) 日記內容  H(8) 圖片URL
-//   I(9) 留言JSON  J(10) 建立時間  K(11) SVG資料  L(12) SVG格數
+//   A(1) 打卡ID  B(2) 時間戳  C(3) 類型  D(4) 成員  E(5) 地點名稱
+//   F(6) 緯度    G(7) 經度    H(8) 日記內容  I(9) 圖片URL(R2)
+//   J(10) 留言JSON  K(11) 建立時間  L(12) SVG資料  M(13) SVG格數
 var CHECKIN_HEADER = [
-  '打卡ID','類型','成員','地點名稱','緯度','經度',
+  '打卡ID','時間戳','類型','成員','地點名稱','緯度','經度',
   '日記內容','圖片URL','留言JSON','建立時間','SVG資料','SVG格數'
 ];
 
@@ -77,11 +77,12 @@ function readCheckinSheet(sheet) {
     var r = rows[i];
     if (!r[0]) continue;
     var comments = [];
-    try { comments = JSON.parse(r[8] || '[]'); } catch(e) {}
-    // 建立時間（ISO）轉 YYYY/MM/DD 給前端顯示
+    try { comments = JSON.parse(r[9] || '[]'); } catch(e) {}
+    // 時間戳（ISO）轉 YYYY/MM/DD 給前端顯示
     var dateStr = '';
-    if (r[9]) {
-      var d = new Date(r[9]);
+    var timeRaw = r[1] || r[10];
+    if (timeRaw) {
+      var d = new Date(timeRaw);
       if (!isNaN(d.getTime())) {
         dateStr = d.getFullYear() + '/' +
           ('0' + (d.getMonth()+1)).slice(-2) + '/' +
@@ -90,18 +91,18 @@ function readCheckinSheet(sheet) {
     }
     checkins.push({
       id:        r[0],
-      type:      r[1] || 'checkin',
-      who:       r[2],
-      name:      r[3],
-      lat:       parseFloat(r[4]) || 0,
-      lng:       parseFloat(r[5]) || 0,
-      note:      r[6],
-      imageUrl:  r[7],
+      type:      r[2] || 'checkin',
+      who:       r[3],
+      name:      r[4],
+      lat:       parseFloat(r[5]) || 0,
+      lng:       parseFloat(r[6]) || 0,
+      note:      r[7],
+      imageUrl:  r[8],
       comments:  comments,
-      time:      r[9],
+      time:      timeRaw,
       date:      dateStr,
-      svgData:   r[10] || '',
-      svgGrid:   parseInt(r[11], 10) || 16,
+      svgData:   r[11] || '',
+      svgGrid:   parseInt(r[12], 10) || 16,
       _rowIndex: i + 1,
     });
   }
@@ -273,8 +274,8 @@ function doPost(e) {
 
     // ── 新增打卡 ──────────────────────────────────────────
     // 打卡 sheet 欄位：
-    //   A打卡ID B類型 C成員 D地點名稱 E緯度 F經度
-    //   G日記內容 H圖片URL I留言JSON J建立時間 K SVG資料 L SVG格數
+    //   A打卡ID B時間戳 C類型 D成員 E地點名稱 F緯度 G經度
+    //   H日記內容 I圖片URL(R2) J留言JSON K建立時間 L SVG資料 M SVG格數
     if (action === 'addCheckin') {
       var sheet = ss.getSheetByName(SHEET_NAMES.checkin);
       if (!sheet) {
@@ -282,9 +283,11 @@ function doPost(e) {
         sheet = ss.insertSheet(SHEET_NAMES.checkin);
         sheet.getRange(1, 1, 1, CHECKIN_HEADER.length).setValues([CHECKIN_HEADER]);
       }
-      var id = 'ck_' + new Date().getTime();
+      var id  = 'ck_' + new Date().getTime();
+      var now = new Date().toISOString();
       var row = [
         id,
+        now,
         payload.type     || 'checkin',
         payload.who      || '',
         payload.name     || '',
@@ -293,7 +296,7 @@ function doPost(e) {
         payload.note     || '',
         payload.imageUrl || '',
         JSON.stringify(payload.comments || []),
-        new Date().toISOString(),
+        now,
         payload.svgData  || '',
         payload.svgGrid  || 16,
       ];
@@ -312,11 +315,11 @@ function doPost(e) {
       var sheet = ss.getSheetByName(SHEET_NAMES.checkin);
       if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.checkin);
       if (!payload.rowIndex) throw new Error('缺少 rowIndex');
-      if (payload.note     !== undefined) sheet.getRange(payload.rowIndex, 7).setValue(payload.note);
-      if (payload.imageUrl !== undefined) sheet.getRange(payload.rowIndex, 8).setValue(payload.imageUrl);
-      if (payload.comments !== undefined) sheet.getRange(payload.rowIndex, 9).setValue(JSON.stringify(payload.comments));
-      if (payload.svgData  !== undefined) sheet.getRange(payload.rowIndex, 11).setValue(payload.svgData);
-      if (payload.svgGrid  !== undefined) sheet.getRange(payload.rowIndex, 12).setValue(payload.svgGrid);
+      if (payload.note     !== undefined) sheet.getRange(payload.rowIndex, 8).setValue(payload.note);
+      if (payload.imageUrl !== undefined) sheet.getRange(payload.rowIndex, 9).setValue(payload.imageUrl);
+      if (payload.comments !== undefined) sheet.getRange(payload.rowIndex, 10).setValue(JSON.stringify(payload.comments));
+      if (payload.svgData  !== undefined) sheet.getRange(payload.rowIndex, 12).setValue(payload.svgData);
+      if (payload.svgGrid  !== undefined) sheet.getRange(payload.rowIndex, 13).setValue(payload.svgGrid);
       clearCache();
       return ok('checkin updated');
     }
@@ -348,7 +351,7 @@ function doPost(e) {
       }
       if (targetRow < 0) throw new Error('找不到打卡 ID：' + payload.checkinId);
 
-      var existing = sheet.getRange(targetRow, 9).getValue();
+      var existing = sheet.getRange(targetRow, 10).getValue();
       var comments = [];
       try { comments = JSON.parse(existing || '[]'); } catch(e2) { comments = []; }
       comments.push({
@@ -356,7 +359,7 @@ function doPost(e) {
         text: payload.text || '',
         time: new Date().toISOString(),
       });
-      sheet.getRange(targetRow, 9).setValue(JSON.stringify(comments));
+      sheet.getRange(targetRow, 10).setValue(JSON.stringify(comments));
       clearCache();
       return ok({ msg: 'comment added', count: comments.length });
     }
