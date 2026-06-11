@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>腳印地圖</title>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#f5f0e8;
+  --panel:#fffdf8;
+  --border:#d8d0c4;
+  --text:#2a2520;
+  --muted:#8a8078;
+  --accent:#c04050;
+  --accent2:#2a7a9a;
+  --gold:#c8860a;
+  --green:#2a7a4a;
+  --px:'Silkscreen',monospace;
+  --radius:8px;
+}
+
+body{
+  background:var(--bg);
+  font-family:var(--px);
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  color:var(--text);
+}
+
+/* ── 頂部標題列 */
+.topbar{
+  background:var(--panel);
+  border-bottom:1.5px solid var(--border);
+  padding:10px 14px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0;
+  z-index:1000;
+}
+.topbar-menu{font-size:16px;cursor:pointer;color:var(--muted);}
+.topbar-title{font-size:11px;color:var(--text);letter-spacing:1px;flex:1;}
+.topbar-members{display:flex;gap:6px;}
+.member-avatar{
+  width:28px;height:28px;border-radius:4px;
+  border:2px solid var(--border);
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;cursor:pointer;
+  image-rendering:pixelated;
+  overflow:hidden;
+}
+.member-avatar img,.member-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
+
+/* ── 主區域 */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+
+/* ── 地圖 */
+.map-wrap{flex:1;position:relative;min-height:0;}
+#map{width:100%;height:100%;}
+
+/* ── 地圖上的浮動按鈕 */
+.map-fab{
+  position:absolute;
+  z-index:500;
+}
+.map-fab.layers{bottom:80px;left:12px;}
+.map-fab.checkin{bottom:16px;right:12px;}
+
+.fab-btn{
+  background:var(--panel);
+  border:2px solid var(--border);
+  border-radius:var(--radius);
+  padding:8px 14px;
+  font-family:var(--px);
+  font-size:10px;
+  color:var(--text);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  box-shadow:2px 2px 0 rgba(0,0,0,0.1);
+}
+.fab-btn.primary{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+  font-size:11px;
+  padding:10px 18px;
+}
+.fab-btn:active{transform:translate(1px,1px);}
+
+/* ── 底部卡片區（抽屜式） */
+.card-drawer{
+  background:var(--panel);
+  border-top:1.5px solid var(--border);
+  flex-shrink:0;
+  display:flex;
+  flex-direction:column;
+  transition:height .3s ease;
+  height:44px;
+  overflow:hidden;
+  z-index:500;
+}
+.card-drawer.expanded{height:55vh;}
+
+.drawer-handle{
+  height:44px;
+  display:flex;
+  align-items:center;
+  padding:0 14px;
+  cursor:pointer;
+  flex-shrink:0;
+  gap:10px;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.drawer-pill{
+  width:32px;height:4px;
+  background:var(--border);
+  border-radius:2px;
+  margin:0 auto;
+  position:absolute;
+  left:50%;transform:translateX(-50%);
+}
+.drawer-tabs{display:flex;gap:0;flex:1;}
+.dtab{
+  font-family:var(--px);
+  font-size:9px;
+  padding:4px 10px;
+  border:none;
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  border-bottom:2px solid transparent;
+  white-space:nowrap;
+}
+.dtab.on{color:var(--accent);border-bottom-color:var(--accent);}
+
+.card-list{
+  overflow-y:auto;
+  flex:1;
+  padding:8px;
+}
+
+/* ── 打卡卡片 */
+.diary-card{
+  display:flex;
+  gap:10px;
+  padding:10px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  margin-bottom:8px;
+  cursor:pointer;
+  transition:box-shadow .1s;
+}
+.diary-card:active{box-shadow:inset 0 0 0 2px var(--border);}
+.diary-thumb{
+  width:56px;height:56px;
+  border-radius:4px;
+  border:1px solid var(--border);
+  flex-shrink:0;
+  background:#e8e4dc;
+  image-rendering:pixelated;
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;
+}
+.diary-thumb img,.diary-thumb svg{width:100%;height:100%;image-rendering:pixelated;}
+.diary-info{flex:1;min-width:0;}
+.diary-name{font-size:10px;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.diary-meta{display:flex;gap:6px;align-items:center;margin-bottom:4px;}
+.diary-tag{
+  font-size:8px;padding:2px 6px;border-radius:3px;
+  font-family:var(--px);white-space:nowrap;
+}
+.tag-checkin{background:#ffe0e8;color:#c04050;border:1px solid #f0b0c0;}
+.tag-wish{background:#fff0c8;color:#c8860a;border:1px solid #e0c878;}
+.tag-stay{background:#e0f0ff;color:#2a7a9a;border:1px solid #a8d0e8;}
+.diary-date{font-size:8px;color:var(--muted);}
+.diary-note{font-size:9px;color:var(--muted);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.diary-footer{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
+.diary-comments{font-size:8px;color:var(--muted);}
+.diary-author{width:22px;height:22px;flex-shrink:0;}
+.diary-author svg,.diary-author img{width:100%;height:100%;image-rendering:pixelated;}
+
+/* ── Popup */
+.px-popup{
+  font-family:var(--px) !important;
+  min-width:220px;
+}
+.px-popup .leaflet-popup-content-wrapper{
+  background:var(--panel);
+  border:2px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:4px 4px 0 rgba(0,0,0,0.12);
+  padding:0;
+}
+.px-popup .leaflet-popup-tip{background:var(--panel);}
+.px-popup .leaflet-popup-content{margin:0;width:auto !important;}
+.popup-inner{padding:12px 14px;}
+.popup-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.popup-icon{width:32px;height:32px;font-size:20px;display:flex;align-items:center;justify-content:center;}
+.popup-title{font-size:10px;color:var(--text);flex:1;}
+.popup-close-btn{font-size:12px;color:var(--muted);cursor:pointer;background:none;border:none;font-family:var(--px);}
+.popup-img{
+  width:100%;aspect-ratio:1;
+  background:#e8e4dc;
+  border-radius:4px;
+  border:1px solid var(--border);
+  image-rendering:pixelated;
+  margin-bottom:8px;
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+.popup-img svg,.popup-img img{width:100%;height:100%;image-rendering:pixelated;}
+.popup-note{font-size:9px;color:var(--text);line-height:1.6;margin-bottom:8px;}
+.popup-footer{display:flex;gap:6px;justify-content:space-between;align-items:center;}
+.popup-comment-count{font-size:8px;color:var(--muted);}
+.popup-author{width:24px;height:24px;}
+.popup-author svg,.popup-author img{width:100%;height:100%;image-rendering:pixelated;}
+.popup-actions{display:flex;gap:6px;margin-top:10px;border-top:1px solid var(--border);padding-top:8px;}
+.popup-action-btn{
+  flex:1;padding:7px 6px;
+  border:1px solid var(--border);
+  background:var(--bg);
+  font-family:var(--px);font-size:8px;
+  color:var(--text);cursor:pointer;
+  border-radius:4px;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+}
+.popup-action-btn:active{background:var(--border);}
+
+/* ── 新增打卡 Modal */
+.modal-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:2000;
+  align-items:flex-end;justify-content:center;
+}
+.modal-overlay.show{display:flex;}
+.modal-box{
+  background:var(--panel);
+  border-radius:12px 12px 0 0;
+  border-top:2px solid var(--border);
+  width:100%;max-width:480px;
+  max-height:90vh;
+  overflow-y:auto;
+}
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--panel);z-index:1;
+}
+.modal-title{font-size:11px;color:var(--text);letter-spacing:1px;}
+.modal-close{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;}
+.modal-body{padding:14px 16px;}
+
+.step-row{margin-bottom:16px;}
+.step-label{
+  display:flex;align-items:center;gap:8px;
+  font-size:9px;color:var(--muted);
+  margin-bottom:8px;letter-spacing:1px;
+}
+.step-num{
+  width:18px;height:18px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  font-size:9px;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+
+.location-card{
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:10px 12px;
+  display:flex;align-items:center;gap:10px;
+  cursor:pointer;
+  background:var(--bg);
+}
+.location-card:active{background:var(--border);}
+.location-name{font-size:10px;color:var(--text);flex:1;}
+.location-coord{font-size:8px;color:var(--muted);}
+.location-edit{font-size:16px;color:var(--muted);}
+
+.member-grid{display:flex;gap:8px;flex-wrap:wrap;}
+.member-choice{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:8px 12px;
+  border:2px solid var(--border);
+  border-radius:var(--radius);
+  cursor:pointer;
+  background:var(--bg);
+  position:relative;
+  min-width:70px;
+}
+.member-choice.on{border-color:var(--accent);background:#fff0f2;}
+.member-choice .check{
+  position:absolute;top:-6px;right:-6px;
+  width:16px;height:16px;
+  background:var(--accent);border-radius:50%;
+  display:none;align-items:center;justify-content:center;
+  font-size:10px;color:#fff;
+}
+.member-choice.on .check{display:flex;}
+.member-choice-avatar{width:40px;height:40px;image-rendering:pixelated;}
+.member-choice-avatar svg,.member-choice-avatar img{width:100%;height:100%;image-rendering:pixelated;}
+.member-choice-name{font-size:8px;color:var(--text);}
+
+.diary-textarea{
+  width:100%;
+  background:var(--bg);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius);
+  padding:10px 12px;
+  font-family:var(--px);
+  font-size:10px;
+  color:var(--text);
+  resize:none;
+  height:90px;
+  outline:none;
+  line-height:1.6;
+}
+.diary-textarea:focus{border-color:var(--accent);}
+.char-count{font-size:8px;color:var(--muted);text-align:right;margin-top:4px;}
+
+.draw-preview-row{display:flex;gap:10px;align-items:center;}
+.draw-thumb{
+  width:64px;height:64px;
+  border:2px solid var(--border);
+  border-radius:6px;
+  background:#e8e4dc;
+  image-rendering:pixelated;
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;flex-shrink:0;
+}
+.draw-thumb svg,.draw-thumb img{width:100%;height:100%;image-rendering:pixelated;}
+.draw-edit-btn{
+  flex:1;padding:10px;
+  border:1.5px solid var(--accent);
+  background:#fff0f2;
+  color:var(--accent);
+  font-family:var(--px);font-size:10px;
+  border-radius:var(--radius);
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.draw-edit-btn:active{background:#ffd8de;}
+
+.submit-btn{
+  width:100%;padding:14px;
+  background:var(--accent);
+  border:none;border-radius:var(--radius);
+  color:#fff;font-family:var(--px);font-size:11px;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-top:8px;
+  letter-spacing:1px;
+}
+.submit-btn:active{background:#a03040;}
+.submit-btn:disabled{background:#d0c8c4;cursor:not-allowed;}
+
+/* ── 留言 Modal */
+.comment-item{
+  display:flex;gap:10px;
+  padding:10px 0;
+  border-bottom:1px solid var(--border);
+}
+.comment-item:last-child{border-bottom:none;}
+.comment-avatar{width:32px;height:32px;flex-shrink:0;image-rendering:pixelated;}
+.comment-avatar svg,.comment-avatar img{width:100%;height:100%;image-rendering:pixelated;}
+.comment-body{flex:1;}
+.comment-name{font-size:9px;color:var(--text);margin-bottom:3px;}
+.comment-text{font-size:10px;color:var(--muted);line-height:1.6;}
+.comment-time{font-size:8px;color:var(--border);margin-top:3px;}
+.comment-input-row{
+  display:flex;gap:8px;
+  padding:10px 16px;
+  border-top:1px solid var(--border);
+  position:sticky;bottom:0;background:var(--panel);
+}
+.comment-input{
+  flex:1;background:var(--bg);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius);
+  padding:8px 12px;
+  font-family:var(--px);font-size:10px;
+  color:var(--text);outline:none;
+}
+.comment-input:focus{border-color:var(--accent);}
+.comment-send{
+  padding:8px 14px;
+  background:var(--accent);border:none;
+  color:#fff;font-family:var(--px);font-size:10px;
+  border-radius:var(--radius);cursor:pointer;
+}
+
+/* ── Leaflet 覆蓋 */
+.leaflet-container{background:#e8e4dc !important;}
+.leaflet-control-zoom a{
+  background:var(--panel) !important;
+  color:var(--text) !important;
+  border:1px solid var(--border) !important;
+  font-family:var(--px) !important;
+  font-size:14px !important;
+}
+.leaflet-control-attribution{
+  font-family:sans-serif;
+  font-size:9px;
+  background:rgba(255,255,255,0.7) !important;
+}
+.leaflet-marker-icon{transition:none !important;}
+
+/* ── 自訂 cluster */
+.px-cluster{
+  background:var(--panel);
+  border:2px solid var(--border);
+  border-radius:6px;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  box-shadow:2px 2px 0 rgba(0,0,0,0.1);
+  overflow:hidden;
+  image-rendering:pixelated;
+}
+.px-cluster-count{
+  font-family:var(--px);font-size:7px;
+  color:var(--muted);
+  background:var(--bg);
+  width:100%;text-align:center;
+  padding:1px 0;
+  border-top:1px solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<!-- 頂部標題列 -->
+<div class="topbar">
+  <div class="topbar-menu">☰</div>
+  <div class="topbar-title" id="tripTitle">冰島旅行日記</div>
+  <div class="topbar-members" id="topbarMembers"></div>
+</div>
+
+<!-- 主區域 -->
+<div class="main">
+  <div class="map-wrap">
+    <div id="map"></div>
+
+    <!-- 圖層按鈕 -->
+    <div class="map-fab layers">
+      <button class="fab-btn" onclick="toggleLayers()">⊞ 圖層</button>
+    </div>
+
+    <!-- 打卡按鈕 -->
+    <div class="map-fab checkin">
+      <button class="fab-btn primary" onclick="openCheckin()">🐾 打卡</button>
+    </div>
+  </div>
+
+  <!-- 底部抽屜 -->
+  <div class="card-drawer" id="cardDrawer">
+    <div class="drawer-handle" onclick="toggleDrawer()">
+      <div class="drawer-pill"></div>
+      <div class="drawer-tabs" id="drawerTabs"></div>
+      <div style="font-size:10px;color:var(--muted);" id="drawerCount">0 筆</div>
+    </div>
+    <div class="card-list" id="cardList"></div>
+  </div>
+</div>
+
+<!-- 新增打卡 Modal -->
+<div class="modal-overlay" id="checkinModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">新增打卡</div>
+      <button class="modal-close" onclick="closeCheckin()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Step 1: 地點 -->
+      <div class="step-row">
+        <div class="step-label"><div class="step-num">1</div>選擇地點</div>
+        <div class="location-card" id="locationCard" onclick="pickLocation()">
+          <div style="font-size:18px;">📍</div>
+          <div style="flex:1;">
+            <div class="location-name" id="locationName">點地圖選擇地點</div>
+            <div class="location-coord" id="locationCoord"></div>
+          </div>
+          <div class="location-edit">✎</div>
+        </div>
+      </div>
+
+      <!-- Step 2: 角色 -->
+      <div class="step-row">
+        <div class="step-label"><div class="step-num">2</div>選擇角色</div>
+        <div class="member-grid" id="memberGrid"></div>
+      </div>
+
+      <!-- Step 3: 日記 -->
+      <div class="step-row">
+        <div class="step-label"><div class="step-num">3</div>寫下你的日記</div>
+        <textarea class="diary-textarea" id="diaryText" placeholder="記錄此刻的感受…" maxlength="200" oninput="updateCharCount()"></textarea>
+        <div class="char-count"><span id="charCount">0</span>/200</div>
+      </div>
+
+      <!-- Step 4: 畫圖 -->
+      <div class="step-row">
+        <div class="step-label"><div class="step-num">4</div>畫一張圖（可選）</div>
+        <div class="draw-preview-row">
+          <div class="draw-thumb" id="drawThumb">🖼</div>
+          <button class="draw-edit-btn" onclick="openDrawPanel()">✏ 編輯畫圖</button>
+        </div>
+      </div>
+
+      <button class="submit-btn" id="submitBtn" onclick="submitCheckin()" disabled>🐾 儲存打卡</button>
+    </div>
+  </div>
+</div>
+
+<!-- 留言 Modal -->
+<div class="modal-overlay" id="commentModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="commentModalTitle">留言</div>
+      <button class="modal-close" onclick="closeComments()">✕</button>
+    </div>
+    <div style="padding:8px 16px;flex:1;" id="commentList"></div>
+    <div class="comment-input-row">
+      <input class="comment-input" id="commentInput" placeholder="寫下留言…" onkeydown="if(event.key==='Enter')sendComment()">
+      <button class="comment-send" onclick="sendComment()">送出</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+// ══════════════════════════════════════════
+//  設定（從 config.js 讀）
+// ══════════════════════════════════════════
+const TRIP_CONFIG = window.TRIP_CONFIG || {
+  tripName:  '冰島旅行日記',
+  members:   [
+    { name:'花', color:'#cc4488', icon:'🌸' },
+    { name:'猴', color:'#c07020', icon:'🐒' },
+    { name:'寧', color:'#7755bb', icon:'🐱' },
+  ],
+  mapCenter: [64.9, -19],
+  mapZoom:   6,
+  apiBase:   '',
+  r2Worker:  '',
+};
+
+const R2_WORKER = TRIP_CONFIG.r2Worker || 'https://worker-little-field-805c.xfish7.workers.dev';
+
+// ══════════════════════════════════════════
+//  住宿點（從 APP_DATA 讀，或用預設值）
+// ══════════════════════════════════════════
+const STAYS = (window.APP_DATA?.accommodation || []).map((a, i) => ({
+  id: 's' + i,
+  lat: parseFloat(a.lat) || 0,
+  lng: parseFloat(a.lng) || 0,
+  name: a.name || '',
+  date: a.date || '',
+})).filter(s => s.lat && s.lng);
+
+// 打卡資料（從 GAS 載入）
+let checkins = [];
+
+// ══════════════════════════════════════════
+//  狀態
+// ══════════════════════════════════════════
+let filters = { checkin:true, wish:true, stay:true };
+let members = TRIP_CONFIG.members;
+let drawerOpen = false;
+let currentTab = 'all';
+let pendingCheckin = { lat:null, lng:null, who:null, text:'', svgData:null };
+let currentCommentId = null;
+let pickingLocation = false;
+let markers = {};
+
+// ══════════════════════════════════════════
+//  地圖初始化
+// ══════════════════════════════════════════
+const map = L.map('map', {
+  center: TRIP_CONFIG.mapCenter,
+  zoom: TRIP_CONFIG.mapZoom,
+  zoomControl: true,
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution:'© CartoDB',
+  maxZoom:19,
+}).addTo(map);
+
+// 住宿路線
+const stayLine = L.polyline(
+  STAYS.map(s=>[s.lat,s.lng]),
+  { color:'#9ab8d0', weight:2, dashArray:'6,4', opacity:0.7 }
+).addTo(map);
+
+// Cluster group
+const clusterGroup = L.markerClusterGroup({
+  maxClusterRadius: 48,
+  iconCreateFunction: cluster => {
+    const children = cluster.getAllChildMarkers();
+    const latest = children[children.length-1];
+    const svgData = latest?.options?.svgData;
+    const memberColor = latest?.options?.memberColor || '#8a8078';
+    const count = cluster.getChildCount();
+    let inner = '';
+    if (svgData) {
+      inner = `<svg width="36" height="36" viewBox="0 0 16 16" style="image-rendering:pixelated;display:block;">${svgData}</svg>`;
+    } else {
+      inner = `<div style="font-size:18px;line-height:36px;">${latest?.options?.icon||'📍'}</div>`;
+    }
+    return L.divIcon({
+      html:`<div class="px-cluster" style="width:44px;height:52px;border-color:${memberColor};">
+        ${inner}
+        <div class="px-cluster-count">+${count}</div>
+      </div>`,
+      className:'', iconSize:[44,52], iconAnchor:[22,26],
+    });
+  }
+});
+map.addLayer(clusterGroup);
+
+// zoom 切換 marker 樣式
+map.on('zoomend', () => renderMarkers());
+
+// 點地圖選位置
+map.on('click', e => {
+  if (!pickingLocation) return;
+  pendingCheckin.lat = e.latlng.lat;
+  pendingCheckin.lng = e.latlng.lng;
+  pickingLocation = false;
+  map.getContainer().style.cursor = '';
+  document.getElementById('locationName').textContent = `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+  document.getElementById('locationCoord').textContent = '點擊位置';
+  document.getElementById('checkinModal').classList.add('show');
+  checkSubmitReady();
+});
+
+// ══════════════════════════════════════════
+//  Marker 圖示
+// ══════════════════════════════════════════
+function getMemberByName(name) {
+  return members.find(m=>m.name===name) || { name, color:'#8a8078', icon:'📍' };
+}
+
+function makeMarkerIcon(item, zoom) {
+  const m = item.type==='stay'
+    ? { color:'#9ab8d0', icon:'🏠' }
+    : getMemberByName(item.who);
+
+  // 大縮放且有畫圖 → 顯示像素圖
+  if (zoom >= 10 && item.svgData) {
+    return L.divIcon({
+      html:`<div style="width:40px;height:40px;border:2px solid ${m.color};border-radius:4px;background:var(--panel);overflow:hidden;box-shadow:2px 2px 0 rgba(0,0,0,0.12);image-rendering:pixelated;">
+        <svg width="40" height="40" viewBox="0 0 16 16" style="image-rendering:pixelated;display:block;">${item.svgData}</svg>
+      </div>`,
+      className:'', iconSize:[40,40], iconAnchor:[20,20],
+    });
+  }
+
+  // 小縮放或無圖 → 固定圖示
+  const typeIcon = item.type==='wish' ? '💗' : item.type==='stay' ? '🏠' : m.icon;
+  return L.divIcon({
+    html:`<div style="font-size:22px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.2));">${typeIcon}</div>`,
+    className:'', iconSize:[28,28], iconAnchor:[14,14],
+  });
+}
+
+// ══════════════════════════════════════════
+//  渲染 Markers
+// ══════════════════════════════════════════
+function renderMarkers() {
+  clusterGroup.clearLayers();
+  markers = {};
+  const zoom = map.getZoom();
+
+  // 住宿點
+  if (filters.stay) {
+    STAYS.forEach(s => {
+      const m = L.marker([s.lat, s.lng], {
+        icon: L.divIcon({
+          html:`<div style="font-size:20px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.2));">🏠</div>`,
+          className:'', iconSize:[26,26], iconAnchor:[13,13],
+        }),
+        icon:'🏠', memberColor:'#9ab8d0', svgData:null,
+      }).bindPopup(`<div class="popup-inner"><div class="popup-header"><div class="popup-icon">🏠</div><div class="popup-title">${s.name}</div></div><div class="popup-note">${s.date}</div></div>`, {className:'px-popup', maxWidth:240});
+      clusterGroup.addLayer(m);
+    });
+  }
+
+  // 打卡足跡
+  const visible = getVisible();
+  visible.forEach(item => {
+    const icon = makeMarkerIcon(item, zoom);
+    const m = getMemberByName(item.who);
+    const marker = L.marker([item.lat, item.lng], {
+      icon,
+      memberColor: item.type==='stay' ? '#9ab8d0' : m.color,
+      svgData: item.svgData,
+      memberIcon: m.icon,
+    }).bindPopup(() => buildPopupContent(item), { className:'px-popup', maxWidth:240 });
+    markers[item.id] = marker;
+    clusterGroup.addLayer(marker);
+  });
+
+  renderCards();
+}
+
+function buildPopupContent(item) {
+  const m = getMemberByName(item.who);
+  const typeLabel = item.type==='wish' ? '想去' : item.type==='stay' ? '住宿' : '打卡';
+  const tagClass = item.type==='wish' ? 'tag-wish' : item.type==='stay' ? 'tag-stay' : 'tag-checkin';
+  const imgHtml = item.svgData
+    ? `<div class="popup-img"><svg width="100%" height="100%" viewBox="0 0 16 16" style="image-rendering:pixelated;">${item.svgData}</svg></div>`
+    : '';
+
+  const el = document.createElement('div');
+  el.className = 'popup-inner';
+  el.innerHTML = `
+    <div class="popup-header">
+      <div class="popup-icon" style="color:${m.color}">${item.type==='wish'?'💗':item.type==='stay'?'🏠':m.icon}</div>
+      <div style="flex:1;">
+        <div class="popup-title">${item.name}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:3px;">
+          <span class="diary-tag ${tagClass}">${typeLabel}</span>
+          ${item.date?`<span style="font-size:8px;color:var(--muted)">${item.date}</span>`:''}
+        </div>
+      </div>
+    </div>
+    ${imgHtml}
+    ${item.note?`<div class="popup-note">${item.note}</div>`:''}
+    <div class="popup-actions">
+      <button class="popup-action-btn" onclick="openComments('${item.id}')">💬 查看留言（${item.comments?.length||0}）</button>
+      <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
+    </div>
+  `;
+  return el;
+}
+
+// ══════════════════════════════════════════
+//  卡片列表
+// ══════════════════════════════════════════
+const TABS = [
+  { key:'all', label:'全部' },
+  { key:'checkin', label:'打卡' },
+  { key:'wish', label:'想去' },
+  { key:'stay', label:'住宿' },
+];
+
+function buildTabs() {
+  const el = document.getElementById('drawerTabs');
+  el.innerHTML = TABS.map(t =>
+    `<button class="dtab ${t.key===currentTab?'on':''}" onclick="setTab('${t.key}');event.stopPropagation();">${t.label}</button>`
+  ).join('');
+}
+
+function setTab(key) {
+  currentTab = key;
+  buildTabs();
+  renderCards();
+  if (!drawerOpen) toggleDrawer();
+}
+
+function getVisible() {
+  return checkins.filter(item => {
+    if (currentTab !== 'all' && item.type !== currentTab) return false;
+    return true;
+  });
+}
+
+function renderCards() {
+  const list = document.getElementById('cardList');
+  const visible = getVisible();
+  document.getElementById('drawerCount').textContent = visible.length + ' 筆';
+
+  list.innerHTML = visible.map(item => {
+    const m = getMemberByName(item.who);
+    const typeLabel = item.type==='wish' ? '想去' : item.type==='stay' ? '住宿' : '打卡';
+    const tagClass = item.type==='wish' ? 'tag-wish' : item.type==='stay' ? 'tag-stay' : 'tag-checkin';
+    const thumb = item.svgData
+      ? `<svg width="56" height="56" viewBox="0 0 16 16" style="image-rendering:pixelated;">${item.svgData}</svg>`
+      : `<span style="font-size:24px;">${item.type==='wish'?'💗':item.type==='stay'?'🏠':m.icon}</span>`;
+
+    return `<div class="diary-card" onclick="flyTo(${item.lat},${item.lng},'${item.id}')">
+      <div class="diary-thumb">${thumb}</div>
+      <div class="diary-info">
+        <div class="diary-name">${item.name}</div>
+        <div class="diary-meta">
+          <span class="diary-tag ${tagClass}">${typeLabel}</span>
+          ${item.date?`<span class="diary-date">${item.date}</span>`:''}
+        </div>
+        ${item.note?`<div class="diary-note">${item.note}</div>`:''}
+        <div class="diary-footer">
+          <span class="diary-comments">${item.comments?.length?`💬 ${item.comments.length}`:''}</span>
+          <div class="diary-author" style="color:${m.color};font-size:16px;">${m.icon}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || `<div style="text-align:center;padding:24px;font-size:9px;color:var(--muted);">還沒有紀錄</div>`;
+}
+
+function flyTo(lat, lng, id) {
+  map.flyTo([lat, lng], 12, { duration: 1 });
+  setTimeout(() => { if(markers[id]) markers[id].openPopup(); }, 1000);
+}
+
+// ══════════════════════════════════════════
+//  抽屜
+// ══════════════════════════════════════════
+function toggleDrawer() {
+  drawerOpen = !drawerOpen;
+  document.getElementById('cardDrawer').classList.toggle('expanded', drawerOpen);
+  if (drawerOpen) map.invalidateSize();
+}
+
+// ══════════════════════════════════════════
+//  打卡 Modal
+// ══════════════════════════════════════════
+function buildMemberGrid() {
+  const el = document.getElementById('memberGrid');
+  el.innerHTML = members.map(m =>
+    `<div class="member-choice ${pendingCheckin.who===m.name?'on':''}" onclick="selectMember('${m.name}')">
+      <div class="check">✓</div>
+      <div class="member-choice-avatar" style="font-size:28px;display:flex;align-items:center;justify-content:center;">${m.icon}</div>
+      <div class="member-choice-name">${m.name}</div>
+    </div>`
+  ).join('');
+}
+
+function selectMember(name) {
+  pendingCheckin.who = name;
+  buildMemberGrid();
+  checkSubmitReady();
+}
+
+function openCheckin() {
+  pendingCheckin = { lat:null, lng:null, who:null, text:'', svgData:null };
+  document.getElementById('locationName').textContent = '點地圖選擇地點';
+  document.getElementById('locationCoord').textContent = '';
+  document.getElementById('diaryText').value = '';
+  document.getElementById('charCount').textContent = '0';
+  document.getElementById('drawThumb').innerHTML = '🖼';
+  document.getElementById('submitBtn').disabled = true;
+  buildMemberGrid();
+  document.getElementById('checkinModal').classList.add('show');
+}
+
+function closeCheckin() {
+  document.getElementById('checkinModal').classList.remove('show');
+  pickingLocation = false;
+  map.getContainer().style.cursor = '';
+}
+
+function pickLocation() {
+  document.getElementById('checkinModal').classList.remove('show');
+  pickingLocation = true;
+  map.getContainer().style.cursor = 'crosshair';
+}
+
+function updateCharCount() {
+  const val = document.getElementById('diaryText').value;
+  document.getElementById('charCount').textContent = val.length;
+  pendingCheckin.text = val;
+  checkSubmitReady();
+}
+
+function checkSubmitReady() {
+  const ready = pendingCheckin.lat && pendingCheckin.who;
+  document.getElementById('submitBtn').disabled = !ready;
+}
+
+function openDrawPanel() {
+  // 開啟嵌入式畫板 modal
+  document.getElementById('drawModal').classList.add('show');
+  if (!window._drawInited) initDrawCanvas();
+}
+
+async function uploadImageToR2(blob) {
+  const formData = new FormData();
+  formData.append('file', blob, 'checkin.png');
+  const res = await fetch(R2_WORKER, { method:'POST', body: formData });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'upload failed');
+  return data.url;
+}
+
+async function submitCheckin() {
+  if (!pendingCheckin.lat || !pendingCheckin.who) return;
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '送出中…';
+
+  try {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
+
+    // 若有畫圖，先上傳到 R2
+    let imageUrl = '';
+    if (pendingCheckin.pngBlob) {
+      try {
+        imageUrl = await uploadImageToR2(pendingCheckin.pngBlob);
+      } catch(e) {
+        console.warn('圖片上傳失敗，繼續送出打卡', e);
+      }
+    }
+
+    const item = {
+      id:       'c' + Date.now(),
+      type:     'checkin',
+      who:      pendingCheckin.who,
+      lat:      pendingCheckin.lat,
+      lng:      pendingCheckin.lng,
+      name:     document.getElementById('locationName').textContent,
+      date:     dateStr,
+      note:     pendingCheckin.text,
+      comments: [],
+      imageUrl: imageUrl,
+      svgData:  pendingCheckin.svgData,
+    };
+
+    // POST 到 GAS
+    const gasBase = TRIP_CONFIG.apiBase || '';
+    if (gasBase) {
+      await fetch(gasBase, {
+        method:'POST',
+        body: JSON.stringify({
+          action:   'addCheckin',
+          type:     item.type,
+          who:      item.who,
+          lat:      item.lat,
+          lng:      item.lng,
+          name:     item.name,
+          note:     item.note,
+          imageUrl: item.imageUrl,
+        }),
+      });
+    }
+
+    checkins.unshift(item);
+    closeCheckin();
+    renderMarkers();
+    map.flyTo([item.lat, item.lng], 12);
+
+  } catch(e) {
+    console.error('打卡送出失敗', e);
+    alert('送出失敗，請稍後再試');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🐾 儲存打卡';
+  }
+}
+
+// ══════════════════════════════════════════
+//  留言
+// ══════════════════════════════════════════
+function openComments(id) {
+  currentCommentId = id;
+  const item = checkins.find(c=>c.id===id);
+  if (!item) return;
+  document.getElementById('commentModalTitle').textContent = `留言（${item.comments?.length||0}）`;
+  renderComments(item);
+  document.getElementById('commentModal').classList.add('show');
+}
+
+function renderComments(item) {
+  const el = document.getElementById('commentList');
+  el.innerHTML = (item.comments||[]).map(c => {
+    const m = getMemberByName(c.who);
+    return `<div class="comment-item">
+      <div class="comment-avatar" style="font-size:24px;display:flex;align-items:center;justify-content:center;">${m.icon}</div>
+      <div class="comment-body">
+        <div class="comment-name" style="color:${m.color}">${c.who}</div>
+        <div class="comment-text">${c.text}</div>
+        <div class="comment-time">${c.time||''}</div>
+      </div>
+    </div>`;
+  }).join('') || `<div style="text-align:center;padding:24px;font-size:9px;color:var(--muted);">還沒有留言</div>`;
+}
+
+async function sendComment() {
+  const input = document.getElementById('commentInput');
+  const text = input.value.trim();
+  if (!text || !currentCommentId) return;
+  const item = checkins.find(c=>c.id===currentCommentId);
+  if (!item) return;
+
+  // 先選留言者（預設第一個成員，之後可做選擇）
+  const who = members[0].name;
+  const now = new Date();
+  const time = now.toISOString();
+
+  item.comments = item.comments || [];
+  item.comments.push({ who, text, time });
+  input.value = '';
+  document.getElementById('commentModalTitle').textContent = `留言（${item.comments.length}）`;
+  renderComments(item);
+  renderCards();
+  if (markers[currentCommentId]) {
+    markers[currentCommentId].setPopupContent(buildPopupContent(item));
+  }
+
+  // POST 到 GAS
+  const gasBase = TRIP_CONFIG.apiBase || '';
+  if (gasBase) {
+    fetch(gasBase, {
+      method: 'POST',
+      body: JSON.stringify({
+        action:    'addComment',
+        checkinId: item.id,
+        who,
+        text,
+      }),
+    }).catch(e => console.warn('留言同步失敗', e));
+  }
+}
+
+function closeComments() {
+  document.getElementById('commentModal').classList.remove('show');
+  currentCommentId = null;
+}
+
+// ══════════════════════════════════════════
+//  導航
+// ══════════════════════════════════════════
+function navigateTo(lat, lng) {
+  window.open(`https://maps.google.com/?q=${lat},${lng}`, '_blank');
+}
+
+// ══════════════════════════════════════════
+//  圖層切換（簡易）
+// ══════════════════════════════════════════
+function toggleLayers() {
+  // TODO: 圖層選單
+}
+
+// ══════════════════════════════════════════
+//  頂部成員頭像
+// ══════════════════════════════════════════
+function buildTopbarMembers() {
+  const el = document.getElementById('topbarMembers');
+  el.innerHTML = members.map(m =>
+    `<div class="member-avatar" title="${m.name}" style="font-size:18px;" onclick="filterByMember('${m.name}')">${m.icon}</div>`
+  ).join('');
+  document.getElementById('tripTitle').textContent = TRIP_CONFIG.tripName;
+}
+
+function filterByMember(name) {
+  // TODO: 篩選單一成員
+}
+
+// ══════════════════════════════════════════
+//  GAS 載入打卡資料
+// ══════════════════════════════════════════
+async function loadCheckins() {
+  const gasBase = TRIP_CONFIG.apiBase || '';
+  if (!gasBase) {
+    console.log('未設定 GAS，使用空資料');
+    return;
+  }
+  try {
+    const res = await fetch(gasBase + '?sheet=checkin', { cache:'no-store' });
+    const data = await res.json();
+    if (data.checkins && Array.isArray(data.checkins)) {
+      // 把 imageUrl 轉成 svgData 的位置留空（圖片用 imageUrl 顯示）
+      checkins = data.checkins.map(c => ({
+        ...c,
+        svgData: null, // SVG 暫不從 GAS 讀，用 imageUrl 顯示
+      }));
+      renderMarkers();
+    }
+  } catch(e) {
+    console.warn('打卡資料載入失敗', e);
+  }
+}
+
+// ══════════════════════════════════════════
+//  初始化
+// ══════════════════════════════════════════
+buildTopbarMembers();
+buildTabs();
+renderMarkers();
+loadCheckins();
+</script>
+<!-- 畫板 Modal -->
+<div class="modal-overlay" id="drawModal">
+  <div class="modal-box" style="max-height:95vh;">
+    <div class="modal-header">
+      <div class="modal-title">畫一張圖</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button style="padding:4px 12px;border:1.5px solid var(--green);background:#e8f5e8;color:var(--green);font-family:var(--px);font-size:10px;border-radius:4px;cursor:pointer;" onclick="confirmDraw()">完成</button>
+        <button class="modal-close" onclick="document.getElementById('drawModal').classList.remove('show')">✕</button>
+      </div>
+    </div>
+    <div style="padding:10px;display:flex;flex-direction:column;gap:8px;">
+      <!-- 工具列 -->
+      <div style="display:flex;gap:6px;align-items:center;justify-content:center;">
+        <button class="tool-btn on" id="dt-pen" onclick="setDrawTool('pen')" style="padding:5px 10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--px);font-size:10px;border-radius:3px;cursor:pointer;">✏</button>
+        <button class="tool-btn" id="dt-fill" onclick="setDrawTool('fill')" style="padding:5px 10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--px);font-size:10px;border-radius:3px;cursor:pointer;">▣</button>
+        <button class="tool-btn" id="dt-eye" onclick="setDrawTool('eye')" style="padding:5px 10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--px);font-size:10px;border-radius:3px;cursor:pointer;">◈</button>
+        <div style="width:1px;height:18px;background:var(--border);margin:0 2px;"></div>
+        <button onclick="drawUndo()" style="padding:5px 10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--px);font-size:10px;border-radius:3px;cursor:pointer;">↩</button>
+        <button onclick="drawClr()" style="padding:5px 8px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-size:12px;border-radius:3px;cursor:pointer;">🗑</button>
+      </div>
+      <!-- 畫布 -->
+      <div style="display:flex;justify-content:center;">
+        <canvas id="drawCanvas" style="image-rendering:pixelated;border:2px solid var(--border);cursor:crosshair;border-radius:2px;display:block;"></canvas>
+      </div>
+      <!-- 色票 -->
+      <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center;" id="drawPalette"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 嵌入畫板 ──────────────────────────────
+const DRAW_PALETTE=['#000000','#ffffff','#c04050','#e06878','#f0a0a8','#ffd0d8','#d06820','#e8a050','#408040','#70b870','#4060c0','#8090d8','#804080','#9a9088','#5a4a3a','#e8e4dc'];
+let _dG=16,_dC=16,_dPx=[],_dHist=[],_dFut=[],_dCurX=0,_dCurY=0,_dColor='#c04050',_dTool='pen',_dInited=false,_dmT=null,_dhT=null;
+
+function initDrawCanvas(){
+  _dInited=true;
+  const cv=document.getElementById('drawCanvas');
+  const size=Math.min(window.innerWidth-48,280);
+  _dC=Math.floor(size/_dG);
+  cv.width=_dG*_dC;cv.height=_dG*_dC;
+  cv.style.width=(_dG*_dC)+'px';cv.style.height=(_dG*_dC)+'px';
+  _dPx=Array(_dG).fill(null).map(()=>Array(_dG).fill(null));
+  _dHist=[];_dFut=[];
+  _drawAll();
+  _buildPalette();
+
+  cv.addEventListener('pointerdown',e=>{
+    const r=cv.getBoundingClientRect(),sx=(_dG*_dC)/r.width,sy=(_dG*_dC)/r.height;
+    _dCurX=Math.max(0,Math.min(_dG-1,Math.floor((e.clientX-r.left)*sx/_dC)));
+    _dCurY=Math.max(0,Math.min(_dG-1,Math.floor((e.clientY-r.top)*sy/_dC)));
+    if(_dTool==='eye'){const c=_dPx[_dCurY][_dCurX];if(c){_dColor=c;_buildPalette();}setDrawTool('pen');return;}
+    _dPaint();
+  });
+  cv.addEventListener('pointermove',e=>{
+    if(!e.buttons)return;
+    const r=cv.getBoundingClientRect(),sx=(_dG*_dC)/r.width,sy=(_dG*_dC)/r.height;
+    const nx=Math.max(0,Math.min(_dG-1,Math.floor((e.clientX-r.left)*sx/_dC)));
+    const ny=Math.max(0,Math.min(_dG-1,Math.floor((e.clientY-r.top)*sy/_dC)));
+    if(nx!==_dCurX||ny!==_dCurY){_dCurX=nx;_dCurY=ny;if(_dTool!=='eye')_dPaint();}
+  });
+}
+
+function _drawAll(){
+  const cv=document.getElementById('drawCanvas');if(!cv)return;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#f0ece4';ctx.fillRect(0,0,cv.width,cv.height);
+  for(let y=0;y<_dG;y++)for(let x=0;x<_dG;x++)if(_dPx[y][x]){ctx.fillStyle=_dPx[y][x];ctx.fillRect(x*_dC,y*_dC,_dC,_dC);}
+  ctx.strokeStyle='rgba(160,150,140,0.4)';ctx.lineWidth=0.5;
+  for(let i=0;i<=_dG;i++){ctx.beginPath();ctx.moveTo(i*_dC,0);ctx.lineTo(i*_dC,_dG*_dC);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*_dC);ctx.lineTo(_dG*_dC,i*_dC);ctx.stroke();}
+  ctx.strokeStyle=_dTool==='eye'?'#c04050':'#5a5248';ctx.lineWidth=2;ctx.strokeRect(_dCurX*_dC,_dCurY*_dC,_dC,_dC);
+}
+
+function _dSh(){_dHist.push(_dPx.map(r=>[...r]));if(_dHist.length>30)_dHist.shift();_dFut=[];}
+function drawUndo(){if(!_dHist.length)return;_dFut.push(_dPx.map(r=>[...r]));_dPx=_dHist.pop();_drawAll();}
+function drawClr(){_dSh();_dPx=Array(_dG).fill(null).map(()=>Array(_dG).fill(null));_drawAll();}
+
+function _dPaint(){
+  _dSh();
+  if(_dTool==='pen')_dPx[_dCurY][_dCurX]=_dColor;
+  else if(_dTool==='erase')_dPx[_dCurY][_dCurX]=null;
+  else if(_dTool==='fill')_dFlood(_dCurX,_dCurY,_dPx[_dCurY][_dCurX],_dColor);
+  _drawAll();
+}
+function _dFlood(x,y,t,f){if(x<0||x>=_dG||y<0||y>=_dG||_dPx[y][x]!==t||(t===f&&t!==null))return;_dPx[y][x]=f;_dFlood(x+1,y,t,f);_dFlood(x-1,y,t,f);_dFlood(x,y+1,t,f);_dFlood(x,y-1,t,f);}
+
+function setDrawTool(t){
+  _dTool=t;
+  ['pen','fill','eye'].forEach(n=>{
+    const e=document.getElementById('dt-'+n);
+    if(e){e.style.background=n===t?'#5a5248':'var(--bg)';e.style.color=n===t?'#fff':'var(--text)';}
+  });
+  _drawAll();
+}
+
+function _buildPalette(){
+  const el=document.getElementById('drawPalette');if(!el)return;
+  el.innerHTML=DRAW_PALETTE.map(c=>`<div onclick="_dColor='${c}';_buildPalette();" style="width:22px;height:22px;background:${c};border:2px solid ${c===_dColor?'#3a3530':'transparent'};border-radius:2px;cursor:pointer;flex-shrink:0;${c===_dColor?'transform:scale(1.2);':''};"></div>`).join('');
+}
+
+function confirmDraw(){
+  // 把畫布存成 PNG blob 和 SVG rect 字串
+  const cv=document.getElementById('drawCanvas');
+  // PNG（上傳 R2 用）
+  cv.toBlob(blob=>{
+    pendingCheckin.pngBlob=blob;
+  },'image/png');
+
+  // SVG rect（本地預覽用）
+  const rects=[];
+  for(let y=0;y<_dG;y++){let x=0;while(x<_dG){if(!_dPx[y][x]){x++;continue;}let run=1;while(x+run<_dG&&_dPx[y][x+run]===_dPx[y][x])run++;rects.push(`<rect x="${x}" y="${y}" width="${run}" height="1" fill="${_dPx[y][x]}"/>`);x+=run;}}
+  pendingCheckin.svgData=rects.join('');
+
+  // 更新預覽縮圖
+  if(rects.length){
+    document.getElementById('drawThumb').innerHTML=`<svg width="64" height="64" viewBox="0 0 ${_dG} ${_dG}" style="image-rendering:pixelated;">${pendingCheckin.svgData}</svg>`;
+  }
+
+  document.getElementById('drawModal').classList.remove('show');
+}
+</script>
+
+</body>
+</html>

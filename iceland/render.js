@@ -305,7 +305,14 @@ function renderAll(){
 
       <!-- 其他分頁（待開發） -->
       <div id="mainSection-info" style="display:none"><div id="infoContent"></div></div>
-      <div id="mainSection-map"  style="display:none"><div class="empty">🐾 腳印頁面施工中</div></div>
+      <div id="mainSection-map" style="display:none;padding:0;margin:0;">
+        <iframe
+          id="mapFrame"
+          src="map.html"
+          style="width:100%;height:calc(100vh - 120px);border:none;display:block;"
+          loading="lazy"
+        ></iframe>
+      </div>
       <div id="mainSection-bag"  style="display:none"><div class="empty">📖 手冊頁面施工中</div></div>
     </div>
   `;
