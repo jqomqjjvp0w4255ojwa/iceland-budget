@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>台灣腳印日記</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#fff3d6">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="sprites.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+/* ── 台灣夏日水果色系 ──
+   芒果 #ffb627 · 西瓜 #ff5d5d · 芭樂 #58b368 · 荔枝粉 #f4538a
+   鳳梨 #ffd23f · 奶白 #fffaf0 */
+:root{
+  --bg:#fff6e3;
+  --panel:#fffaf0;
+  --panel2:#fff0d4;
+  --border:#f2cf8d;
+  --border2:#e0b35e;
+  --text:#5a4632;
+  --muted:#b3946a;
+  --accent:#ff5d5d;      /* 西瓜紅 */
+  --accent2:#58b368;     /* 芭樂綠 */
+  --mango:#ffb627;
+  --pine:#ffd23f;
+  --lychee:#f4538a;
+  --px:'Silkscreen',monospace;
+  --radius:8px;
+}
+
+body{
+  background:var(--bg);
+  font-family:var(--px);
+  height:100vh;height:100dvh;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  color:var(--text);
+}
+
+/* ── 頂部標題列 */
+.topbar{
+  background:var(--panel);
+  border-bottom:2px solid var(--border);
+  padding:10px 14px;
+  display:flex;align-items:center;gap:10px;
+  flex-shrink:0;z-index:1000;
+}
+.topbar-menu{font-size:16px;cursor:pointer;color:var(--muted);padding:2px 6px;}
+.topbar-menu:active{color:var(--text);}
+.topbar-title{font-size:11px;color:var(--text);letter-spacing:1px;flex:1;}
+.topbar-members{display:flex;gap:6px;}
+.member-avatar{
+  width:30px;height:30px;border-radius:6px;
+  border:2px solid var(--border);
+  background:var(--panel2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;cursor:pointer;
+  image-rendering:pixelated;overflow:hidden;
+}
+.member-avatar.on{border-color:var(--accent);background:#ffe2e2;}
+.member-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
+
+/* ── 側欄 */
+.sidebar-overlay{
+  position:fixed;inset:0;background:rgba(90,70,50,0.4);
+  z-index:1500;opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.sidebar-overlay.show{opacity:1;pointer-events:auto;}
+.sidebar{
+  position:fixed;top:0;left:0;bottom:0;width:230px;
+  background:var(--panel);
+  border-right:2px solid var(--border);
+  z-index:1600;transform:translateX(-100%);
+  transition:transform .22s ease;
+  display:flex;flex-direction:column;padding:16px 0;
+}
+.sidebar.show{transform:translateX(0);}
+.sidebar-title{
+  font-size:11px;letter-spacing:2px;color:var(--text);
+  padding:6px 18px 14px;border-bottom:1px solid var(--border);margin-bottom:8px;
+}
+.sidebar-link{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 18px;font-size:10px;color:var(--text);
+  text-decoration:none;cursor:pointer;
+}
+.sidebar-link:active{background:var(--panel2);}
+.sidebar-link .ico{font-size:14px;width:20px;text-align:center;}
+.sidebar-foot{margin-top:auto;padding:12px 18px;font-size:8px;color:var(--muted);}
+
+/* ── 主區域：手機直排、電腦左右排 */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+.map-wrap{flex:1;position:relative;min-height:0;}
+#map{width:100%;height:100%;}
+#map.fruit .leaflet-tile-pane{filter:saturate(.9) sepia(.12) brightness(1.03);}
+#map.dark .leaflet-tile-pane{filter:none;}
+
+.map-fab{position:absolute;z-index:500;}
+.map-fab.layers{bottom:80px;left:12px;}
+.map-fab.checkin{bottom:16px;right:12px;}
+.fab-btn{
+  background:var(--panel);
+  border:2px solid var(--border2);
+  border-radius:var(--radius);
+  padding:8px 14px;
+  font-family:var(--px);font-size:10px;color:var(--text);
+  cursor:pointer;display:flex;align-items:center;gap:6px;
+  box-shadow:2px 2px 0 rgba(180,130,60,0.25);
+}
+.fab-btn.primary{
+  background:var(--accent);border-color:#d84848;color:#fff;
+  font-size:11px;padding:10px 18px;
+}
+.fab-btn:active{transform:translate(1px,1px);}
+
+/* ── 圖層選單 */
+.layers-menu{
+  display:none;position:absolute;bottom:124px;left:12px;z-index:600;
+  background:var(--panel);border:2px solid var(--border2);
+  border-radius:var(--radius);box-shadow:3px 3px 0 rgba(180,130,60,0.25);
+  padding:10px 12px;min-width:170px;
+}
+.layers-menu.show{display:block;}
+.layers-section{font-size:8px;color:var(--muted);letter-spacing:1px;margin:8px 0 6px;}
+.layers-section:first-child{margin-top:0;}
+.layer-opt{
+  display:flex;align-items:center;gap:8px;padding:6px 4px;
+  font-size:9px;color:var(--text);cursor:pointer;
+  user-select:none;-webkit-user-select:none;border-radius:4px;
+}
+.layer-opt:active{background:var(--panel2);}
+.layer-check{
+  width:14px;height:14px;flex-shrink:0;
+  border:1.5px solid var(--border2);border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:#fff;background:var(--panel2);
+}
+.layer-opt.on .layer-check{background:var(--accent2);border-color:var(--accent2);}
+.layer-opt.on .layer-check::after{content:'✓';}
+.style-opt .layer-check{border-radius:50%;}
+.style-opt.on .layer-check::after{content:'●';font-size:7px;}
+
+/* ── 底部抽屜（手機）／右側欄（電腦） */
+.card-drawer{
+  background:var(--panel);
+  border-top:2px solid var(--border);
+  flex-shrink:0;display:flex;flex-direction:column;
+  transition:height .3s ease;height:44px;overflow:hidden;z-index:500;
+}
+.card-drawer.expanded{height:55vh;}
+.drawer-handle{
+  height:44px;display:flex;align-items:center;
+  padding:0 14px;cursor:pointer;flex-shrink:0;gap:10px;
+  user-select:none;-webkit-user-select:none;
+}
+.drawer-pill{
+  width:32px;height:4px;background:var(--border2);border-radius:2px;
+  margin:0 auto;position:absolute;left:50%;transform:translateX(-50%);
+}
+.drawer-tabs{display:flex;gap:0;flex:1;overflow-x:auto;}
+.dtab{
+  font-family:var(--px);font-size:9px;padding:4px 10px;
+  border:none;background:transparent;color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;white-space:nowrap;
+}
+.dtab.on{color:var(--accent);border-bottom-color:var(--accent);}
+.drawer-count{font-size:10px;color:var(--muted);white-space:nowrap;}
+.card-list{overflow-y:auto;flex:1;padding:8px;}
+
+/* 電腦版：抽屜變右側面板 */
+@media (min-width: 900px){
+  .main{flex-direction:row;}
+  .card-drawer{
+    width:360px;height:auto !important;
+    border-top:none;border-left:2px solid var(--border);
+    order:2;
+  }
+  .drawer-pill{display:none;}
+  .drawer-handle{cursor:default;}
+  .map-wrap{order:1;}
+}
+
+/* ── 打卡卡片 */
+.diary-card{
+  display:flex;gap:10px;padding:10px;
+  background:#fffdf7;border:1.5px solid var(--border);
+  border-radius:var(--radius);margin-bottom:8px;cursor:pointer;
+}
+.diary-card:active{box-shadow:inset 0 0 0 2px var(--border2);}
+.diary-thumb{
+  width:56px;height:56px;border-radius:4px;
+  border:1px solid var(--border);flex-shrink:0;
+  background:var(--panel2);image-rendering:pixelated;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+}
+.diary-thumb img,.diary-thumb svg{width:100%;height:100%;image-rendering:pixelated;}
+.diary-info{flex:1;min-width:0;}
+.diary-name{font-size:10px;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.diary-meta{display:flex;gap:6px;align-items:center;margin-bottom:4px;flex-wrap:wrap;}
+.diary-tag{font-size:8px;padding:2px 6px;border-radius:3px;font-family:var(--px);white-space:nowrap;}
+.tag-checkin{background:#ffe2e2;color:#d84848;border:1px solid #f8b0b0;}
+.tag-wish{background:#ffe9f3;color:#e0407e;border:1px solid #f8b8d2;}
+.tag-trip{background:#e2f4e6;color:#3a8a4a;border:1px solid #a8dcb4;}
+.diary-date{font-size:8px;color:var(--muted);}
+.diary-note{font-size:9px;color:var(--muted);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.diary-footer{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
+.diary-comments{font-size:8px;color:var(--muted);}
+.diary-author{width:20px;height:30px;flex-shrink:0;}
+.diary-author svg{width:100%;height:100%;image-rendering:pixelated;}
+
+/* ── Popup */
+.px-popup{font-family:var(--px) !important;min-width:220px;}
+.px-popup .leaflet-popup-content-wrapper{
+  background:var(--panel);color:var(--text);
+  border:2px solid var(--border2);border-radius:var(--radius);
+  box-shadow:4px 4px 0 rgba(180,130,60,0.3);padding:0;
+}
+.px-popup .leaflet-popup-tip{background:var(--panel);border:1px solid var(--border2);}
+.px-popup .leaflet-popup-content{margin:0;width:auto !important;}
+.popup-inner{padding:12px 14px;}
+.popup-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.popup-icon{width:28px;height:40px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.popup-icon svg{width:100%;height:100%;image-rendering:pixelated;}
+.popup-title{font-size:10px;color:var(--text);flex:1;}
+.popup-img{
+  width:100%;aspect-ratio:1;background:var(--panel2);
+  border-radius:4px;border:1px solid var(--border);
+  image-rendering:pixelated;margin-bottom:8px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+.popup-img svg,.popup-img img{width:100%;height:100%;image-rendering:pixelated;object-fit:contain;}
+.popup-note{font-size:9px;color:var(--text);line-height:1.6;margin-bottom:8px;}
+.popup-actions{display:flex;gap:6px;margin-top:10px;border-top:1px solid var(--border);padding-top:8px;flex-wrap:wrap;}
+.popup-action-btn{
+  flex:1;padding:7px 6px;border:1px solid var(--border2);
+  background:var(--panel2);font-family:var(--px);font-size:8px;
+  color:var(--text);cursor:pointer;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  min-width:90px;
+}
+.popup-action-btn:active{background:var(--border);}
+.popup-action-btn.go{background:#e2f4e6;border-color:#a8dcb4;color:#3a8a4a;}
+
+/* ── Modal 共用 */
+.modal-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(90,70,50,0.45);z-index:2000;
+  align-items:flex-end;justify-content:center;
+}
+.modal-overlay.show{display:flex;}
+.modal-box{
+  background:var(--panel);
+  border-radius:12px 12px 0 0;border-top:2px solid var(--border2);
+  width:100%;max-width:480px;max-height:90vh;overflow-y:auto;
+}
+@media (min-width:900px){
+  .modal-overlay{align-items:center;}
+  .modal-box{border:2px solid var(--border2);border-radius:12px;}
+}
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--panel);z-index:1;
+}
+.modal-title{font-size:11px;color:var(--text);letter-spacing:1px;}
+.modal-close{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;}
+.modal-body{padding:14px 16px;}
+
+.step-row{margin-bottom:16px;}
+.step-label{
+  display:flex;align-items:center;gap:8px;
+  font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;
+}
+.step-num{
+  width:18px;height:18px;border-radius:50%;
+  background:var(--mango);color:#fff;font-size:9px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+
+.type-row{display:flex;gap:8px;}
+.type-chip{
+  flex:1;padding:10px 6px;border:2px solid var(--border);
+  border-radius:var(--radius);background:var(--panel2);
+  font-family:var(--px);font-size:10px;color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.type-chip.on{border-color:var(--accent);background:#ffe2e2;color:#d84848;}
+
+.location-card{
+  border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:10px 12px;display:flex;align-items:center;gap:10px;
+  cursor:pointer;background:var(--panel2);
+}
+.location-card:active{background:var(--border);}
+.location-name{font-size:10px;color:var(--text);flex:1;}
+.location-coord{font-size:8px;color:var(--muted);}
+.location-edit{font-size:16px;color:var(--muted);}
+
+.name-input,.form-input{
+  width:100%;background:#fffdf7;
+  border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:10px 12px;font-family:var(--px);font-size:10px;
+  color:var(--text);outline:none;margin-top:8px;
+}
+.name-input:focus,.form-input:focus{border-color:var(--mango);}
+
+.trip-select{
+  width:100%;background:#fffdf7;
+  border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:10px 12px;font-family:var(--px);font-size:10px;
+  color:var(--text);outline:none;appearance:none;
+}
+
+.member-grid{display:flex;gap:8px;flex-wrap:wrap;}
+.member-choice{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:8px 12px;border:2px solid var(--border);
+  border-radius:var(--radius);cursor:pointer;background:var(--panel2);
+  position:relative;min-width:70px;
+}
+.member-choice.on{border-color:var(--accent);background:#ffe2e2;}
+.member-choice .check{
+  position:absolute;top:-6px;right:-6px;width:16px;height:16px;
+  background:var(--accent);border-radius:50%;
+  display:none;align-items:center;justify-content:center;
+  font-size:10px;color:#fff;
+}
+.member-choice.on .check{display:flex;}
+.member-choice-avatar{width:32px;height:52px;image-rendering:pixelated;display:flex;align-items:center;justify-content:center;}
+.member-choice-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
+.member-choice-name{font-size:8px;color:var(--text);}
+
+.diary-textarea{
+  width:100%;background:#fffdf7;
+  border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:10px 12px;font-family:var(--px);font-size:10px;
+  color:var(--text);resize:none;height:90px;outline:none;line-height:1.6;
+}
+.diary-textarea:focus{border-color:var(--mango);}
+.char-count{font-size:8px;color:var(--muted);text-align:right;margin-top:4px;}
+
+.draw-preview-row{display:flex;gap:10px;align-items:center;}
+.draw-thumb{
+  width:64px;height:64px;border:2px solid var(--border);
+  border-radius:6px;background:var(--panel2);
+  image-rendering:pixelated;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;flex-shrink:0;
+}
+.draw-thumb svg{width:100%;height:100%;image-rendering:pixelated;}
+.draw-edit-btn{
+  flex:1;padding:10px;border:1.5px solid var(--mango);
+  background:#fff3d6;color:#b07a10;
+  font-family:var(--px);font-size:10px;border-radius:var(--radius);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.draw-edit-btn:active{background:#ffe9b8;}
+
+.submit-btn{
+  width:100%;padding:14px;background:var(--accent);
+  border:none;border-radius:var(--radius);color:#fff;
+  font-family:var(--px);font-size:11px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-top:8px;letter-spacing:1px;
+}
+.submit-btn:active{background:#d84848;}
+.submit-btn:disabled{background:#dcc8a8;cursor:not-allowed;}
+
+/* ── 旅程列表 */
+.trip-item{
+  border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:10px 12px;margin-bottom:8px;background:#fffdf7;cursor:pointer;
+}
+.trip-item.on{border-color:var(--accent2);background:#eefaf0;}
+.trip-item-head{display:flex;align-items:center;gap:8px;}
+.trip-item-name{font-size:10px;color:var(--text);flex:1;}
+.trip-item-date{font-size:8px;color:var(--muted);}
+.trip-item-meta{font-size:8px;color:var(--muted);margin-top:4px;line-height:1.6;white-space:pre-wrap;}
+.trip-actions{display:flex;gap:6px;margin-top:8px;}
+.trip-btn{
+  flex:1;padding:6px;border:1px solid var(--border2);background:var(--panel2);
+  font-family:var(--px);font-size:8px;color:var(--text);
+  cursor:pointer;border-radius:4px;
+}
+.trip-btn.danger{color:#d84848;border-color:#f8b0b0;}
+.add-trip-btn{
+  width:100%;padding:12px;border:2px dashed var(--border2);
+  background:transparent;color:var(--muted);
+  font-family:var(--px);font-size:10px;border-radius:var(--radius);cursor:pointer;
+}
+
+/* ── 留言 */
+.comment-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.comment-item:last-child{border-bottom:none;}
+.comment-avatar{width:24px;height:40px;flex-shrink:0;image-rendering:pixelated;display:flex;align-items:center;justify-content:center;}
+.comment-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
+.comment-body{flex:1;}
+.comment-name{font-size:9px;color:var(--text);margin-bottom:3px;}
+.comment-text{font-size:10px;color:var(--muted);line-height:1.6;}
+.comment-time{font-size:8px;color:var(--border2);margin-top:3px;}
+.comment-input-row{
+  display:flex;gap:8px;padding:10px 16px;
+  border-top:1px solid var(--border);
+  position:sticky;bottom:0;background:var(--panel);
+}
+.comment-input{
+  flex:1;background:#fffdf7;border:1.5px solid var(--border);
+  border-radius:var(--radius);padding:8px 12px;
+  font-family:var(--px);font-size:10px;color:var(--text);outline:none;
+}
+.comment-input:focus{border-color:var(--mango);}
+.comment-send{
+  padding:8px 14px;background:var(--accent);border:none;
+  color:#fff;font-family:var(--px);font-size:10px;
+  border-radius:var(--radius);cursor:pointer;
+}
+
+/* ── Leaflet 覆蓋 */
+.leaflet-container{background:#ffeeC9 !important;}
+.leaflet-control-zoom a{
+  background:var(--panel) !important;color:var(--text) !important;
+  border:1px solid var(--border2) !important;
+  font-family:var(--px) !important;font-size:14px !important;
+}
+.leaflet-control-attribution{
+  font-family:sans-serif;font-size:9px;
+  background:rgba(255,250,240,0.8) !important;color:var(--muted) !important;
+}
+.leaflet-control-attribution a{color:var(--accent2) !important;}
+.leaflet-marker-icon{transition:none !important;}
+
+/* cluster：無泡泡，數字直接顯示在下方 */
+.px-cluster{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-end;
+  image-rendering:pixelated;
+  filter:drop-shadow(1px 1px 0 rgba(120,90,40,0.45));
+}
+.px-cluster-count{
+  font-family:var(--px);font-size:9px;
+  color:#fff;line-height:1;margin-top:2px;
+  text-shadow:1px 1px 0 #8a6a3a,-1px 1px 0 #8a6a3a,1px -1px 0 #8a6a3a,-1px -1px 0 #8a6a3a;
+}
+
+/* ── 畫板（沿用 v11，亮色化） */
+.pd-app{width:100%;max-width:320px;margin:0 auto;padding:8px;display:flex;flex-direction:column;gap:6px;font-size:11px;}
+.pd-row{display:flex;gap:4px;align-items:center;justify-content:center;}
+.pd-div{height:1px;background:var(--border);}
+.pd-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:2px 0;user-select:none;-webkit-user-select:none;}
+.pd-toggle span{font-size:10px;color:var(--muted);letter-spacing:1px;}
+.pd-body{overflow:hidden;max-height:0;transition:max-height .2s ease;display:flex;flex-direction:column;gap:4px;}
+.pd-body.open{max-height:60px;}
+.pd-palbody{overflow:hidden;max-height:0;transition:max-height .22s ease;display:flex;flex-direction:column;gap:5px;}
+.pd-palbody.open{max-height:160px;}
+.pd-arr{font-size:9px;color:var(--muted);transition:transform .2s;}
+.pd-arr.open{transform:rotate(180deg);}
+.pd-smbtn{padding:0;width:36px;height:28px;border:1px solid var(--border2);background:var(--panel2);color:var(--text);cursor:pointer;font-family:var(--px);font-size:10px;border-radius:2px;display:flex;align-items:center;justify-content:center;}
+.pd-smbtn.on{border-color:var(--text);background:var(--border);}
+.pd-smbtn:active{transform:translate(1px,1px);}
+.pd-clrbtn{width:28px;height:28px;border:1px solid #f8b0b0;background:var(--panel2);color:#d84848;cursor:pointer;font-size:14px;border-radius:2px;display:flex;align-items:center;justify-content:center;padding:0;}
+.pd-clrbtn:active{background:#ffe2e2;}
+.pd-hint{font-size:9px;color:var(--muted);letter-spacing:.5px;text-align:center;}
+.pd-toolbtn{padding:4px 8px;border:1.5px solid var(--border2);background:var(--panel2);color:var(--text);cursor:pointer;font-family:var(--px);font-size:10px;border-radius:2px;}
+.pd-toolbtn.on{background:var(--text);color:var(--panel);border-color:var(--text);}
+.pd-toolbtn:active{transform:translate(1px,1px);}
+.pd-cvwrap{position:relative;display:flex;justify-content:center;}
+#pdcv{image-rendering:pixelated;border:2px solid var(--border2);display:block;cursor:crosshair;border-radius:2px;}
+#pd-pos{position:absolute;bottom:6px;right:8px;font-size:9px;color:rgba(90,70,50,0.3);font-family:var(--px);pointer-events:none;line-height:1;}
+.pd-swwrap{display:flex;gap:3px;flex-wrap:wrap;align-items:center;}
+.pd-sw{width:22px;height:22px;border:2px solid transparent;cursor:pointer;flex-shrink:0;border-radius:2px;position:relative;}
+.pd-sw.on{border-color:var(--text);}
+.pd-sw.custom::after{content:'';position:absolute;top:0;right:0;width:6px;height:6px;background:#fff;clip-path:polygon(0 0,100% 0,100% 100%);}
+.pd-swtrans{background:linear-gradient(45deg,#caa 25%,transparent 25%,transparent 75%,#caa 75%),linear-gradient(45deg,#caa 25%,#edd 25%,#edd 75%,#caa 75%);background-size:6px 6px;background-position:0 0,3px 3px;}
+.pd-swadd{border:1.5px dashed var(--muted) !important;background:transparent !important;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;}
+.pd-colorbar{display:flex;gap:6px;align-items:center;}
+.pd-prev{width:24px;height:24px;border:2px solid var(--border2);flex-shrink:0;border-radius:2px;}
+.pd-hexin{background:#fffdf7;border:1px solid var(--border2);color:var(--text);font-family:var(--px);font-size:10px;padding:3px 5px;width:76px;outline:none;border-radius:2px;}
+.pd-hexin:focus{border-color:var(--muted);}
+.pd-slrow{display:flex;align-items:center;gap:4px;width:100%;}
+.pd-sllbl{font-size:10px;color:var(--muted);width:12px;flex-shrink:0;}
+.pd-slval{font-size:10px;color:var(--text);width:22px;text-align:right;flex-shrink:0;}
+.pd-app input[type=range]{flex:1;min-width:0;height:4px;-webkit-appearance:none;appearance:none;border-radius:2px;outline:none;cursor:pointer;}
+.pd-app input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--text);border:2px solid var(--panel);cursor:pointer;}
+.pd-navrow{display:flex;gap:3px;align-items:center;justify-content:center;}
+.pd-navbtn{width:36px;height:36px;background:var(--panel2);border:1.5px solid var(--border2);color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;border-radius:2px;flex-shrink:0;}
+.pd-navbtn:active,.pd-navbtn.p{background:var(--border);}
+.pd-navok{border-color:var(--text);background:var(--text);color:var(--panel);font-size:9px;width:42px;}
+.pd-navok:active{background:var(--muted);}
+.pd-done{padding:5px 14px;border:1.5px solid var(--accent2);background:#e2f4e6;color:#3a8a4a;font-family:var(--px);font-size:10px;border-radius:4px;cursor:pointer;}
+.pd-done:active{background:#cdeed4;}
+</style>
+</head>
+<body>
+
+<!-- 頂部標題列 -->
+<div class="topbar">
+  <div class="topbar-menu" onclick="openSidebar()">☰</div>
+  <div class="topbar-title" id="appTitle">台灣腳印日記</div>
+  <div class="topbar-members" id="topbarMembers"></div>
+</div>
+
+<!-- 側欄 -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-title" id="sidebarTitle">台灣腳印日記</div>
+  <a class="sidebar-link" href="index.html"><span class="ico">🐾</span>腳印地圖</a>
+  <div class="sidebar-link" onclick="openTrips();closeSidebar();"><span class="ico">🧳</span>小旅程</div>
+  <a class="sidebar-link" href="stats.html"><span class="ico">🍉</span>足跡回顧</a>
+  <div class="sidebar-link" style="color:var(--muted);" title="第二階段"><span class="ico">📒</span>帳簿（即將推出）</div>
+  <div class="sidebar-link" onclick="loadData();closeSidebar();"><span class="ico">↻</span>重新整理資料</div>
+  <div class="sidebar-foot">世界旅人帳 · Taiwan</div>
+</div>
+
+<!-- 主區域 -->
+<div class="main">
+  <div class="map-wrap">
+    <div id="map" class="fruit"></div>
+
+    <div class="map-fab layers">
+      <button class="fab-btn" onclick="toggleLayers()">⊞ 圖層</button>
+    </div>
+
+    <div class="layers-menu" id="layersMenu">
+      <div class="layers-section">顯示項目</div>
+      <div class="layer-opt on" id="lo-checkin" onclick="toggleFilter('checkin')"><span class="layer-check"></span>🐾 打卡</div>
+      <div class="layer-opt on" id="lo-wish" onclick="toggleFilter('wish')"><span class="layer-check"></span>💗 想去</div>
+      <div class="layers-section">地圖風格</div>
+      <div class="layer-opt style-opt on" id="ls-fruit" onclick="setMapStyle('fruit')"><span class="layer-check"></span>水果</div>
+      <div class="layer-opt style-opt" id="ls-light" onclick="setMapStyle('light')"><span class="layer-check"></span>明亮</div>
+      <div class="layer-opt style-opt" id="ls-dark" onclick="setMapStyle('dark')"><span class="layer-check"></span>暗色</div>
+    </div>
+
+    <div class="map-fab checkin">
+      <button class="fab-btn primary" onclick="openCheckin()">🐾 打卡</button>
+    </div>
+  </div>
+
+  <!-- 底部抽屜（電腦版為右側欄） -->
+  <div class="card-drawer" id="cardDrawer">
+    <div class="drawer-handle" onclick="toggleDrawer()">
+      <div class="drawer-pill"></div>
+      <div class="drawer-tabs" id="drawerTabs"></div>
+      <div class="drawer-count" id="drawerCount">0 筆</div>
+    </div>
+    <div class="card-list" id="cardList"></div>
+  </div>
+</div>
+
+<!-- 新增打卡 Modal -->
+<div class="modal-overlay" id="checkinModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="checkinModalTitle">新增紀錄</div>
+      <button class="modal-close" onclick="closeCheckin()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="step-row" id="stepType">
+        <div class="step-label"><div class="step-num">1</div>選擇類型</div>
+        <div class="type-row" id="typeRow">
+          <button class="type-chip on" data-type="checkin" onclick="selectType('checkin')">🐾 打卡</button>
+          <button class="type-chip" data-type="wish" onclick="selectType('wish')">💗 想去</button>
+        </div>
+      </div>
+
+      <div class="step-row" id="stepLocation">
+        <div class="step-label"><div class="step-num">2</div>選擇地點</div>
+        <div class="location-card" id="locationCard" onclick="pickLocation()">
+          <div style="font-size:18px;">📍</div>
+          <div style="flex:1;">
+            <div class="location-name" id="locationName">點地圖選擇地點</div>
+            <div class="location-coord" id="locationCoord"></div>
+          </div>
+          <div class="location-edit">✎</div>
+        </div>
+        <input class="name-input" id="placeName" placeholder="地點名稱（選填，預設用座標）" maxlength="40">
+      </div>
+
+      <div class="step-row" id="stepMember">
+        <div class="step-label"><div class="step-num">3</div>選擇角色</div>
+        <div class="member-grid" id="memberGrid"></div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-label"><div class="step-num">4</div>掛在小旅程（選填，不選＝日常紀錄）</div>
+        <select class="trip-select" id="tripSelect"></select>
+      </div>
+
+      <div class="step-row">
+        <div class="step-label"><div class="step-num">5</div>寫下你的日記</div>
+        <textarea class="diary-textarea" id="diaryText" placeholder="記錄此刻的感受…" maxlength="200" oninput="updateCharCount()"></textarea>
+        <div class="char-count"><span id="charCount">0</span>/200</div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-label"><div class="step-num">6</div>畫一張圖（可選）</div>
+        <div class="draw-preview-row">
+          <div class="draw-thumb" id="drawThumb">🖼</div>
+          <button class="draw-edit-btn" onclick="openDrawPanel()">✏ 編輯畫圖</button>
+        </div>
+      </div>
+
+      <button class="submit-btn" id="submitBtn" onclick="submitCheckin()" disabled>🐾 儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 小旅程 Modal -->
+<div class="modal-overlay" id="tripsModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">🧳 小旅程</div>
+      <button class="modal-close" onclick="closeTrips()">✕</button>
+    </div>
+    <div class="modal-body" id="tripsBody"></div>
+  </div>
+</div>
+
+<!-- 新增/編輯旅程 Modal -->
+<div class="modal-overlay" id="tripFormModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="tripFormTitle">新增小旅程</div>
+      <button class="modal-close" onclick="closeTripForm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="step-row">
+        <div class="step-label">名稱</div>
+        <input class="form-input" id="tripName" placeholder="例：台南小旅行" maxlength="30" style="margin-top:0;">
+      </div>
+      <div class="step-row">
+        <div class="step-label">日期</div>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" type="date" id="tripDateStart" style="margin-top:0;flex:1;">
+          <input class="form-input" type="date" id="tripDateEnd" style="margin-top:0;flex:1;">
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-label">成員</div>
+        <div class="member-grid" id="tripMemberGrid"></div>
+      </div>
+      <div class="step-row">
+        <div class="step-label">備忘（住宿地址、訂位資訊等都放這裡）</div>
+        <textarea class="diary-textarea" id="tripMemo" placeholder="自由備忘…" maxlength="500" style="height:110px;"></textarea>
+      </div>
+      <button class="submit-btn" id="tripSubmitBtn" onclick="submitTrip()">🧳 儲存旅程</button>
+    </div>
+  </div>
+</div>
+
+<!-- 留言 Modal -->
+<div class="modal-overlay" id="commentModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="commentModalTitle">留言</div>
+      <button class="modal-close" onclick="closeComments()">✕</button>
+    </div>
+    <div style="padding:8px 16px;flex:1;" id="commentList"></div>
+    <div class="comment-input-row">
+      <input class="comment-input" id="commentInput" placeholder="寫下留言…" onkeydown="if(event.key==='Enter')sendComment()">
+      <button class="comment-send" onclick="sendComment()">送出</button>
+    </div>
+  </div>
+</div>
+
+<!-- 畫板 Modal -->
+<div class="modal-overlay" id="drawModal">
+  <div class="modal-box" style="max-height:95vh;">
+    <div class="modal-header">
+      <div class="modal-title">畫一張圖</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="pd-done" onclick="confirmDraw()">完成</button>
+        <button class="modal-close" onclick="document.getElementById('drawModal').classList.remove('show')">✕</button>
+      </div>
+    </div>
+    <div class="pd-app">
+      <div class="pd-toggle" onclick="pdToggleCanvas()">
+        <span>畫布設定</span>
+        <span class="pd-arr" id="pdcvarr">▼</span>
+      </div>
+      <div class="pd-body" id="pdcvbody">
+        <div class="pd-row">
+          <button class="pd-smbtn on" onclick="pdSg(16)">16</button>
+          <button class="pd-smbtn" onclick="pdSg(24)">24</button>
+          <button class="pd-smbtn" onclick="pdSg(32)">32</button>
+          <button class="pd-smbtn" onclick="pdSg(48)">48</button>
+          <button class="pd-clrbtn" onclick="pdClr()" title="清空畫布">🗑</button>
+        </div>
+        <div class="pd-hint">換尺寸會清空畫布</div>
+      </div>
+      <div class="pd-div"></div>
+      <div class="pd-row">
+        <button class="pd-toolbtn" onclick="pdUndo()">↩</button>
+        <button class="pd-toolbtn" onclick="pdRedo()">↪</button>
+        <div style="width:1px;height:18px;background:var(--border);margin:0 2px;"></div>
+        <button class="pd-toolbtn on" id="pdt-pen" onclick="pdSt('pen')">✏</button>
+        <button class="pd-toolbtn" id="pdt-fill" onclick="pdSt('fill')">▣</button>
+        <button class="pd-toolbtn" id="pdt-eye" onclick="pdSt('eye')">◈</button>
+      </div>
+      <div class="pd-cvwrap">
+        <canvas id="pdcv"></canvas>
+        <div id="pd-pos">(0,0)</div>
+      </div>
+      <div class="pd-swwrap" id="pdswatches"></div>
+      <div class="pd-div"></div>
+      <div class="pd-toggle" onclick="pdTogglePal()">
+        <span>調色盤</span>
+        <span class="pd-arr" id="pdpalarr">▼</span>
+      </div>
+      <div class="pd-palbody" id="pdpalbody">
+        <div class="pd-colorbar">
+          <div class="pd-prev" id="pdprev"></div>
+          <input class="pd-hexin" id="pdhexin" maxlength="7" value="#ff5d5d" onchange="pdOnHex()">
+          <span style="font-size:10px;color:var(--muted);flex:1;">目前色</span>
+        </div>
+        <div class="pd-slrow"><span class="pd-sllbl">H</span><input type="range" id="pdsl-h" min="0" max="359" step="1" value="0" oninput="pdOnHSB()"><span class="pd-slval" id="pdvH">0</span></div>
+        <div class="pd-slrow"><span class="pd-sllbl">S</span><input type="range" id="pdsl-s" min="0" max="100" step="1" value="64" oninput="pdOnHSB()"><span class="pd-slval" id="pdvS">64</span></div>
+        <div class="pd-slrow"><span class="pd-sllbl">B</span><input type="range" id="pdsl-b" min="0" max="100" step="1" value="100" oninput="pdOnHSB()"><span class="pd-slval" id="pdvB">100</span></div>
+      </div>
+      <div class="pd-div"></div>
+      <div class="pd-navrow">
+        <button class="pd-navbtn" id="pdb-left" onpointerdown="pdSm('left')" onpointerup="pdStopM()" onpointerleave="pdStopM()">◀</button>
+        <button class="pd-navbtn" id="pdb-up" onpointerdown="pdSm('up')" onpointerup="pdStopM()" onpointerleave="pdStopM()">▲</button>
+        <button class="pd-navbtn pd-navok" onclick="pdPaint()">OK</button>
+        <button class="pd-navbtn" id="pdb-down" onpointerdown="pdSm('down')" onpointerup="pdStopM()" onpointerleave="pdStopM()">▼</button>
+        <button class="pd-navbtn" id="pdb-right" onpointerdown="pdSm('right')" onpointerup="pdStopM()" onpointerleave="pdStopM()">▶</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+// ══════════════════════════════════════════
+//  設定（防呆：逐欄位給預設值，config 缺欄位也不會壞）
+// ══════════════════════════════════════════
+const CFG_DEFAULTS = {
+  appName:   '台灣腳印日記',
+  apiBase:   '',
+  r2Worker:  'https://worker-little-field-805c.xfish7.workers.dev',
+  mapCenter: [23.7, 121.0],
+  mapZoom:   8,
+  members:   [{ name: '我', icon: '🐾', color: '#ff5d5d' }],
+};
+const RAW_CFG = window.TW_CONFIG || {};
+const CFG = {};
+for (const k in CFG_DEFAULTS) {
+  CFG[k] = (RAW_CFG[k] !== undefined && RAW_CFG[k] !== null && RAW_CFG[k] !== '')
+    ? RAW_CFG[k] : CFG_DEFAULTS[k];
+}
+if (!Array.isArray(CFG.members) || !CFG.members.length) CFG.members = CFG_DEFAULTS.members;
+if (!Array.isArray(CFG.mapCenter) || CFG.mapCenter.length !== 2) CFG.mapCenter = CFG_DEFAULTS.mapCenter;
+
+// ══════════════════════════════════════════
+//  成員 sprite（沒綁定 FRAMES 就退回 emoji，不會壞版）
+// ══════════════════════════════════════════
+function spriteSvg(m) {
+  const frames = window.SPRITES?.[m.spriteKey];
+  if (frames?.[0]) {
+    return `<svg viewBox="0 0 16 28" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;image-rendering:pixelated;display:block;">${frames[0]}</svg>`;
+  }
+  return `<span style="font-size:16px;">${m.icon||'📍'}</span>`;
+}
+
+// ══════════════════════════════════════════
+//  狀態
+// ══════════════════════════════════════════
+let checkins = [];
+let trips = [];
+let filters = { checkin:true, wish:true };
+const members = CFG.members;
+let drawerOpen = false;
+let currentTab = 'all';
+let memberFilter = null;
+let tripFilter = null;   // 旅程篩選（trip id）
+let pendingCheckin = {};
+let pendingWishId = null; // 想去 → 打卡轉換時，要移除的想去項目
+let currentCommentId = null;
+let pickingLocation = false;
+let markers = {};
+const isDesktop = () => window.matchMedia('(min-width:900px)').matches;
+
+// ══════════════════════════════════════════
+//  地圖
+// ══════════════════════════════════════════
+const map = L.map('map', {
+  center: CFG.mapCenter,
+  zoom: CFG.mapZoom,
+  zoomControl: true,
+});
+const TILE_STYLES = {
+  fruit: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+};
+let tileLayer = L.tileLayer(TILE_STYLES.fruit, { attribution:'© OSM · CARTO', maxZoom:19 }).addTo(map);
+
+function setMapStyle(style) {
+  if (!TILE_STYLES[style]) return;
+  tileLayer.setUrl(TILE_STYLES[style]);
+  const el = document.getElementById('map');
+  el.classList.toggle('fruit', style==='fruit');
+  el.classList.toggle('dark', style!=='fruit');
+  ['fruit','light','dark'].forEach(s =>
+    document.getElementById('ls-'+s).classList.toggle('on', s===style));
+}
+
+const clusterGroup = L.markerClusterGroup({
+  maxClusterRadius: 48,
+  iconCreateFunction: cluster => {
+    const children = cluster.getAllChildMarkers();
+    const latest = children[children.length-1];
+    const o = latest?.options || {};
+    const count = cluster.getChildCount();
+    let inner = '';
+    if (o.svgData) {
+      inner = `<svg width="36" height="36" viewBox="0 0 ${o.svgGrid||16} ${o.svgGrid||16}" style="image-rendering:pixelated;display:block;">${o.svgData}</svg>`;
+    } else if (o.spriteHtml) {
+      inner = `<div style="width:24px;height:36px;">${o.spriteHtml}</div>`;
+    } else {
+      inner = `<div style="font-size:18px;line-height:36px;">${o.fallbackIcon||'📍'}</div>`;
+    }
+    return L.divIcon({
+      html:`<div class="px-cluster" style="width:44px;height:56px;">
+        ${inner}
+        <div class="px-cluster-count">${count}</div>
+      </div>`,
+      className:'', iconSize:[44,56], iconAnchor:[22,28],
+    });
+  }
+});
+map.addLayer(clusterGroup);
+map.on('zoomend', () => renderMarkers());
+
+map.on('click', e => {
+  closeLayers();
+  if (!pickingLocation) return;
+  pendingCheckin.lat = e.latlng.lat;
+  pendingCheckin.lng = e.latlng.lng;
+  pickingLocation = false;
+  map.getContainer().style.cursor = '';
+  document.getElementById('locationName').textContent = `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+  document.getElementById('locationCoord').textContent = '點擊位置';
+  document.getElementById('checkinModal').classList.add('show');
+  checkSubmitReady();
+});
+
+// ══════════════════════════════════════════
+//  Marker
+// ══════════════════════════════════════════
+function getMemberByName(name) {
+  const m = members.find(mm=>mm.name===name);
+  return { name, color:'#e0b35e', icon:'📍', ...(m||{}) };
+}
+
+function makeMarkerIcon(item, zoom) {
+  const m = getMemberByName(item.who);
+  if (zoom >= 10 && item.svgData) {
+    const g = item.svgGrid || 16;
+    return L.divIcon({
+      html:`<div style="width:40px;height:40px;border:2px solid ${m.color};border-radius:4px;background:#fffaf0;overflow:hidden;box-shadow:2px 2px 0 rgba(180,130,60,0.3);image-rendering:pixelated;">
+        <svg width="40" height="40" viewBox="0 0 ${g} ${g}" style="image-rendering:pixelated;display:block;">${item.svgData}</svg>
+      </div>`,
+      className:'', iconSize:[40,40], iconAnchor:[20,20],
+    });
+  }
+  if (item.type==='wish') {
+    return L.divIcon({
+      html:`<div style="font-size:22px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(180,130,60,0.4));">💗</div>`,
+      className:'', iconSize:[28,28], iconAnchor:[14,14],
+    });
+  }
+  return L.divIcon({
+    html:`<div style="width:24px;height:40px;filter:drop-shadow(1px 1px 0 rgba(180,130,60,0.4));">${spriteSvg(m)}</div>`,
+    className:'', iconSize:[24,40], iconAnchor:[12,38],
+  });
+}
+
+function renderMarkers() {
+  clusterGroup.clearLayers();
+  markers = {};
+  const zoom = map.getZoom();
+  getVisible().forEach(item => {
+    const m = getMemberByName(item.who);
+    const marker = L.marker([item.lat, item.lng], {
+      icon: makeMarkerIcon(item, zoom),
+      memberColor: m.color,
+      svgData: item.svgData,
+      svgGrid: item.svgGrid || 16,
+      spriteHtml: item.type==='checkin' ? spriteSvg(m) : null,
+      fallbackIcon: item.type==='wish' ? '💗' : m.icon,
+    }).bindPopup(() => buildPopupContent(item), { className:'px-popup', maxWidth:240 });
+    markers[item.id] = marker;
+    clusterGroup.addLayer(marker);
+  });
+  renderCards();
+}
+
+function typeMeta(t) {
+  return t==='wish' ? { label:'想去', tag:'tag-wish', icon:'💗' }
+       : { label:'打卡', tag:'tag-checkin', icon:'🐾' };
+}
+
+function tripById(id) { return trips.find(t=>t.id===id) || null; }
+function tripChip(item) {
+  const t = tripById(item.tripId);
+  return t ? `<span class="diary-tag tag-trip">🧳 ${t.name}</span>` : '';
+}
+
+function itemImgHtml(item) {
+  const g = item.svgGrid || 16;
+  if (item.svgData) return `<div class="popup-img"><svg viewBox="0 0 ${g} ${g}" style="image-rendering:pixelated;width:100%;height:100%;">${item.svgData}</svg></div>`;
+  if (item.imageUrl) return `<div class="popup-img"><img src="${item.imageUrl}" alt=""></div>`;
+  return '';
+}
+
+function buildPopupContent(item) {
+  const m = getMemberByName(item.who);
+  const t = typeMeta(item.type);
+  const headIcon = item.type==='checkin' ? spriteSvg(m) : t.icon;
+  const el = document.createElement('div');
+  el.className = 'popup-inner';
+  el.innerHTML = `
+    <div class="popup-header">
+      <div class="popup-icon">${headIcon}</div>
+      <div style="flex:1;">
+        <div class="popup-title">${item.name}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+          <span class="diary-tag ${t.tag}">${t.label}</span>
+          ${tripChip(item)}
+          ${item.date?`<span style="font-size:8px;color:var(--muted)">${item.date}</span>`:''}
+        </div>
+      </div>
+    </div>
+    ${itemImgHtml(item)}
+    ${item.note?`<div class="popup-note">${item.note}</div>`:''}
+    <div class="popup-actions">
+      ${item.type==='wish'?`<button class="popup-action-btn go" onclick="checkinFromWish('${item.id}')">🐾 去過了，打卡！</button>`:''}
+      <button class="popup-action-btn" onclick="openComments('${item.id}')">💬 留言（${item.comments?.length||0}）</button>
+      <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
+    </div>
+    <div class="popup-actions" style="border-top:none;padding-top:0;margin-top:6px;">
+      <button class="popup-action-btn" onclick="startEditCheckin('${item.id}')">✎ 編輯</button>
+      <button class="popup-action-btn" style="color:#d84848;" onclick="removeCheckin('${item.id}')">🗑 刪除</button>
+    </div>
+  `;
+  return el;
+}
+
+// ══════════════════════════════════════════
+//  卡片列表
+// ══════════════════════════════════════════
+const TABS = [
+  { key:'all', label:'全部' },
+  { key:'checkin', label:'打卡' },
+  { key:'wish', label:'想去' },
+];
+
+function buildTabs() {
+  const el = document.getElementById('drawerTabs');
+  let html = TABS.map(t =>
+    `<button class="dtab ${t.key===currentTab?'on':''}" onclick="setTab('${t.key}');event.stopPropagation();">${t.label}</button>`
+  ).join('');
+  if (tripFilter) {
+    const t = tripById(tripFilter);
+    html += `<button class="dtab on" onclick="clearTripFilter();event.stopPropagation();">🧳 ${t?t.name:'旅程'} ✕</button>`;
+  }
+  el.innerHTML = html;
+}
+
+function setTab(key) {
+  currentTab = key;
+  buildTabs();
+  renderCards();
+  if (!drawerOpen && !isDesktop()) toggleDrawer();
+}
+
+function getVisible() {
+  return checkins.filter(item => {
+    if (!filters[item.type]) return false;
+    if (currentTab !== 'all' && item.type !== currentTab) return false;
+    if (memberFilter && item.who !== memberFilter) return false;
+    if (tripFilter && item.tripId !== tripFilter) return false;
+    return true;
+  });
+}
+
+function renderCards() {
+  const list = document.getElementById('cardList');
+  const visible = getVisible();
+  document.getElementById('drawerCount').textContent = visible.length + ' 筆';
+  list.innerHTML = visible.map(item => {
+    const m = getMemberByName(item.who);
+    const t = typeMeta(item.type);
+    const g = item.svgGrid || 16;
+    const thumb = item.svgData
+      ? `<svg viewBox="0 0 ${g} ${g}" style="image-rendering:pixelated;width:100%;height:100%;">${item.svgData}</svg>`
+      : item.imageUrl
+      ? `<img src="${item.imageUrl}" alt="">`
+      : item.type==='checkin'
+      ? spriteSvg(m)
+      : `<span style="font-size:24px;">${t.icon}</span>`;
+    return `<div class="diary-card" onclick="flyTo(${item.lat},${item.lng},'${item.id}')">
+      <div class="diary-thumb">${thumb}</div>
+      <div class="diary-info">
+        <div class="diary-name">${item.name}</div>
+        <div class="diary-meta">
+          <span class="diary-tag ${t.tag}">${t.label}</span>
+          ${tripChip(item)}
+          ${item.date?`<span class="diary-date">${item.date}</span>`:''}
+        </div>
+        ${item.note?`<div class="diary-note">${item.note}</div>`:''}
+        <div class="diary-footer">
+          <span class="diary-comments">${item.comments?.length?`💬 ${item.comments.length}`:''}</span>
+          <div class="diary-author">${spriteSvg(m)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || `<div style="text-align:center;padding:24px;font-size:9px;color:var(--muted);">還沒有紀錄，按右下角 🐾 打卡開始！</div>`;
+}
+
+function flyTo(lat, lng, id) {
+  map.flyTo([lat, lng], 13, { duration: 1 });
+  setTimeout(() => { if(markers[id]) markers[id].openPopup(); }, 1000);
+}
+
+function toggleDrawer() {
+  if (isDesktop()) return;
+  drawerOpen = !drawerOpen;
+  document.getElementById('cardDrawer').classList.toggle('expanded', drawerOpen);
+  if (drawerOpen) map.invalidateSize();
+}
+
+// ══════════════════════════════════════════
+//  側欄 / 圖層
+// ══════════════════════════════════════════
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('show');
+  document.getElementById('sidebarOverlay').classList.add('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('show');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+}
+let layersOpen = false;
+function toggleLayers() {
+  layersOpen = !layersOpen;
+  document.getElementById('layersMenu').classList.toggle('show', layersOpen);
+}
+function closeLayers() {
+  layersOpen = false;
+  document.getElementById('layersMenu').classList.remove('show');
+}
+function toggleFilter(key) {
+  filters[key] = !filters[key];
+  document.getElementById('lo-'+key).classList.toggle('on', filters[key]);
+  renderMarkers();
+}
+
+// ══════════════════════════════════════════
+//  打卡 Modal
+// ══════════════════════════════════════════
+function selectType(t) {
+  pendingCheckin.type = t;
+  document.querySelectorAll('#typeRow .type-chip').forEach(b =>
+    b.classList.toggle('on', b.dataset.type===t));
+  document.getElementById('submitBtn').innerHTML = typeMeta(t).icon + ' 儲存';
+  checkSubmitReady();
+}
+
+function buildMemberGrid() {
+  const el = document.getElementById('memberGrid');
+  el.innerHTML = members.map(m =>
+    `<div class="member-choice ${pendingCheckin.who===m.name?'on':''}" onclick="selectMember('${m.name}')">
+      <div class="check">✓</div>
+      <div class="member-choice-avatar">${spriteSvg(m)}</div>
+      <div class="member-choice-name">${m.name}</div>
+    </div>`
+  ).join('');
+}
+
+function selectMember(name) {
+  pendingCheckin.who = name;
+  buildMemberGrid();
+  checkSubmitReady();
+}
+
+function buildTripSelect() {
+  const el = document.getElementById('tripSelect');
+  el.innerHTML = `<option value="">🏠 日常紀錄（不掛旅程）</option>` +
+    trips.map(t => `<option value="${t.id}">🧳 ${t.name}${t.dateStart?`（${t.dateStart}）`:''}</option>`).join('');
+  el.value = pendingCheckin.tripId || (tripFilter || '');
+}
+
+let editingId = null;
+
+function setStepsVisible(showAll) {
+  ['stepType','stepLocation','stepMember'].forEach(id =>
+    document.getElementById(id).style.display = showAll ? '' : 'none');
+}
+
+function openCheckin(prefill) {
+  editingId = null;
+  pendingCheckin = { type:'checkin', lat:null, lng:null, who:null, text:'', svgData:null, svgGrid:16, pngBlob:null, tripId:'' };
+  pendingWishId = null;
+  selectType('checkin');
+  setStepsVisible(true);
+  document.getElementById('checkinModalTitle').textContent = '新增紀錄';
+  document.getElementById('locationName').textContent = '點地圖選擇地點';
+  document.getElementById('locationCoord').textContent = '';
+  document.getElementById('placeName').value = '';
+  document.getElementById('diaryText').value = '';
+  document.getElementById('charCount').textContent = '0';
+  document.getElementById('drawThumb').innerHTML = '🖼';
+  document.getElementById('submitBtn').disabled = true;
+  if (prefill) {
+    pendingCheckin.lat = prefill.lat;
+    pendingCheckin.lng = prefill.lng;
+    document.getElementById('locationName').textContent = prefill.name || `${prefill.lat.toFixed(4)}, ${prefill.lng.toFixed(4)}`;
+    document.getElementById('locationCoord').textContent = '來自想去清單';
+    document.getElementById('placeName').value = prefill.name || '';
+  }
+  buildMemberGrid();
+  buildTripSelect();
+  document.getElementById('checkinModal').classList.add('show');
+  checkSubmitReady();
+  if (!prefill) tryGPS();
+}
+
+// 開啟打卡時預設抓 GPS 定位（點地點卡片仍可改成手動選點）
+function tryGPS() {
+  if (!navigator.geolocation) return;
+  document.getElementById('locationName').textContent = '📡 定位中…';
+  document.getElementById('locationCoord').textContent = '點此可改手動選點';
+  navigator.geolocation.getCurrentPosition(pos => {
+    // 使用者已手動選點或進入編輯就不覆蓋
+    if (editingId || pendingCheckin.lat) return;
+    pendingCheckin.lat = pos.coords.latitude;
+    pendingCheckin.lng = pos.coords.longitude;
+    document.getElementById('locationName').textContent =
+      `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+    document.getElementById('locationCoord').textContent = '目前位置（GPS）· 點此可改手動選點';
+    checkSubmitReady();
+  }, () => {
+    if (!pendingCheckin.lat) {
+      document.getElementById('locationName').textContent = '點地圖選擇地點';
+      document.getElementById('locationCoord').textContent = '（無法取得定位）';
+    }
+  }, { enableHighAccuracy:true, timeout:8000, maximumAge:60000 });
+}
+
+// 編輯既有紀錄（可改日記、塗鴉與所屬旅程；地點/角色/類型固定）
+function startEditCheckin(id) {
+  const item = checkins.find(c=>c.id===id);
+  if (!item) return;
+  map.closePopup();
+  editingId = id;
+  pendingWishId = null;
+  pendingCheckin = {
+    type:item.type, lat:item.lat, lng:item.lng, who:item.who,
+    text:item.note||'', svgData:item.svgData||null, svgGrid:item.svgGrid||16, pngBlob:null,
+    tripId:item.tripId||'',
+  };
+  setStepsVisible(false);
+  document.getElementById('checkinModalTitle').textContent = '編輯：' + (item.name||'');
+  document.getElementById('diaryText').value = item.note||'';
+  document.getElementById('charCount').textContent = String((item.note||'').length);
+  document.getElementById('drawThumb').innerHTML = item.svgData
+    ? `<svg viewBox="0 0 ${item.svgGrid||16} ${item.svgGrid||16}" style="image-rendering:pixelated;width:100%;height:100%;">${item.svgData}</svg>`
+    : '🖼';
+  buildTripSelect();
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('checkinModal').classList.add('show');
+}
+
+// 刪除紀錄（台灣版 GAS 用打卡 ID 定位，不怕列位移）
+async function removeCheckin(id) {
+  const item = checkins.find(c=>c.id===id);
+  if (!item) return;
+  if (!confirm(`刪除「${item.name}」這筆紀錄？`)) return;
+  map.closePopup();
+  checkins = checkins.filter(c=>c.id!==id);
+  renderMarkers();
+  try { await gasPost({ action:'deleteCheckin', id }); }
+  catch(e) { console.warn('雲端刪除失敗', e); }
+}
+
+// 想去 → 打卡（打卡成功後自動移除想去項目，併入回顧）
+function checkinFromWish(wishId) {
+  const w = checkins.find(c=>c.id===wishId);
+  if (!w) return;
+  map.closePopup();
+  openCheckin({ lat:w.lat, lng:w.lng, name:w.name });
+  pendingWishId = wishId;
+}
+
+function closeCheckin() {
+  document.getElementById('checkinModal').classList.remove('show');
+  pickingLocation = false;
+  editingId = null;
+  map.getContainer().style.cursor = '';
+}
+
+function pickLocation() {
+  document.getElementById('checkinModal').classList.remove('show');
+  pickingLocation = true;
+  map.getContainer().style.cursor = 'crosshair';
+}
+
+function updateCharCount() {
+  const val = document.getElementById('diaryText').value;
+  document.getElementById('charCount').textContent = val.length;
+  pendingCheckin.text = val;
+  checkSubmitReady();
+}
+
+function checkSubmitReady() {
+  const ready = pendingCheckin.lat && pendingCheckin.who;
+  document.getElementById('submitBtn').disabled = !ready;
+}
+
+async function uploadImageToR2(blob) {
+  const formData = new FormData();
+  formData.append('file', blob, 'checkin.png');
+  const res = await fetch(CFG.r2Worker, { method:'POST', body: formData });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'upload failed');
+  return data.url;
+}
+
+async function gasPost(payload) {
+  if (!CFG.apiBase) return null;
+  const res = await fetch(CFG.apiBase, { method:'POST', body: JSON.stringify(payload) });
+  try { return await res.json(); } catch(e) { return null; }
+}
+
+async function submitCheckin() {
+  if (!pendingCheckin.lat || !pendingCheckin.who) return;
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '送出中…';
+
+  // ── 編輯模式：更新日記、塗鴉與所屬旅程
+  if (editingId) {
+    try {
+      const item = checkins.find(c=>c.id===editingId);
+      if (item) {
+        let imageUrl = item.imageUrl || '';
+        if (pendingCheckin.pngBlob) {
+          try { imageUrl = await uploadImageToR2(pendingCheckin.pngBlob); }
+          catch(e) { console.warn('圖片上傳失敗', e); }
+        }
+        item.note     = pendingCheckin.text;
+        item.svgData  = pendingCheckin.svgData;
+        item.svgGrid  = pendingCheckin.svgGrid;
+        item.imageUrl = imageUrl;
+        item.tripId   = document.getElementById('tripSelect').value || '';
+        await gasPost({
+          action:   'editCheckin',
+          id:       item.id,
+          note:     item.note,
+          imageUrl: imageUrl,
+          svgData:  item.svgData || '',
+          svgGrid:  item.svgGrid || 16,
+          tripId:   item.tripId,
+        });
+      }
+      editingId = null;
+      closeCheckin();
+      renderMarkers();
+    } catch(e) {
+      console.error('編輯送出失敗', e);
+      alert('送出失敗，請稍後再試');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = typeMeta(pendingCheckin.type).icon + ' 儲存';
+    }
+    return;
+  }
+
+  try {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
+
+    let imageUrl = '';
+    if (pendingCheckin.pngBlob) {
+      try { imageUrl = await uploadImageToR2(pendingCheckin.pngBlob); }
+      catch(e) { console.warn('圖片上傳失敗，繼續送出打卡', e); }
+    }
+
+    const customName = document.getElementById('placeName').value.trim();
+    const tripId = document.getElementById('tripSelect').value || '';
+    const item = {
+      id:       'c' + Date.now(),
+      type:     pendingCheckin.type,
+      who:      pendingCheckin.who,
+      lat:      pendingCheckin.lat,
+      lng:      pendingCheckin.lng,
+      name:     customName || document.getElementById('locationName').textContent,
+      date:     dateStr,
+      note:     pendingCheckin.text,
+      comments: [],
+      imageUrl: imageUrl,
+      svgData:  pendingCheckin.svgData,
+      svgGrid:  pendingCheckin.svgGrid,
+      tripId:   tripId,
+    };
+
+    const resp = await gasPost({
+      action:'addCheckin',
+      type:item.type, who:item.who, lat:item.lat, lng:item.lng,
+      name:item.name, note:item.note, imageUrl:item.imageUrl,
+      svgData:item.svgData||'', svgGrid:item.svgGrid||16, tripId:tripId,
+    });
+    if (resp?.msg?.id) item.id = resp.msg.id;
+
+    // 想去 → 打卡轉換：移除原本的想去項目
+    if (pendingWishId && item.type==='checkin') {
+      const idx = checkins.findIndex(c=>c.id===pendingWishId);
+      if (idx >= 0) checkins.splice(idx, 1);
+      gasPost({ action:'deleteCheckin', id: pendingWishId }).catch?.(()=>{});
+      pendingWishId = null;
+    }
+
+    checkins.unshift(item);
+    closeCheckin();
+    renderMarkers();
+    map.flyTo([item.lat, item.lng], 13);
+  } catch(e) {
+    console.error('打卡送出失敗', e);
+    alert('送出失敗，請稍後再試');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = typeMeta(pendingCheckin.type).icon + ' 儲存';
+  }
+}
+
+// ══════════════════════════════════════════
+//  小旅程
+// ══════════════════════════════════════════
+let editingTripId = null;
+let tripFormMembers = [];
+
+function openTrips() {
+  renderTrips();
+  document.getElementById('tripsModal').classList.add('show');
+}
+function closeTrips() {
+  document.getElementById('tripsModal').classList.remove('show');
+}
+
+function renderTrips() {
+  const el = document.getElementById('tripsBody');
+  const list = trips.map(t => {
+    const count = checkins.filter(c=>c.tripId===t.id).length;
+    const dates = [t.dateStart, t.dateEnd].filter(Boolean).join(' ~ ');
+    return `<div class="trip-item ${tripFilter===t.id?'on':''}">
+      <div class="trip-item-head" onclick="setTripFilter('${t.id}')">
+        <span style="font-size:14px;">🧳</span>
+        <span class="trip-item-name">${t.name}</span>
+        <span class="trip-item-date">${dates}</span>
+      </div>
+      <div class="trip-item-meta">${(t.members||[]).join('、')}${count?` · ${count} 筆紀錄`:''}${t.memo?`\n📝 ${t.memo}`:''}</div>
+      <div class="trip-actions">
+        <button class="trip-btn" onclick="setTripFilter('${t.id}')">${tripFilter===t.id?'✓ 篩選中（點選取消）':'只看此旅程'}</button>
+        <button class="trip-btn" onclick="openTripForm('${t.id}')">✎ 編輯</button>
+        <button class="trip-btn danger" onclick="deleteTrip('${t.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('') || `<div style="text-align:center;padding:16px;font-size:9px;color:var(--muted);">還沒有小旅程</div>`;
+  el.innerHTML = list + `<button class="add-trip-btn" onclick="openTripForm()">＋ 新增小旅程</button>`;
+}
+
+function setTripFilter(id) {
+  tripFilter = (tripFilter===id) ? null : id;
+  buildTabs();
+  renderMarkers();
+  renderTrips();
+  closeTrips();
+  if (tripFilter && !drawerOpen && !isDesktop()) toggleDrawer();
+}
+function clearTripFilter() {
+  tripFilter = null;
+  buildTabs();
+  renderMarkers();
+}
+
+function buildTripMemberGrid() {
+  const el = document.getElementById('tripMemberGrid');
+  el.innerHTML = members.map(m =>
+    `<div class="member-choice ${tripFormMembers.includes(m.name)?'on':''}" onclick="toggleTripMember('${m.name}')">
+      <div class="check">✓</div>
+      <div class="member-choice-avatar">${spriteSvg(m)}</div>
+      <div class="member-choice-name">${m.name}</div>
+    </div>`
+  ).join('');
+}
+function toggleTripMember(name) {
+  const i = tripFormMembers.indexOf(name);
+  if (i>=0) tripFormMembers.splice(i,1); else tripFormMembers.push(name);
+  buildTripMemberGrid();
+}
+
+function openTripForm(id) {
+  editingTripId = id || null;
+  const t = id ? tripById(id) : null;
+  document.getElementById('tripFormTitle').textContent = t ? '編輯小旅程' : '新增小旅程';
+  document.getElementById('tripName').value = t?.name || '';
+  document.getElementById('tripDateStart').value = t?.dateStart || '';
+  document.getElementById('tripDateEnd').value = t?.dateEnd || '';
+  document.getElementById('tripMemo').value = t?.memo || '';
+  tripFormMembers = t ? [...(t.members||[])] : members.map(m=>m.name);
+  buildTripMemberGrid();
+  closeTrips();
+  document.getElementById('tripFormModal').classList.add('show');
+}
+function closeTripForm() {
+  document.getElementById('tripFormModal').classList.remove('show');
+}
+
+async function submitTrip() {
+  const name = document.getElementById('tripName').value.trim();
+  if (!name) { alert('請輸入旅程名稱'); return; }
+  const btn = document.getElementById('tripSubmitBtn');
+  btn.disabled = true;
+  const data = {
+    name,
+    dateStart: document.getElementById('tripDateStart').value,
+    dateEnd:   document.getElementById('tripDateEnd').value,
+    members:   tripFormMembers,
+    memo:      document.getElementById('tripMemo').value.trim(),
+  };
+  try {
+    if (editingTripId) {
+      const resp = await gasPost({ action:'editTrip', id:editingTripId, ...data });
+      const t = tripById(editingTripId);
+      if (t) Object.assign(t, data);
+    } else {
+      const resp = await gasPost({ action:'addTrip', ...data });
+      const id = resp?.msg?.id || ('tp' + Date.now());
+      trips.unshift({ id, ...data });
+    }
+    closeTripForm();
+    renderMarkers();
+    openTrips();
+  } catch(e) {
+    console.error('旅程儲存失敗', e);
+    alert('儲存失敗，請稍後再試');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteTrip(id) {
+  const t = tripById(id);
+  if (!t) return;
+  if (!confirm(`刪除小旅程「${t.name}」？\n（掛在底下的紀錄會變回日常紀錄）`)) return;
+  trips = trips.filter(x=>x.id!==id);
+  if (tripFilter===id) tripFilter = null;
+  checkins.forEach(c=>{ if(c.tripId===id) c.tripId=''; });
+  gasPost({ action:'deleteTrip', id });
+  buildTabs();
+  renderMarkers();
+  renderTrips();
+}
+
+// ══════════════════════════════════════════
+//  留言
+// ══════════════════════════════════════════
+function openComments(id) {
+  currentCommentId = id;
+  const item = checkins.find(c=>c.id===id);
+  if (!item) return;
+  document.getElementById('commentModalTitle').textContent = `留言（${item.comments?.length||0}）`;
+  renderComments(item);
+  document.getElementById('commentModal').classList.add('show');
+}
+
+function renderComments(item) {
+  const el = document.getElementById('commentList');
+  el.innerHTML = (item.comments||[]).map(c => {
+    const m = getMemberByName(c.who);
+    return `<div class="comment-item">
+      <div class="comment-avatar">${spriteSvg(m)}</div>
+      <div class="comment-body">
+        <div class="comment-name" style="color:${m.color}">${c.who}</div>
+        <div class="comment-text">${c.text}</div>
+        <div class="comment-time">${c.time||''}</div>
+      </div>
+    </div>`;
+  }).join('') || `<div style="text-align:center;padding:24px;font-size:9px;color:var(--muted);">還沒有留言</div>`;
+}
+
+async function sendComment() {
+  const input = document.getElementById('commentInput');
+  const text = input.value.trim();
+  if (!text || !currentCommentId) return;
+  const item = checkins.find(c=>c.id===currentCommentId);
+  if (!item) return;
+  const who = members[0]?.name || '';
+  item.comments = item.comments || [];
+  item.comments.push({ who, text, time: new Date().toISOString() });
+  input.value = '';
+  document.getElementById('commentModalTitle').textContent = `留言（${item.comments.length}）`;
+  renderComments(item);
+  renderCards();
+  if (markers[currentCommentId]) {
+    markers[currentCommentId].setPopupContent(buildPopupContent(item));
+  }
+  gasPost({ action:'addComment', checkinId:item.id, who, text });
+}
+
+function closeComments() {
+  document.getElementById('commentModal').classList.remove('show');
+  currentCommentId = null;
+}
+
+function navigateTo(lat, lng) {
+  window.open(`https://maps.google.com/?q=${lat},${lng}`, '_blank');
+}
+
+// ══════════════════════════════════════════
+//  頂部成員頭像
+// ══════════════════════════════════════════
+function buildTopbarMembers() {
+  const el = document.getElementById('topbarMembers');
+  el.innerHTML = members.map(m =>
+    `<div class="member-avatar ${memberFilter===m.name?'on':''}" title="${m.name}" onclick="filterByMember('${m.name}')">${spriteSvg(m)}</div>`
+  ).join('');
+  document.getElementById('appTitle').textContent = CFG.appName;
+  document.getElementById('sidebarTitle').textContent = CFG.appName;
+}
+function filterByMember(name) {
+  memberFilter = (memberFilter === name) ? null : name;
+  buildTopbarMembers();
+  renderMarkers();
+}
+
+// ══════════════════════════════════════════
+//  資料載入
+// ══════════════════════════════════════════
+async function loadData() {
+  if (!CFG.apiBase) {
+    console.log('未設定 GAS apiBase，使用空資料');
+    return;
+  }
+  try {
+    const res = await fetch(CFG.apiBase + '?sheet=all', { cache:'no-store' });
+    const data = await res.json();
+    if (Array.isArray(data.checkins)) {
+      checkins = data.checkins.map(c => ({ ...c, svgData:c.svgData||null, svgGrid:c.svgGrid||16, tripId:c.tripId||'' }));
+    }
+    if (Array.isArray(data.trips)) trips = data.trips;
+    buildTabs();
+    renderMarkers();
+  } catch(e) {
+    console.warn('資料載入失敗', e);
+  }
+}
+
+// ══════════════════════════════════════════
+//  初始化
+// ══════════════════════════════════════════
+buildTopbarMembers();
+buildTabs();
+renderMarkers();
+loadData();
+setTimeout(() => map.invalidateSize(), 200);
+window.addEventListener('resize', () => map.invalidateSize());
+
+// PWA service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+
+<script>
+// ══════════════════════════════════════════
+//  畫板（pixel_draw v11 嵌入版，沿用冰島版）
+// ══════════════════════════════════════════
+const PD_DS=256;let pdG=16,pdC=PD_DS/pdG;
+let pdPx=[],pdHist=[],pdFut=[],pdX=0,pdY=0;
+let pdH=0,pdS=64,pdB=100,pdTool='pen';
+let pdMT=null,pdHT=null,pdPalOpen=false,pdCvOpen=false,pdInited=false;
+// 夏日水果預設色：西瓜、芒果、鳳梨、芭樂、荔枝…
+const PD_PRESETS=['__trans__','#000000','#ffffff','#ff5d5d','#d83a3a','#ffb627','#ffd23f','#fff3b0','#58b368','#2e7d44','#a7e08c','#f4538a','#f9a8c9','#7ec8e3','#3a6ea5','#8a5a3a'];
+let pdSwatches=[...PD_PRESETS],pdColor='#ff5d5d';
+let pdcv=null,pdctx=null;
+
+function pdH2r(h,s,b){s/=100;b/=100;const k=n=>(n+h/60)%6,f=n=>b*(1-s*Math.max(0,Math.min(k(n),4-k(n),1)));return[Math.round(f(5)*255),Math.round(f(3)*255),Math.round(f(1)*255)];}
+function pdR2h(r,g,b){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');}
+function pdX2hsb(x){let r=parseInt(x.slice(1,3),16)/255,g=parseInt(x.slice(3,5),16)/255,b=parseInt(x.slice(5,7),16)/255;const M=Math.max(r,g,b),m=Math.min(r,g,b),d=M-m;let h=0,s=M?d/M:0;if(d){if(M===r)h=(g-b)/d%6;else if(M===g)h=(b-r)/d+2;else h=(r-g)/d+4;h=Math.round(h*60+360)%360;}return[h,Math.round(s*100),Math.round(M*100)];}
+function pdGetHex(){const[r,g,b]=pdH2r(pdH,pdS,pdB);return pdR2h(r,g,b);}
+function pdUpdSliders(){
+  const[r1,g1,b1]=pdH2r(pdH,0,pdB),[r2,g2,b2]=pdH2r(pdH,100,pdB);
+  document.getElementById('pdsl-s').style.background=`linear-gradient(to right,${pdR2h(r1,g1,b1)},${pdR2h(r2,g2,b2)})`;
+  const[r3,g3,b3]=pdH2r(pdH,pdS,0),[r4,g4,b4]=pdH2r(pdH,pdS,100);
+  document.getElementById('pdsl-b').style.background=`linear-gradient(to right,${pdR2h(r3,g3,b3)},${pdR2h(r4,g4,b4)})`;
+}
+function pdUpdUI(){
+  if(pdColor!=='__trans__'){
+    document.getElementById('pdprev').style.cssText='background:'+pdColor+';width:24px;height:24px;border:2px solid var(--border2);flex-shrink:0;border-radius:2px;';
+    document.getElementById('pdhexin').value=pdColor;
+    document.getElementById('pdvH').textContent=pdH;document.getElementById('pdvS').textContent=pdS;document.getElementById('pdvB').textContent=pdB;
+    document.getElementById('pdsl-h').value=pdH;document.getElementById('pdsl-s').value=pdS;document.getElementById('pdsl-b').value=pdB;
+    pdUpdSliders();
+  } else {
+    document.getElementById('pdprev').style.cssText='width:24px;height:24px;border:2px solid var(--border2);flex-shrink:0;border-radius:2px;background:linear-gradient(45deg,#caa 25%,transparent 25%,transparent 75%,#caa 75%),linear-gradient(45deg,#caa 25%,#edd 25%,#edd 75%,#caa 75%);background-size:6px 6px;background-position:0 0,3px 3px;';
+    document.getElementById('pdhexin').value='透明';
+  }
+  pdBldSwatches();
+}
+function pdOnHSB(){pdH=+document.getElementById('pdsl-h').value;pdS=+document.getElementById('pdsl-s').value;pdB=+document.getElementById('pdsl-b').value;pdColor=pdGetHex();pdUpdUI();}
+function pdOnHex(){let v=document.getElementById('pdhexin').value.trim();if(!v.startsWith('#'))v='#'+v;if(!/^#[0-9a-fA-F]{6}$/.test(v))return;[pdH,pdS,pdB]=pdX2hsb(v);pdColor=v;pdUpdUI();}
+function pdSetC(c){pdColor=c;if(c!=='__trans__')[pdH,pdS,pdB]=pdX2hsb(c);if(pdTool==='eye')pdSt('pen');pdUpdUI();}
+function pdToggleCanvas(){pdCvOpen=!pdCvOpen;document.getElementById('pdcvbody').classList.toggle('open',pdCvOpen);document.getElementById('pdcvarr').classList.toggle('open',pdCvOpen);}
+function pdTogglePal(){pdPalOpen=!pdPalOpen;document.getElementById('pdpalbody').classList.toggle('open',pdPalOpen);document.getElementById('pdpalarr').classList.toggle('open',pdPalOpen);}
+function pdBldSwatches(){
+  const el=document.getElementById('pdswatches');el.innerHTML='';
+  pdSwatches.forEach((c,i)=>{
+    const isP=i<PD_PRESETS.length,d=document.createElement('div');
+    d.className='pd-sw'+(isP?'':' custom')+(c===pdColor?' on':'');
+    if(c==='__trans__')d.classList.add('pd-swtrans');else d.style.background=c;
+    d.title=c==='__trans__'?'透明（橡皮擦）':c;
+    d.onclick=()=>pdSetC(c);
+    let lt=null;
+    d.addEventListener('pointerdown',()=>{lt=setTimeout(()=>{if(!isP){pdSwatches.splice(i,1);if(pdColor===c)pdSetC('__trans__');else pdBldSwatches();}},700);});
+    d.addEventListener('pointerup',()=>clearTimeout(lt));d.addEventListener('pointerleave',()=>clearTimeout(lt));
+    el.appendChild(d);
+  });
+  const a=document.createElement('div');a.className='pd-sw pd-swadd';a.textContent='+';a.title='加入目前色';
+  a.onclick=()=>{const hx=pdGetHex();if(!pdSwatches.includes(hx)){pdSwatches.push(hx);pdSetC(hx);}};
+  el.appendChild(a);
+}
+function pdIc(){pdC=PD_DS/pdG;pdcv.width=PD_DS;pdcv.height=PD_DS;pdcv.style.width=PD_DS+'px';pdcv.style.height=PD_DS+'px';pdPx=Array(pdG).fill(null).map(()=>Array(pdG).fill(null));pdX=0;pdY=0;pdHist=[];pdFut=[];pdDraw();}
+function pdSg(n){pdG=n;document.querySelectorAll('.pd-smbtn').forEach(b=>b.classList.toggle('on',+b.textContent===n));pdIc();}
+function pdDraw(){
+  pdctx.clearRect(0,0,PD_DS,PD_DS);pdctx.fillStyle='#fdf2da';pdctx.fillRect(0,0,PD_DS,PD_DS);
+  for(let y=0;y<pdG;y++)for(let x=0;x<pdG;x++)if(pdPx[y][x]){pdctx.fillStyle=pdPx[y][x];pdctx.fillRect(x*pdC,y*pdC,pdC,pdC);}
+  pdctx.strokeStyle='rgba(180,150,100,0.35)';pdctx.lineWidth=0.5;
+  for(let i=0;i<=pdG;i++){pdctx.beginPath();pdctx.moveTo(i*pdC,0);pdctx.lineTo(i*pdC,PD_DS);pdctx.stroke();pdctx.beginPath();pdctx.moveTo(0,i*pdC);pdctx.lineTo(PD_DS,i*pdC);pdctx.stroke();}
+  pdctx.strokeStyle=pdTool==='eye'?'#ff5d5d':'#5a4632';pdctx.lineWidth=2;pdctx.strokeRect(pdX*pdC,pdY*pdC,pdC,pdC);
+  document.getElementById('pd-pos').textContent=`(${pdX},${pdY})`;
+}
+function pdSh(){pdHist.push(pdPx.map(r=>[...r]));if(pdHist.length>50)pdHist.shift();pdFut=[];}
+function pdUndo(){if(!pdHist.length)return;pdFut.push(pdPx.map(r=>[...r]));pdPx=pdHist.pop();pdDraw();}
+function pdRedo(){if(!pdFut.length)return;pdHist.push(pdPx.map(r=>[...r]));pdPx=pdFut.pop();pdDraw();}
+function pdClr(){pdSh();pdPx=Array(pdG).fill(null).map(()=>Array(pdG).fill(null));pdDraw();}
+function pdPaint(){
+  if(pdTool==='eye'){const c=pdPx[pdY][pdX];pdSetC(c||'__trans__');pdSt('pen');pdDraw();return;}
+  pdSh();
+  if(pdColor==='__trans__')pdPx[pdY][pdX]=null;
+  else if(pdTool==='pen')pdPx[pdY][pdX]=pdColor;
+  else if(pdTool==='fill')pdFlood(pdX,pdY,pdPx[pdY][pdX],pdColor==='__trans__'?null:pdColor);
+  pdDraw();
+}
+function pdFlood(x,y,t,f){if(x<0||x>=pdG||y<0||y>=pdG||pdPx[y][x]!==t||(t===f&&t!==null))return;pdPx[y][x]=f;pdFlood(x+1,y,t,f);pdFlood(x-1,y,t,f);pdFlood(x,y+1,t,f);pdFlood(x,y-1,t,f);}
+function pdMv(d){if(d==='up'&&pdY>0)pdY--;if(d==='down'&&pdY<pdG-1)pdY++;if(d==='left'&&pdX>0)pdX--;if(d==='right'&&pdX<pdG-1)pdX++;pdDraw();}
+function pdSm(d){pdMv(d);document.getElementById('pdb-'+d).classList.add('p');pdHT=setTimeout(()=>{pdMT=setInterval(()=>pdMv(d),70);},280);}
+function pdStopM(){clearTimeout(pdHT);clearInterval(pdMT);pdHT=pdMT=null;document.querySelectorAll('.pd-navbtn').forEach(b=>b.classList.remove('p'));}
+function pdSt(t){pdTool=t;['pen','fill','eye'].forEach(n=>{const e=document.getElementById('pdt-'+n);if(e)e.classList.toggle('on',n===t);});pdDraw();}
+
+function initDrawCanvas(){
+  pdInited=true;
+  pdcv=document.getElementById('pdcv');pdctx=pdcv.getContext('2d');
+  pdcv.addEventListener('pointerdown',e=>{
+    const r=pdcv.getBoundingClientRect(),sx=PD_DS/r.width,sy=PD_DS/r.height;
+    pdX=Math.max(0,Math.min(pdG-1,Math.floor((e.clientX-r.left)*sx/pdC)));
+    pdY=Math.max(0,Math.min(pdG-1,Math.floor((e.clientY-r.top)*sy/pdC)));
+    if(pdTool==='eye'){const c=pdPx[pdY][pdX];pdSetC(c||'__trans__');pdSt('pen');pdDraw();return;}
+    pdPaint();
+  });
+  pdcv.addEventListener('pointermove',e=>{
+    if(!e.buttons)return;
+    const r=pdcv.getBoundingClientRect(),sx=PD_DS/r.width,sy=PD_DS/r.height;
+    const nx=Math.max(0,Math.min(pdG-1,Math.floor((e.clientX-r.left)*sx/pdC)));
+    const ny=Math.max(0,Math.min(pdG-1,Math.floor((e.clientY-r.top)*sy/pdC)));
+    if(nx!==pdX||ny!==pdY){pdX=nx;pdY=ny;if(pdTool!=='eye')pdPaint();else pdDraw();}
+  });
+  document.addEventListener('keydown',e=>{
+    if(!document.getElementById('drawModal').classList.contains('show'))return;
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
+    if(e.key==='ArrowUp')pdMv('up');if(e.key==='ArrowDown')pdMv('down');
+    if(e.key==='ArrowLeft')pdMv('left');if(e.key==='ArrowRight')pdMv('right');
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();pdPaint();}
+    if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();e.shiftKey?pdRedo():pdUndo();}
+    if(e.key==='p')pdSt('pen');if(e.key==='f')pdSt('fill');if(e.key==='i')pdSt('eye');
+  });
+  pdBldSwatches();pdIc();pdUpdUI();
+}
+
+function openDrawPanel(){
+  document.getElementById('drawModal').classList.add('show');
+  if(!pdInited)initDrawCanvas();
+}
+
+function pdGetRects(){const r=[];for(let y=0;y<pdG;y++){let x=0;while(x<pdG){if(!pdPx[y][x]){x++;continue;}let run=1;while(x+run<pdG&&pdPx[y][x+run]===pdPx[y][x])run++;r.push(`<rect x="${x}" y="${y}" width="${run}" height="1" fill="${pdPx[y][x]}"/>`);x+=run;}}return r;}
+
+function confirmDraw(){
+  const rects=pdGetRects();
+  pendingCheckin.svgData=rects.length?rects.join(''):null;
+  pendingCheckin.svgGrid=pdG;
+  if(rects.length){
+    const s=8,oc=document.createElement('canvas');
+    oc.width=pdG*s;oc.height=pdG*s;
+    const c2=oc.getContext('2d');
+    for(let y=0;y<pdG;y++)for(let x=0;x<pdG;x++)if(pdPx[y][x]){c2.fillStyle=pdPx[y][x];c2.fillRect(x*s,y*s,s,s);}
+    oc.toBlob(blob=>{pendingCheckin.pngBlob=blob;},'image/png');
+    document.getElementById('drawThumb').innerHTML=`<svg viewBox="0 0 ${pdG} ${pdG}" style="image-rendering:pixelated;width:100%;height:100%;">${pendingCheckin.svgData}</svg>`;
+  }else{
+    pendingCheckin.pngBlob=null;
+    document.getElementById('drawThumb').innerHTML='🖼';
+  }
+  document.getElementById('drawModal').classList.remove('show');
+}
+</script>
+
+</body>
+</html>

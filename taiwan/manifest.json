@@ -1,0 +1,22 @@
+{
+  "name": "台灣腳印日記",
+  "short_name": "台灣腳印",
+  "description": "Taiwan · 日常與小旅程的腳印地圖",
+  "start_url": "/iceland-budget/taiwan/",
+  "display": "standalone",
+  "background_color": "#fff6e3",
+  "theme_color": "#fff3d6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f349.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f349.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
