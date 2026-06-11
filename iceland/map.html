@@ -1091,18 +1091,19 @@ function getVisible() {
 // ══════════════════════════════════════════
 let timeFilterTs = null;
 let timeBarOn = false;
-let tlMin = 0, tlMax = 0, tlTimer = null;
+let tlStamps = [], tlTimer = null;   // 刻度＝每筆紀錄，不是均分時間
 
 function toggleTimeBar() {
   if (!timeBarOn) {
-    const ts = checkins.map(itemTs).filter(Boolean);
-    if (ts.length < 2) { alert('紀錄還太少，多打幾次卡再來玩時間軸吧'); return; }
-    tlMin = Math.min(...ts); tlMax = Math.max(...ts);
+    tlStamps = checkins.map(itemTs).filter(Boolean).sort((a,b)=>a-b);
+    if (tlStamps.length < 2) { alert('紀錄還太少，多打幾次卡再來玩時間軸吧'); return; }
     timeBarOn = true;
+    const r = document.getElementById('timeRange');
+    r.max = tlStamps.length;          // 一格＝一筆紀錄，永遠停得準
+    r.value = tlStamps.length;
     document.getElementById('timeBar').style.display = 'flex';
     document.getElementById('checkinFab').style.display = 'none';
-    document.getElementById('timeRange').value = 100;
-    setTimeFilter(100);
+    setTimeFilter(tlStamps.length);
   } else {
     timeBarOn = false;
     stopTimePlay();
@@ -1115,13 +1116,14 @@ function toggleTimeBar() {
   closeLayers();
 }
 
-function setTimeFilter(pct) {
-  pct = +pct;
-  timeFilterTs = pct >= 100 ? null : tlMin + (tlMax - tlMin) * pct / 100;
-  const d = new Date(pct >= 100 ? tlMax : timeFilterTs);
+function setTimeFilter(n) {
+  n = +n;
+  const total = tlStamps.length;
+  timeFilterTs = n >= total ? null : (n <= 0 ? -1 : tlStamps[n-1]);
+  const d = new Date(n >= total ? tlStamps[total-1] : (n <= 0 ? tlStamps[0] : tlStamps[n-1]));
+  const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
   document.getElementById('timeLabel').textContent =
-    pct >= 100 ? '全部'
-    : `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+    n >= total ? `全部 ${total} 筆` : `${dateStr} · ${Math.max(0,n)}/${total}`;
   renderMarkers();
 }
 
@@ -1132,11 +1134,11 @@ function playTimeline() {
   setTimeFilter(0);
   document.getElementById('timePlay').textContent = '⏸';
   tlTimer = setInterval(() => {
-    const v = Math.min(100, +r.value + 2);
+    const v = Math.min(+r.max, +r.value + 1);   // 一次浮現一筆
     r.value = v;
     setTimeFilter(v);
-    if (v >= 100) stopTimePlay();
-  }, 150);
+    if (v >= +r.max) stopTimePlay();
+  }, 350);
 }
 
 function stopTimePlay() {
