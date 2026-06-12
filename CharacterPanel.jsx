@@ -205,7 +205,8 @@
                 if (!op.expressionEnabled) continue;
                 var ex = op.expression;
                 if (ex.indexOf('effect("' + sliderName + '")') === -1) continue;
-                var m = ex.match(/==\s*(\d+)/);
+                // 注意:ExtendScript 不能寫 /==.../ 開頭的正則字面量,會被誤認成 /= 運算子
+                var m = ex.match(new RegExp("==\\s*(\\d+)"));
                 if (m && parseInt(m[1], 10) > maxV) maxV = parseInt(m[1], 10);
             } catch (e) {}
         }
