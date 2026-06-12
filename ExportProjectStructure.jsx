@@ -1,4 +1,4 @@
-// ExportProjectStructure.jsx
+﻿// ExportProjectStructure.jsx
 // 在 AE 裡執行:File > Scripts > Run Script File...
 // 會把整個專案的合成/圖層/父子/錨點/關鍵影格/表達式/效果
 // 匯出成一個文字檔(存在專案檔旁邊,或讓你選位置)。

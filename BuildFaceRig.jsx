@@ -1,4 +1,4 @@
-// BuildFaceRig.jsx
+﻿// BuildFaceRig.jsx
 // 在「目前開啟的合成」一鍵建立你的標準臉部綁定:
 //
 //   control (Null) ── Slider: eye / mouth / 眉 / emo + Point: face position

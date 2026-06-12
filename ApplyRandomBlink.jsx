@@ -1,4 +1,4 @@
-// ApplyRandomBlink.jsx
+﻿// ApplyRandomBlink.jsx
 // 批次套用「隨機眨眼」到專案中的角色合成。
 //
 // 支援兩種你的綁定方式:
