@@ -16,6 +16,15 @@ const SHEET_NAMES = {
   checkin:       '寫入_腳印',
 };
 
+// 找某欄第一個空行（從 startRow 起，1-based）
+function findFirstEmptyRow(sheet, colLetter, startRow) {
+  var vals = sheet.getRange(colLetter + ':' + colLetter).getValues();
+  for (var i = startRow - 1; i < vals.length; i++) {
+    if (String(vals[i][0] || '').trim() === '') return i + 1;
+  }
+  return vals.length + 1;
+}
+
 function readSheet(sheet) {
   var allCells = sheet.getDataRange().getDisplayValues();
   var cells    = allCells;
@@ -133,6 +142,7 @@ function readExpenseMap(sheet) {
       qty:      r[22],
       svgData:  r[25] || '',
       svgGrid:  parseInt(r[26], 10) || 16,
+      comments: (function(){ try { return JSON.parse(r[27] || '[]'); } catch(e) { return []; } })(),
       _rowIndex: i + 1,
     });
   }
@@ -184,6 +194,20 @@ function doGet(e) {
       var json = JSON.stringify(result);
       cache.put(cacheKey, json, 60);
       return ContentService.createTextOutput(json)
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 地圖一次載入：?sheet=mapdata（打卡＋消費＋住宿）
+    if (param === 'mapdata') {
+      var ckSheet  = ss.getSheetByName(SHEET_NAMES.checkin);
+      var expSheet = ss.getSheetByName(SHEET_NAMES.expense);
+      var stSheet  = ss.getSheetByName(SHEET_NAMES.accommodation);
+      var bundle = {
+        checkins: ckSheet  ? readCheckinSheet(ckSheet).checkins : [],
+        expenses: expSheet ? readExpenseMap(expSheet).expenses  : [],
+        stays:    stSheet  ? readStayMap(stSheet).stays         : [],
+      };
+      return ContentService.createTextOutput(JSON.stringify(bundle))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -286,12 +310,7 @@ function doPost(e) {
         sheet.getRange(payload.rowIndex, 1, 1, row.length).setValues([row]);
       } else {
         // 用 C 欄（類別）找第一個空行，類別沒有預設值
-        var cVals = sheet.getRange('C:C').getValues();
-        var insertRow = 2;
-        for (var i = 1; i < cVals.length; i++) {
-          var v = String(cVals[i][0] || '').trim();
-          if (v === '') { insertRow = i + 1; break; }
-        }
+        var insertRow = findFirstEmptyRow(sheet, 'C', 2);
         sheet.getRange(insertRow, 1, 1, row.length).setValues([row]);
       }
       clearCache();
@@ -311,6 +330,24 @@ function doPost(e) {
       if (payload.svgGrid !== undefined) sheet.getRange(payload.rowIndex, 27).setValue(payload.svgGrid);
       clearCache();
       return ok('expense map data updated');
+    }
+
+    // ── 消費留言（一般開銷 AB 欄存 JSON）──────────────────
+    if (action === 'addExpenseComment') {
+      var sheet = ss.getSheetByName(SHEET_NAMES.expense);
+      if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.expense);
+      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      var existing = sheet.getRange(payload.rowIndex, 28).getValue();
+      var comments = [];
+      try { comments = JSON.parse(existing || '[]'); } catch(e2) { comments = []; }
+      comments.push({
+        who:  payload.who  || '',
+        text: payload.text || '',
+        time: new Date().toISOString(),
+      });
+      sheet.getRange(payload.rowIndex, 28).setValue(JSON.stringify(comments));
+      clearCache();
+      return ok({ msg: 'expense comment added', count: comments.length });
     }
 
     // ── 刪除一般開銷 ──────────────────────────────────────
@@ -339,12 +376,8 @@ function doPost(e) {
       if (action === 'editRepay' && payload.rowIndex) {
         sheet.getRange(payload.rowIndex, 6, 1, 5).setValues([repayRow]);
       } else {
-        // 找 F 欄第一個空行
-        var fVals = sheet.getRange('F:F').getValues();
-        var insertRow = 5; // 前4行是成員資料，從第5行開始
-        for (var i = 4; i < fVals.length; i++) {
-          if (String(fVals[i][0]||'').trim() === '') { insertRow = i + 1; break; }
-        }
+        // F 欄第一個空行（前4行是成員資料，從第5行開始）
+        var insertRow = findFirstEmptyRow(sheet, 'F', 5);
         sheet.getRange(insertRow, 6, 1, 5).setValues([repayRow]);
       }
       clearCache();
@@ -389,11 +422,7 @@ function doPost(e) {
         payload.svgData  || '',
         payload.svgGrid  || 16,
       ];
-      var aVals = sheet.getRange('A:A').getValues();
-      var insertRow = 2;
-      for (var i = 1; i < aVals.length; i++) {
-        if (String(aVals[i][0]||'').trim() === '') { insertRow = i + 1; break; }
-      }
+      var insertRow = findFirstEmptyRow(sheet, 'A', 2);
       sheet.getRange(insertRow, 1, 1, row.length).setValues([row]);
       clearCache();
       return ok({ msg: 'checkin saved', id: id });

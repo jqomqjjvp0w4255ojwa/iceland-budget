@@ -1114,7 +1114,7 @@ function renderMarkers() {
       memberColor: item.type==='stay' ? '#6a8aa8' : m.color,
       svgData: item.svgData,
       svgGrid: item.svgGrid || 16,
-      spriteHtml: item.type==='checkin' ? spriteSvg(m) : null,
+      spriteHtml: (item.type==='checkin'||item.type==='expense') ? spriteSvg(m) : null,
       fallbackIcon: item.type==='wish' ? '💗' : item.type==='stay' ? '🏠' : m.icon,
     }).bindPopup(() => buildPopupContent(item), { className:'px-popup', maxWidth:240, closeButton:false });
     markers[item.id] = marker;
@@ -1171,7 +1171,7 @@ function buildPopupContent(item) {
     ${isExp?`<div class="popup-note" style="color:var(--gold);cursor:pointer;" onclick="openExpenseCard('${item.id}')">🧾 ${item.name}　−${item.amount} ${item.currency}　›</div>`:''}
     ${isExp&&item.locName?`<div class="popup-note" style="color:var(--muted);">📍 ${item.locName}</div>`:''}
     <div class="popup-actions">
-      ${!isExp?`<button class="popup-action-btn" onclick="openComments('${item.id}')">💬 查看留言（${item.comments?.length||0}）</button>`:''}
+      <button class="popup-action-btn" onclick="openComments('${item.id}')">💬 查看留言（${item.comments?.length||0}）</button>
       <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
     </div>
   `;
@@ -1340,28 +1340,11 @@ function setDrawer(open) {
   if (drawerOpen !== open) toggleDrawer();
 }
 // 把手：拖曳展開/收合＋點擊切換（分頁按鈕除外）
-(function(){
-  const handle = document.getElementById('drawerHandle');
-  let startY = null, dragged = false;
-  handle.addEventListener('pointerdown', e => {
-    if (e.target.closest('button')) return;
-    e.preventDefault();
-    startY = e.clientY; dragged = false;
-    handle.setPointerCapture(e.pointerId);
-  });
-  handle.addEventListener('pointermove', e => {
-    if (startY === null) return;
-    const dy = e.clientY - startY;
-    if (dy < -20) { setDrawer(true);  dragged = true; startY = e.clientY; }
-    if (dy >  20) { setDrawer(false); dragged = true; startY = e.clientY; }
-  });
-  handle.addEventListener('pointerup', e => {
-    if (startY !== null && !dragged && !e.target.closest('button')) toggleDrawer();
-    startY = null; dragged = false;
-  });
-  handle.addEventListener('pointercancel', () => { startY = null; dragged = false; });
-  handle.addEventListener('touchmove', e => e.preventDefault(), { passive:false });
-})();
+bindDragToggle(document.getElementById('drawerHandle'), {
+  onUp:   () => setDrawer(true),
+  onDown: () => setDrawer(false),
+  onTap:  toggleDrawer,
+});
 
 // ══════════════════════════════════════════
 //  圖層選單
@@ -1548,36 +1531,40 @@ function closeCheckin() {
 function toggleCheckinHeight() {
   document.getElementById('checkinSheet').classList.toggle('tall');
 }
+// 共用拖曳把手：上拖 onUp、下拖 onDown、沒拖到就當點擊 onTap（按鈕不攔）
+function bindDragToggle(zone, { onUp, onDown, onTap }) {
+  let startY = null, dragged = false;
+  zone.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    e.preventDefault();
+    startY = e.clientY; dragged = false;
+    zone.setPointerCapture(e.pointerId);
+  });
+  zone.addEventListener('pointermove', e => {
+    if (startY === null) return;
+    const dy = e.clientY - startY;
+    if (dy < -20) { onUp?.();   dragged = true; startY = e.clientY; }
+    if (dy >  20) { onDown?.(); dragged = true; startY = e.clientY; }
+  });
+  // iOS 上 pointer capture 會吃掉 click，改在 pointerup 判斷「沒拖就是點」
+  zone.addEventListener('pointerup', e => {
+    if (startY !== null && !dragged && !e.target.closest('button')) onTap?.();
+    startY = null; dragged = false;
+  });
+  zone.addEventListener('pointercancel', () => { startY = null; dragged = false; });
+  zone.addEventListener('touchmove', e => e.preventDefault(), { passive:false });
+}
+
 // pill 和整條標題列都是拉桿（按鈕除外）
 (function(){
   const sheet = document.getElementById('checkinSheet');
-  const zones = [
-    document.getElementById('sheetPill'),
-    document.querySelector('#checkinSheet .modal-header'),
-  ];
-  zones.forEach(zone => {
-    let startY = null, dragged = false;
-    zone.addEventListener('pointerdown', e => {
-      if (e.target.closest('button')) return;   // ✕ 等按鈕照常運作
-      e.preventDefault();
-      startY = e.clientY; dragged = false;
-      zone.setPointerCapture(e.pointerId);
-    });
-    zone.addEventListener('pointermove', e => {
-      if (startY === null) return;
-      const dy = e.clientY - startY;
-      if (dy < -20) { sheet.classList.add('tall');    dragged = true; startY = e.clientY; }
-      if (dy >  20) { sheet.classList.remove('tall'); dragged = true; startY = e.clientY; }
-    });
-    // iOS 上 pointer capture 會吃掉 click，改在 pointerup 判斷「沒拖就是點」
-    zone.addEventListener('pointerup', e => {
-      if (startY !== null && !dragged && !e.target.closest('button')) toggleCheckinHeight();
-      startY = null; dragged = false;
-    });
-    zone.addEventListener('pointercancel', () => { startY = null; dragged = false; });
-    // iOS：拖的時候不讓整頁跟著捲
-    zone.addEventListener('touchmove', e => e.preventDefault(), { passive:false });
-  });
+  const opts = {
+    onUp:   () => sheet.classList.add('tall'),
+    onDown: () => sheet.classList.remove('tall'),
+    onTap:  toggleCheckinHeight,
+  };
+  bindDragToggle(document.getElementById('sheetPill'), opts);
+  bindDragToggle(document.querySelector('#checkinSheet .modal-header'), opts);
 })();
 
 function pickLocation() {
@@ -1758,7 +1745,7 @@ async function submitCheckin() {
 // ══════════════════════════════════════════
 function openComments(id) {
   currentCommentId = id;
-  const item = checkins.find(c=>c.id===id);
+  const item = allItems().find(c=>c.id===id);
   if (!item) return;
   document.getElementById('commentModalTitle').textContent = `留言（${item.comments?.length||0}）`;
   renderComments(item);
@@ -1784,7 +1771,7 @@ async function sendComment() {
   const input = document.getElementById('commentInput');
   const text = input.value.trim();
   if (!text || !currentCommentId) return;
-  const item = checkins.find(c=>c.id===currentCommentId);
+  const item = allItems().find(c=>c.id===currentCommentId);
   if (!item) return;
 
   // 先選留言者（預設第一個成員，之後可做選擇）
@@ -1802,17 +1789,15 @@ async function sendComment() {
     markers[currentCommentId].setPopupContent(buildPopupContent(item));
   }
 
-  // POST 到 GAS
+  // POST 到 GAS（消費留言存帳簿 AB 欄，打卡留言存腳印表）
   const gasBase = TRIP_CONFIG.apiBase || '';
   if (gasBase) {
+    const payload = item.type === 'expense'
+      ? { action:'addExpenseComment', rowIndex:item._rowIndex, who, text }
+      : { action:'addComment', checkinId:item.id, who, text };
     fetch(gasBase, {
       method: 'POST',
-      body: JSON.stringify({
-        action:    'addComment',
-        checkinId: item.id,
-        who,
-        text,
-      }),
+      body: JSON.stringify(payload),
     }).catch(e => console.warn('留言同步失敗', e));
   }
 }
@@ -1829,26 +1814,30 @@ function openExpenseCard(id) {
   const item = expenses.find(x => x.id === id);
   if (!item) return;
   const m = getMemberByName(item.who);
-  const row = (label, val) => val
-    ? `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:10px;">
-        <span style="color:var(--muted);flex:0 0 56px;">${label}</span>
-        <span style="flex:1;color:var(--text);word-break:break-all;">${val}</span>
-      </div>` : '';
   document.getElementById('expCardBody').innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <div style="width:28px;height:46px;">${spriteSvg(m)}</div>
-      <div style="flex:1;">
-        <div style="font-size:11px;color:var(--text);">${item.name}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>
-        <div style="font-size:13px;color:var(--gold);margin-top:3px;">−${item.amount} ${item.currency}</div>
+    <div style="position:relative;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;">
+      <!-- ⋮ 選單（同帳簿卡片） -->
+      <span style="position:absolute;top:50%;transform:translateY(-50%);right:8px;font-size:1.05rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;z-index:3;"
+        onclick="const x=this.nextElementSibling;x.style.display=x.style.display==='flex'?'none':'flex';">⋮</span>
+      <div style="display:none;position:absolute;right:8px;top:calc(50% + 18px);z-index:20;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.45);">
+        <button class="popup-action-btn" style="border:none;justify-content:flex-start;padding:10px 14px;min-width:96px;color:#e08090;" onclick="document.getElementById('expCardModal').classList.remove('show');deleteCheckin('${item.id}')">🗑️ 刪除</button>
       </div>
-    </div>
-    ${row('類別', item.category)}
-    ${row('日期', item.date)}
-    ${row('付款人', item.who)}
-    ${row('地點', item.locName)}
-    ${row('備註', item.note)}
-    <div style="text-align:center;margin-top:12px;">
-      <button class="popup-action-btn" style="display:inline-flex;padding:9px 18px;" onclick="location.href='index.html'">📒 改金額/品項請到帳簿 ›</button>
+      <!-- 第一行：[類別] ---- 金額 -->
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;padding-right:28px;">
+        <span style="font-size:8px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${item.category||'雜支'}</span>
+        <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
+        <span style="font-size:13px;color:var(--gold);white-space:nowrap;">−${item.amount} ${item.currency}</span>
+      </div>
+      <!-- 品項 -->
+      ${item.name?`<div style="font-size:11px;color:var(--text);margin-bottom:6px;">${item.name}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>`:''}
+      <!-- 備註 -->
+      ${item.note?`<div style="font-size:9px;color:var(--muted);line-height:1.6;margin-bottom:6px;">📌 ${item.note}</div>`:''}
+      <!-- 底部：付款人 sprite + 地點 + 日期 -->
+      <div style="display:flex;align-items:center;gap:8px;font-size:8px;color:var(--muted);">
+        <div style="width:16px;height:26px;">${spriteSvg(m)}</div>
+        ${item.locName?`<span>📍 ${item.locName}</span>`:''}
+        <span style="margin-left:auto;">${item.date||''}</span>
+      </div>
     </div>
   `;
   document.getElementById('expCardModal').classList.add('show');
@@ -1878,6 +1867,51 @@ function filterByMember(name) {
   renderMarkers();
 }
 
+// 套用雲端打卡：缺塗鴉保留本地新畫的；雲端還沒有的本地新項目不丟
+function applyCheckins(cloud) {
+  const localById = {};
+  checkins.forEach(c => { localById[c.id] = c; });
+  const cloudIds = new Set(cloud.map(c => c.id));
+  const merged = cloud.map(c => {
+    const local = localById[c.id];
+    return {
+      ...c,
+      svgData: c.svgData || local?.svgData || null,
+      svgGrid: c.svgGrid || local?.svgGrid || 16,
+    };
+  });
+  // 樂觀更新保護：剛送出、雲端尚未出現的本地項目（5 分鐘內）保留
+  checkins.forEach(c => {
+    if (!cloudIds.has(c.id) && Date.now() - itemTs(c) < 5*60*1000) merged.unshift(c);
+  });
+  checkins = merged;
+}
+
+function applyExpenses(cloud) {
+  const localById = {};
+  expenses.forEach(c => { localById[c.id] = c; });
+  expenses = cloud.map(e => ({
+    id:       e.id,
+    type:     'expense',
+    who:      e.payer,
+    lat:      e.lat,
+    lng:      e.lng,
+    name:     e.title || e.category || e.location || '消費',
+    category: e.category || '',
+    qty:      e.qty || '',
+    locName:  e.location || '',
+    date:     e.date,
+    time:     e.date,            // itemTs 用 Date.parse 解析
+    amount:   e.amount,
+    currency: e.currency,
+    note:     e.note || '',
+    comments: e.comments || [],
+    svgData:  e.svgData || localById[e.id]?.svgData || null,
+    svgGrid:  e.svgGrid || localById[e.id]?.svgGrid || 16,
+    _rowIndex: e._rowIndex,
+  }));
+}
+
 // ══════════════════════════════════════════
 //  GAS 載入打卡資料
 // ══════════════════════════════════════════
@@ -1891,17 +1925,7 @@ async function loadCheckins() {
     const res = await fetch(gasBase + '?sheet=checkin', { cache:'no-store' });
     const data = await res.json();
     if (data.checkins && Array.isArray(data.checkins)) {
-      // 合併：雲端缺塗鴉時保留本地剛畫好的（GAS 舊版未存 SVG 也不會蓋掉新圖）
-      const localById = {};
-      checkins.forEach(c => { localById[c.id] = c; });
-      checkins = data.checkins.map(c => {
-        const local = localById[c.id];
-        return {
-          ...c,
-          svgData: c.svgData || local?.svgData || null,
-          svgGrid: c.svgGrid || local?.svgGrid || 16,
-        };
-      });
+      applyCheckins(data.checkins);
       renderMarkers();
     }
   } catch(e) {
@@ -1919,29 +1943,31 @@ async function loadExpenses() {
     const res = await fetch(gasBase + '?sheet=expensemap', { cache:'no-store' });
     const data = await res.json();
     if (data.expenses && Array.isArray(data.expenses)) {
-      expenses = data.expenses.map(e => ({
-        id:       e.id,
-        type:     'expense',
-        who:      e.payer,
-        lat:      e.lat,
-        lng:      e.lng,
-        name:     e.title || e.category || e.location || '消費',
-        category: e.category || '',
-        qty:      e.qty || '',
-        locName:  e.location || '',
-        date:     e.date,
-        time:     e.date,            // itemTs 用 Date.parse 解析
-        amount:   e.amount,
-        currency: e.currency,
-        note:     e.note || '',
-        svgData:  e.svgData || null,
-        svgGrid:  e.svgGrid || 16,
-        _rowIndex: e._rowIndex,
-      }));
+      applyExpenses(data.expenses);
       renderMarkers();
     }
   } catch(e) {
     console.warn('消費資料載入失敗', e);
+  }
+}
+
+// 地圖初次載入：一次拿齊打卡＋消費＋住宿（GAS 冷啟動只等一次）
+async function loadMapData() {
+  const gasBase = TRIP_CONFIG.apiBase || '';
+  if (!gasBase) return;
+  try {
+    const res = await fetch(gasBase + '?sheet=mapdata', { cache:'no-store' });
+    const data = await res.json();
+    if (Array.isArray(data.checkins)) applyCheckins(data.checkins);
+    if (Array.isArray(data.expenses)) applyExpenses(data.expenses);
+    if (Array.isArray(data.stays)) {
+      STAYS = data.stays.map((st, i) => ({ id:'s'+i, ...st }));
+      renderStayLine();
+    }
+    renderMarkers();
+  } catch(e) {
+    console.warn('地圖資料載入失敗，改逐項載入', e);
+    loadCheckins(); loadExpenses(); loadStays();
   }
 }
 
@@ -1951,9 +1977,7 @@ async function loadExpenses() {
 buildTopbarMembers();
 buildTabs();
 renderMarkers();
-loadCheckins();
-loadExpenses();
-loadStays();
+loadMapData();
 // 修正容器尺寸計算延遲導致 tile 不載入
 setTimeout(() => map.invalidateSize(), 200);
 </script>
