@@ -1,4 +1,4 @@
-﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.1
+﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.2
 //
 // 安裝(建議,變成常駐面板):
 //   把這個檔案放到 AE 安裝目錄的 Support Files\Scripts\ScriptUI Panels\
@@ -475,15 +475,20 @@
 
     function buildUI(thisObj) {
         var pal = (thisObj instanceof Panel) ? thisObj
-                : new Window("palette", "角色工具 v1.1", undefined, { resizeable: true });
+                : new Window("palette", "角色工具 v1.2", undefined, { resizeable: true });
 
         pal.orientation = "column";
-        pal.alignChildren = ["fill", "top"];
-        pal.spacing = 6; pal.margins = 10;
+        pal.alignChildren = ["fill", "fill"];
+        pal.spacing = 4; pal.margins = 6;
 
-        // --- 標記區 ---
-        var p1 = pal.add("panel", undefined, "1. 標記(先選圖層再按)  [v1.1]");
+        // 分頁籤排版,壓低面板高度
+        var tabs = pal.add("tabbedpanel");
+        tabs.alignChildren = ["fill", "top"];
+
+        // --- 標記 ---
+        var p1 = tabs.add("tab", undefined, "標記");
         p1.orientation = "column"; p1.alignChildren = ["fill", "top"]; p1.margins = 8;
+        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.2]");
         var rowA = p1.add("group"); var rowB = p1.add("group");
         var tagOrder = ["閉眼", "睜眼", "閉嘴", "張嘴", "眉", "汗", "耳", "鼻"];
         var fullRigCheck;
@@ -501,8 +506,8 @@
         fullRigCheck = p1.add("checkbox", undefined, "完整綁定(建 face/eye/mouth/ear Null 並 parent)");
         fullRigCheck.value = false;
 
-        // --- 動態區 ---
-        var p2 = pal.add("panel", undefined, "2. 一鍵動態");
+        // --- 動態 ---
+        var p2 = tabs.add("tab", undefined, "動態");
         p2.orientation = "column"; p2.alignChildren = ["fill", "top"]; p2.margins = 8;
         var rowC = p2.add("group"); var rowD = p2.add("group");
         var bBlink = rowC.add("button", undefined, "隨機眨眼");   bBlink.preferredSize.width = 110;
@@ -514,16 +519,18 @@
         bBr.onClick    = doBreath;
         bFl.onClick    = doFloat;
 
-        // --- 演出區 ---
-        var p3 = pal.add("panel", undefined, "3. 演出(停在目前時間打 key)");
-        p3.orientation = "row"; p3.alignChildren = ["fill", "top"]; p3.margins = 8;
-        var bOn  = p3.add("button", undefined, "▶ 開始說話"); bOn.preferredSize.width = 110;
-        var bOff = p3.add("button", undefined, "■ 停止說話"); bOff.preferredSize.width = 110;
+        // --- 演出 ---
+        var p3 = tabs.add("tab", undefined, "演出");
+        p3.orientation = "column"; p3.alignChildren = ["fill", "top"]; p3.margins = 8;
+        p3.add("statictext", undefined, "停在目前時間,點按鈕打 HOLD key:");
+        var rowT = p3.add("group");
+        var bOn  = rowT.add("button", undefined, "▶ 開始說話"); bOn.preferredSize.width = 110;
+        var bOff = rowT.add("button", undefined, "■ 停止說話"); bOff.preferredSize.width = 110;
         bOn.onClick  = function () { setMouthKey(true); };
         bOff.onClick = function () { setMouthKey(false); };
 
-        // --- 表達式工具區 ---
-        var p4 = pal.add("panel", undefined, "4. 表達式工具(多選圖層一次套)");
+        // --- 表達式工具 ---
+        var p4 = tabs.add("tab", undefined, "表達式");
         p4.orientation = "column"; p4.alignChildren = ["fill", "top"]; p4.margins = 8;
 
         var rowProp = p4.add("group");
@@ -534,7 +541,7 @@
             return a;
         })());
         propDrop.selection = 0;
-        rowProp.add("statictext", undefined, "(時間軸有反白屬性時以反白為準)");
+        rowProp.add("statictext", undefined, "(反白屬性優先)");
 
         var rowE1 = p4.add("group");
         var bPing  = rowE1.add("button", undefined, "pingpong");  bPing.preferredSize.width = 80;
