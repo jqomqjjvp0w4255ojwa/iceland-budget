@@ -95,6 +95,45 @@
         return findLayer(comp, "張嘴 2") ? 2 : 1;
     }
 
+    // 在圖層錨點位置建一個「軸」Null,把圖層 parent 上去。
+    // 擠壓表達式掛在軸的 Scale 上 → 把軸的 Rotation 轉到跟美術同角度,
+    // 擠壓就沿著那個方向,斜的嘴/眼不會歪掉(skew)。
+    // 美術圖層會自動反向補償旋轉,所以轉軸時畫面上的圖不會跟著轉。
+    function makeAxisNull(comp, lay, axisName) {
+        if (lay.parent && lay.parent.name === axisName) return lay.parent; // 已建過
+        var axis = comp.layers.addNull(comp.duration);
+        axis.name = axisName;
+        axis.moveBefore(lay);
+        if (lay.parent) axis.parent = lay.parent;
+        axis.property("ADBE Transform Group").property("ADBE Position")
+            .setValue(lay.property("ADBE Transform Group").property("ADBE Position").value);
+        lay.parent = axis; // 指定 parent 時 AE 會保持外觀不跳動
+        // 轉軸時美術反向補償,維持原本角度
+        lay.property("ADBE Transform Group").property("ADBE Rotate Z").expression =
+            "value - parent.transform.rotation // 軸轉、美術不轉";
+        return axis;
+    }
+
+    // 只有閉嘴圖的角色:自動生一張簡易張嘴(深色橢圓 Shape),
+    // 位置疊在閉嘴錨點上,之後走標準閉/張切換。形狀顏色大小自己微調。
+    function createOpenMouth(comp, closedLay) {
+        var w = 60, h = 40;
+        try { w = Math.max(closedLay.width * 0.8, 30); h = Math.max(closedLay.width * 0.55, 20); } catch (e) {}
+        var shape = comp.layers.addShape();
+        shape.name = "張嘴";
+        var grp = shape.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
+        grp.name = "mouth";
+        var ell = grp.property("ADBE Vectors Group").addProperty("ADBE Vector Shape - Ellipse");
+        ell.property("ADBE Vector Ellipse Size").setValue([w, h]);
+        var fill = grp.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill");
+        fill.property("ADBE Vector Fill Color").setValue([0.23, 0.12, 0.10, 1]); // 深咖啡,請自行調色
+        shape.moveBefore(closedLay);
+        if (closedLay.parent) shape.parent = closedLay.parent;
+        shape.property("ADBE Transform Group").property("ADBE Position")
+            .setValue(closedLay.property("ADBE Transform Group").property("ADBE Position").value);
+        return shape;
+    }
+
     // ================= 1. 標記 =================
 
     // 每個標記:基準名 / 滑桿 / 依序的滑桿值(第1個閉嘴=0、第2個=3…照你的慣例)
@@ -171,16 +210,18 @@
                 slider.expression = lines.join("\n");
                 alert("已在 control > eye 滑桿掛上隨機眨眼。\n手動打的 key 會保留(取最大值疊加)。");
             } else {
-                // 備援方案:沒有閉眼圖層 → 對「睜眼/眼」做縮放擠壓眨眼
+                // 備援方案:沒有閉眼圖層 → 對「睜眼/眼」做縮放擠壓眨眼(透過眼軸,斜眼不會歪)
                 var eyeLay = findLayer(comp, "睜眼") || findLayer(comp, "眼") ||
                              (comp.selectedLayers.length ? comp.selectedLayers[0] : null);
                 if (!eyeLay) { alert("找不到「閉眼」「睜眼」「眼」圖層。\n請先標記,或選取眼睛圖層後再按一次。"); return; }
+                var axis = makeAxisNull(comp, eyeLay, "眼軸");
                 var lines2 = ["// === 隨機眨眼:縮放擠壓版(此角色沒有閉眼圖) ==="]
                     .concat(blinkWindowLines(uniqueSeed(), 2.5, 6, 7))
                     .concat(["blink ? [value[0], value[1] * 0.08, value[2]] : value"]);
-                scaleProp(eyeLay).expression = lines2.join("\n");
-                alert("此角色沒有「閉眼」圖,已改用縮放擠壓眨眼,套在「" + eyeLay.name + "」的 Scale 上。\n" +
-                      "提醒:錨點要在眼睛中間,擠壓才自然(必要時用錨點工具調一下)。");
+                scaleProp(axis).expression = lines2.join("\n");
+                alert("此角色沒有「閉眼」圖 → 已建「眼軸」Null 套擠壓眨眼(作用在「" + eyeLay.name + "」上)。\n\n" +
+                      "眼睛如果是斜的:把「眼軸」的 Rotation 轉到跟眼睛同角度即可,\n" +
+                      "美術不會跟著轉,擠壓會沿眼睛的方向、不會歪。");
             }
         } finally { app.endUndoGroup(); }
     }
@@ -205,22 +246,36 @@
                 ].join("\n");
             }
 
-            if (open2 || open1) {
-                // 有張嘴圖:動嘴掛在「張嘴 2」(有的話)或「張嘴」上
-                var target = open2 || open1;
-                var v = open2 ? 2 : 1;
-                scaleProp(target).expression = squashExpr(v);
-                alert("說話設定完成:mouth 滑桿 = " + v + " 時「" + target.name + "」會自動開合。\n" +
-                      "用下面的「開始/停止說話」按鈕打 key 即可。");
-            } else if (closed) {
-                // 只有閉嘴圖:同一張圖直接擠壓,滑桿 0=不動、1=說話
-                scaleProp(closed).expression = squashExpr(1);
-                opacityProp(closed).expression = "100 // 此角色只有一張嘴,永遠顯示,靠縮放說話";
-                alert("此角色只有「閉嘴」圖 → 已設定:mouth 滑桿 0=嘴不動、1=同一張嘴自動開合。\n" +
-                      "提醒:錨點建議移到嘴的上緣,往下擠壓比較像說話。");
+            var target = open2 || open1;
+            var v, generated = false;
+
+            if (!target && closed) {
+                // 只有閉嘴圖:自動生一張簡易張嘴,之後走標準閉/張切換
+                target = createOpenMouth(comp, closed);
+                opacityProp(target).expression = switchExpr("mouth", 1);
+                opacityProp(closed).expression = switchExpr("mouth", 0);
+                v = 1;
+                generated = true;
+            } else if (target) {
+                v = open2 ? 2 : 1;
             } else {
                 alert("找不到「張嘴」或「閉嘴」圖層,請先標記嘴巴。");
+                return;
             }
+
+            // 擠壓掛在「嘴軸」Null 上,斜的嘴不會歪
+            var axis = makeAxisNull(comp, target, "嘴軸");
+            scaleProp(axis).expression = squashExpr(v);
+
+            var msg = "說話設定完成:mouth 滑桿 = " + v + " 時「" + target.name + "」會自動開合,= 0 是閉嘴。\n" +
+                      "用下面的「開始/停止說話」按鈕打 key 即可。\n\n" +
+                      "嘴如果是斜的:把「嘴軸」的 Rotation 轉到跟嘴同角度,\n" +
+                      "美術不會跟著轉,開合就會沿嘴的方向、不會歪。";
+            if (generated) {
+                msg += "\n\n此角色原本只有閉嘴圖,我生了一個深色橢圓 Shape 當「張嘴」,\n" +
+                       "請花十秒調一下它的大小和顏色,讓它貼合畫風。";
+            }
+            alert(msg);
         } finally { app.endUndoGroup(); }
     }
 
