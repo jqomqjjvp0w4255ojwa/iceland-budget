@@ -1,4 +1,4 @@
-﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.7
+﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.8
 //
 // 安裝(建議,變成常駐面板):
 //   把這個檔案放到 AE 安裝目錄的 Support Files\Scripts\ScriptUI Panels\
@@ -39,6 +39,29 @@
         return n;
     }
 
+    // 滑桿「角色」與兩個專案的命名對照(樂樂式英文 / 妖果式中文)
+    // 合成裡已有 control 時自動沿用它現有的滑桿名,新合成才用第一個預設名
+    var SLIDER_ROLES = {
+        "eye":   ["eye", "眼"],
+        "mouth": ["mouth", "嘴"],
+        "眉":    ["眉"],
+        "emo":   ["emo"]
+    };
+
+    function sliderNameFor(comp, role) {
+        var names = SLIDER_ROLES[role] || [role];
+        var ctrl = findLayer(comp, "control");
+        if (ctrl) {
+            try {
+                var fx = ctrl.property("ADBE Effect Parade");
+                for (var i = 0; i < names.length; i++) {
+                    if (fx.property(names[i])) return names[i];
+                }
+            } catch (e) {}
+        }
+        return names[0];
+    }
+
     function ensureControl(comp) {
         var ctrl = findLayer(comp, "control");
         if (!ctrl) {
@@ -47,11 +70,16 @@
             ctrl.moveToBeginning();
         }
         var fx = ctrl.property("ADBE Effect Parade");
-        var sliders = ["eye", "mouth", "眉", "emo"];
-        for (var i = 0; i < sliders.length; i++) {
-            if (!fx.property(sliders[i])) {
+        // 每種角色:任一命名已存在就不補(妖果的「眼」在,就不會多生一個「eye」)
+        for (var role in SLIDER_ROLES) {
+            if (!SLIDER_ROLES.hasOwnProperty(role)) continue;
+            var names = SLIDER_ROLES[role], found = false;
+            for (var i = 0; i < names.length; i++) {
+                if (fx.property(names[i])) { found = true; break; }
+            }
+            if (!found) {
                 var s = fx.addProperty("ADBE Slider Control");
-                s.name = sliders[i];
+                s.name = names[0];
             }
         }
         if (!fx.property("face position")) {
@@ -181,7 +209,7 @@
 
                 if (tag.slider) {
                     var v = tag.vals[Math.min(idx, tag.vals.length - 1)];
-                    opacityProp(lay).expression = switchExpr(tag.slider, v);
+                    opacityProp(lay).expression = switchExpr(sliderNameFor(comp, tag.slider), v);
                 }
                 if (nulls && !lay.parent) {
                     if (base === "耳") lay.parent = nulls.ear;
@@ -217,14 +245,15 @@
         var comp = activeComp(); if (!comp) return;
         var sel = comp.selectedLayers;
         if (sel.length === 0) { alert("先選取特殊表情的圖層(暈眼、X眼、哭嚎嘴…)再按。"); return; }
-        var sliderName = prompt("掛在哪個滑桿?(eye / mouth / 眉 / emo)", "eye");
-        if (sliderName === null) return;
-        if (sliderName !== "eye" && sliderName !== "mouth" && sliderName !== "眉" && sliderName !== "emo") {
-            alert("滑桿名稱要是 eye / mouth / 眉 / emo 其中之一。"); return;
-        }
+        var roleIn = prompt("掛在哪個滑桿?(eye/眼、mouth/嘴、眉、emo)", "eye");
+        if (roleIn === null) return;
+        var ALIAS = { "eye": "eye", "眼": "eye", "mouth": "mouth", "嘴": "mouth", "眉": "眉", "emo": "emo" };
+        var role = ALIAS[roleIn];
+        if (!role) { alert("滑桿要是 eye/眼、mouth/嘴、眉、emo 其中之一。"); return; }
         app.beginUndoGroup("特殊狀態標記");
         try {
             ensureControl(comp);
+            var sliderName = sliderNameFor(comp, role); // 自動沿用該合成的命名(眼 or eye)
             var v = nextSliderValue(comp, sliderName);
             var vIn = prompt("用哪個滑桿值?(這個滑桿下一個空值是 " + v + ")", String(v));
             if (vIn === null) return;
@@ -240,6 +269,34 @@
         } finally { app.endUndoGroup(); }
     }
 
+    // 編號狀態(妖果式):多選圖層 → 由上到下命名 base1~baseN,滑桿值依序 0~N-1
+    function doNumberedTag() {
+        var comp = activeComp(); if (!comp) return;
+        var sel = comp.selectedLayers;
+        if (sel.length === 0) { alert("先由上到下選好狀態圖層(例:五個嘴型),再按「編號狀態」。"); return; }
+        var roleIn = prompt("掛在哪個滑桿?(eye/眼、mouth/嘴、眉、emo)", "mouth");
+        if (roleIn === null) return;
+        var ALIAS = { "eye": "eye", "眼": "eye", "mouth": "mouth", "嘴": "mouth", "眉": "眉", "emo": "emo" };
+        var role = ALIAS[roleIn];
+        if (!role) { alert("滑桿要是 eye/眼、mouth/嘴、眉、emo 其中之一。"); return; }
+        var defBase = { eye: "eye", mouth: "mouth", "眉": "eyebrow", emo: "emo" }[role];
+        var base = prompt("圖層基準名(會編成 " + defBase + "1、" + defBase + "2…):", defBase);
+        if (base === null || base === "") return;
+
+        app.beginUndoGroup("編號狀態 " + base);
+        try {
+            ensureControl(comp);
+            var sliderName = sliderNameFor(comp, role);
+            var lines = [];
+            for (var i = 0; i < sel.length; i++) {
+                sel[i].name = base + (i + 1);
+                opacityProp(sel[i]).expression = switchExpr(sliderName, i);
+                lines.push(base + (i + 1) + " → " + sliderName + " = " + i);
+            }
+            alert("完成!對應表:\n" + lines.join("\n") + "\n(依時間軸由上到下的順序編號)");
+        } finally { app.endUndoGroup(); }
+    }
+
     // ================= 2. 一鍵動態 =================
 
     function doBlink() {
@@ -247,15 +304,32 @@
         app.beginUndoGroup("隨機眨眼");
         try {
             var closed = findLayer(comp, "閉眼");
-            if (closed) {
-                // 標準方案:control 的 eye 滑桿掛隨機眨眼(保留手動 key)
+            if (closed || findLayer(comp, "control")) {
+                // 標準方案:眼滑桿掛隨機眨眼 + 「眨眼」Checkbox 雙模式(妖果式)
+                //   勾選 = 自動隨機眨(手動 key 仍以最大值疊加)
+                //   取消 = 完全手動,只看你打的 key
                 var ctrl = ensureControl(comp);
-                var slider = ctrl.property("ADBE Effect Parade").property("eye").property(1);
-                var lines = ["// === 隨機眨眼(面板自動加入)==="]
+                var fx = ctrl.property("ADBE Effect Parade");
+                var cb = fx.property("眨眼");
+                if (!cb) {
+                    cb = fx.addProperty("ADBE Checkbox Control");
+                    cb.name = "眨眼";
+                    cb.property(1).setValue(1);
+                }
+                var eyeName = sliderNameFor(comp, "eye");
+                var slider = fx.property(eyeName).property(1);
+                var lines = [
+                        "// === 隨機眨眼(面板自動加入)===",
+                        '// 「眨眼」勾選 = 自動循環;取消 = 手動接管',
+                        'var auto = thisComp.layer("control").effect("眨眼")("Checkbox");'
+                    ]
                     .concat(blinkWindowLines(uniqueSeed(), 2.5, 6, 7))
-                    .concat(["Math.max(value, blink) // 保留手動 key 的演出"]);
+                    .concat(["auto == 1 ? Math.max(value, blink) : value"]);
                 slider.expression = lines.join("\n");
-                alert("已在 control > eye 滑桿掛上隨機眨眼。\n手動打的 key 會保留(取最大值疊加)。");
+                alert("已在 control > " + eyeName + " 滑桿掛上隨機眨眼。\n\n" +
+                      "control 上多了「眨眼」勾選框:\n" +
+                      "  勾選 = 自動隨機眨(手動 key 照樣有效)\n" +
+                      "  取消 = 完全手動,演閉眼戲時用");
             } else {
                 // 備援方案:沒有閉眼圖層 → 對「睜眼/眼」做縮放擠壓眨眼(透過眼軸,斜眼不會歪)
                 var eyeLay = findLayer(comp, "睜眼") || findLayer(comp, "眼") ||
@@ -278,13 +352,14 @@
         app.beginUndoGroup("說話設定");
         try {
             ensureControl(comp);
+            var mouthName = sliderNameFor(comp, "mouth"); // 自動沿用 mouth 或 嘴
             var open2 = findLayer(comp, "張嘴 2"), open1 = findLayer(comp, "張嘴"),
                 closed = findLayer(comp, "閉嘴");
 
             function squashExpr(activeVal) {
                 return [
-                    "// === 說話擠壓(mouth 滑桿 == " + activeVal + " 時啟動) ===",
-                    's = thisComp.layer("control").effect("mouth")("Slider");',
+                    "// === 說話擠壓(" + mouthName + " 滑桿 == " + activeVal + " 時啟動) ===",
+                    's = thisComp.layer("control").effect("' + mouthName + '")("Slider");',
                     "var speed = 9, amp = 45; // 開合速度 / 幅度(%)",
                     "if (s == " + activeVal + ") {",
                     "  var k = 1 - (amp / 100) * Math.abs(Math.sin(time * speed));",
@@ -299,8 +374,8 @@
             if (!target && closed) {
                 // 只有閉嘴圖:自動生一張簡易張嘴,之後走標準閉/張切換
                 target = createOpenMouth(comp, closed);
-                opacityProp(target).expression = switchExpr("mouth", 1);
-                opacityProp(closed).expression = switchExpr("mouth", 0);
+                opacityProp(target).expression = switchExpr(mouthName, 1);
+                opacityProp(closed).expression = switchExpr(mouthName, 0);
                 v = 1;
                 generated = true;
             } else if (target) {
@@ -314,7 +389,7 @@
             var axis = makeAxisNull(comp, target, "嘴軸");
             scaleProp(axis).expression = squashExpr(v);
 
-            var msg = "說話設定完成:mouth 滑桿 = " + v + " 時「" + target.name + "」會自動開合,= 0 是閉嘴。\n" +
+            var msg = "說話設定完成:" + mouthName + " 滑桿 = " + v + " 時「" + target.name + "」會自動開合,= 0 是閉嘴。\n" +
                       "用下面的「開始/停止說話」按鈕打 key 即可。\n\n" +
                       "嘴如果是斜的:把「嘴軸」的 Rotation 轉到跟嘴同角度,\n" +
                       "美術不會跟著轉,開合就會沿嘴的方向、不會歪。";
@@ -701,7 +776,7 @@
 
     function buildUI(thisObj) {
         var pal = (thisObj instanceof Panel) ? thisObj
-                : new Window("palette", "角色工具 v1.7", undefined, { resizeable: true });
+                : new Window("palette", "角色工具 v1.8", undefined, { resizeable: true });
 
         pal.orientation = "column";
         pal.alignChildren = ["fill", "fill"];
@@ -766,7 +841,7 @@
 
         // --- 標記 ---
         var p1 = makeTab("標記");
-        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.7]");
+        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.8]");
         var rowA = p1.add("group"); var rowB = p1.add("group");
         var tagOrder = ["閉眼", "睜眼", "閉嘴", "張嘴", "眉", "汗", "耳", "鼻"];
         var fullRigCheck;
@@ -783,8 +858,11 @@
         bSpec.onClick = doSpecialTag;
 
         var rowCtl = p1.add("group");
+        var bNum = rowCtl.add("button", undefined, "編號狀態…");
+        bNum.preferredSize.width = 86;
+        bNum.onClick = doNumberedTag;
         var bCtl = rowCtl.add("button", undefined, "建 control(含常用滑桿)");
-        bCtl.preferredSize.width = 180;
+        bCtl.preferredSize.width = 160;
         bCtl.onClick = function () {
             var comp = activeComp(); if (!comp) return;
             app.beginUndoGroup("建 control");
@@ -909,11 +987,12 @@
             return (a instanceof CompItem) ? a.time : tc.time;
         }
 
-        function remoteKey(sliderName, val) {
+        function remoteKey(role, val) {
             var tc = targetComp(); if (!tc) return;
-            app.beginUndoGroup("演出 key:" + sliderName);
+            app.beginUndoGroup("演出 key:" + role);
             try {
                 ensureControl(tc);
+                var sliderName = sliderNameFor(tc, role); // 自動沿用該角色的滑桿名(眼 or eye)
                 var slider = findLayer(tc, "control")
                     .property("ADBE Effect Parade").property(sliderName).property(1);
                 var t = nowTime(tc);
@@ -933,7 +1012,8 @@
 
         var rowX = p3.add("group");
         rowX.add("statictext", undefined, "滑桿:");
-        var sldDrop = rowX.add("dropdownlist", undefined, ["eye", "mouth", "眉", "emo"]);
+        var SLD_ROLES = ["eye", "mouth", "眉", "emo"];
+        var sldDrop = rowX.add("dropdownlist", undefined, ["眼 eye", "嘴 mouth", "眉", "emo"]);
         sldDrop.selection = 0;
         rowX.add("statictext", undefined, "值:");
         var valBox = rowX.add("edittext", undefined, "1");
@@ -942,7 +1022,7 @@
         bKey.onClick = function () {
             var v = parseFloat(valBox.text);
             if (isNaN(v)) { alert("值要是數字。"); return; }
-            remoteKey(sldDrop.selection.text, v);
+            remoteKey(SLD_ROLES[sldDrop.selection.index], v);
         };
 
         // --- 表達式工具 ---
