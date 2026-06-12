@@ -788,15 +788,23 @@ function iconSvg(m) {
 }
 
 // ══════════════════════════════════════════
-//  住宿點（從 APP_DATA 讀，或用預設值）
+//  住宿點（從 GAS ?sheet=staymap 載入）
 // ══════════════════════════════════════════
-const STAYS = (window.APP_DATA?.accommodation || []).map((a, i) => ({
-  id: 's' + i,
-  lat: parseFloat(a.lat) || 0,
-  lng: parseFloat(a.lng) || 0,
-  name: a.name || '',
-  date: a.date || '',
-})).filter(s => s.lat && s.lng);
+let STAYS = [];
+
+async function loadStays() {
+  const gasBase = TRIP_CONFIG.apiBase || '';
+  if (!gasBase) return;
+  try {
+    const res = await fetch(gasBase + '?sheet=staymap', { cache:'no-store' });
+    const data = await res.json();
+    if (data.stays && Array.isArray(data.stays)) {
+      STAYS = data.stays.map((s, i) => ({ id:'s'+i, ...s }));
+      renderStayLine();
+      renderMarkers();
+    }
+  } catch(e) { console.warn('住宿資料載入失敗', e); }
+}
 
 // 打卡資料（從 GAS 載入）
 let checkins = [];
@@ -847,10 +855,15 @@ function setMapStyle(style) {
 }
 
 // 住宿路線
-const stayLine = L.polyline(
-  STAYS.map(s=>[s.lat,s.lng]),
-  { color:'#6a8aa8', weight:2, dashArray:'6,4', opacity:0.7 }
-).addTo(map);
+let stayLine = null;
+function renderStayLine() {
+  if (stayLine) { map.removeLayer(stayLine); stayLine = null; }
+  if (!filters.stay || STAYS.length < 2) return;
+  stayLine = L.polyline(
+    STAYS.map(s=>[s.lat,s.lng]),
+    { color:'#6a8aa8', weight:2, dashArray:'6,4', opacity:0.7 }
+  ).addTo(map);
+}
 
 // Cluster group
 const clusterGroup = L.markerClusterGroup({
@@ -900,9 +913,28 @@ map.on('click', e => {
   }
 });
 
+// 修正消費座標模式：點地圖把該筆消費移過去
+let fixingExpenseId = null;
+map.on('click', e => {
+  if (!fixingExpenseId) return;
+  const item = expenses.find(x => x.id === fixingExpenseId);
+  fixingExpenseId = null;
+  map.getContainer().style.cursor = '';
+  if (!item) return;
+  item.lat = e.latlng.lat;
+  item.lng = e.latlng.lng;
+  renderMarkers();
+  const gasBase = TRIP_CONFIG.apiBase || '';
+  if (gasBase && item._rowIndex) {
+    fetch(gasBase, { method:'POST', body: JSON.stringify({
+      action:'expenseMapEdit', rowIndex:item._rowIndex, lat:item.lat, lng:item.lng,
+    })}).catch(err => console.warn('座標同步失敗', err));
+  }
+});
+
 // 長按地圖（手機）／右鍵（電腦）→ 快速放標籤
 map.on('contextmenu', e => {
-  if (pickingLocation) return;
+  if (pickingLocation || fixingExpenseId) return;
   showQuickTag(e.latlng);
 });
 
@@ -944,22 +976,37 @@ function getMemberByName(name) {
 function makeMarkerIcon(item, zoom, labeled) {
   const m = getMemberByName(item.who);
 
-  // 消費：付款人 sprite＋💰 角標；最新幾筆加品項金額小標籤，其餘收起
+  // 消費：跟普通打卡同樣長相，sprite 角落多一顆金色 $ 點；
+  // 最新幾筆加品項金額小標籤，其餘收起
   if (item.type === 'expense') {
     if (zoom < 7) {
       return L.divIcon({
-        html:`<div style="font-size:18px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">💰</div>`,
-        className:'', iconSize:[24,24], iconAnchor:[12,12],
+        html:`<div style="width:11px;height:11px;border-radius:50%;background:var(--gold);color:#332b10;font-family:var(--px);font-size:8px;line-height:11px;text-align:center;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">$</div>`,
+        className:'', iconSize:[13,13], iconAnchor:[6,6],
       });
     }
+    const dollarDot = `<span style="position:absolute;right:-7px;top:-3px;width:12px;height:12px;border-radius:50%;background:var(--gold);color:#332b10;font-family:var(--px);font-size:8px;line-height:12px;text-align:center;">$</span>`;
     const label = labeled
-      ? `<div style="font-family:var(--px);font-size:7px;color:#cfead8;background:rgba(20,46,32,.88);border:1px solid #357a52;border-radius:3px;padding:1px 4px;white-space:nowrap;margin-top:1px;">${item.name} -${item.amount} ${item.currency}</div>`
+      ? `<div style="font-family:var(--px);font-size:7px;color:#f0e2b0;background:rgba(50,42,16,.88);border:1px solid var(--gold);border-radius:3px;padding:1px 4px;white-space:nowrap;margin-top:1px;">${item.name} −${item.amount} ${item.currency}</div>`
       : '';
+    // 有補畫塗鴉 → 顯示塗鴉磚（金框）
+    if (item.svgData) {
+      const g = item.svgGrid || 16;
+      return L.divIcon({
+        html:`<div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="width:40px;height:40px;border:2px solid var(--gold);border-radius:4px;background:#faf6ee;overflow:hidden;box-shadow:2px 2px 0 rgba(0,0,0,0.3);image-rendering:pixelated;position:relative;">
+            <svg width="40" height="40" viewBox="0 0 ${g} ${g}" style="image-rendering:pixelated;display:block;">${item.svgData}</svg>
+            ${dollarDot}
+          </div>${label}
+        </div>`,
+        className:'', iconSize:[labeled?90:44, labeled?56:44], iconAnchor:[labeled?45:22, labeled?28:22],
+      });
+    }
     return L.divIcon({
       html:`<div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">
         <div style="width:22px;height:36px;position:relative;">
           ${spriteSvg(m)}
-          <span style="position:absolute;right:-7px;bottom:-2px;font-size:10px;">💰</span>
+          ${dollarDot}
         </div>${label}
       </div>`,
       className:'', iconSize:[labeled?90:26, labeled?52:38], iconAnchor:[labeled?45:13, 36],
@@ -1007,8 +1054,9 @@ let trailLine = null;
 function renderTrail(visible) {
   if (trailLine) { map.removeLayer(trailLine); trailLine = null; }
   if (!filters.trail) return;
+  // 打卡＋消費一起連線（圖層取消勾選消費時自然不參與）
   const pts = visible
-    .filter(it => it.type === 'checkin')
+    .filter(it => it.type === 'checkin' || it.type === 'expense')
     .sort((a,b) => itemTs(a) - itemTs(b))
     .map(it => [it.lat, it.lng]);
   if (pts.length < 2) return;
@@ -1086,7 +1134,7 @@ function buildPopupContent(item) {
   const el = document.createElement('div');
   el.className = 'popup-inner';
 
-  // 消費：一般打卡的長相＋消費小資訊（帳目修改回帳簿做）
+  // 消費：跟普通打卡同樣的窗，多一行金額/品項（帳目修改回帳簿做）
   if (item.type === 'expense') {
     el.innerHTML = `
       <div class="popup-header">
@@ -1098,13 +1146,20 @@ function buildPopupContent(item) {
             ${item.date?`<span style="font-size:8px;color:var(--muted)">${item.date}</span>`:''}
           </div>
         </div>
+        <button class="popup-more" title="更多"
+          onclick="const x=this.closest('.popup-header').querySelector('.popup-extra');x.style.display=x.style.display==='flex'?'none':'flex';">…</button>
+        <div class="popup-extra">
+          <button class="popup-action-btn" onclick="startExpenseDoodle('${item.id}')">✏ 加塗鴉</button>
+          <button class="popup-action-btn" onclick="startFixExpensePos('${item.id}')">📍 修正位置</button>
+          <button class="popup-action-btn" onclick="location.href='index.html'">📒 到帳簿看</button>
+        </div>
       </div>
-      <div class="popup-note" style="color:#8ad8a8;">−${item.amount} ${item.currency}　<span style="color:var(--muted)">${item.who} 付款</span></div>
+      ${itemImgHtml(item)}
+      <div class="popup-note" style="color:var(--gold);">−${item.amount} ${item.currency}</div>
       ${item.locName?`<div class="popup-note">📍 ${item.locName}</div>`:''}
       ${item.note?`<div class="popup-note">${item.note}</div>`:''}
       <div class="popup-actions">
         <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
-        <button class="popup-action-btn" onclick="location.href='index.html'">📒 到帳簿看</button>
       </div>
     `;
     return el;
@@ -1310,6 +1365,7 @@ function closeLayers() {
 function toggleFilter(key) {
   filters[key] = !filters[key];
   document.getElementById('lo-'+key).classList.toggle('on', filters[key]);
+  if (key === 'stay') renderStayLine();
   renderMarkers();
 }
 
@@ -1782,6 +1838,8 @@ async function loadExpenses() {
         amount:   e.amount,
         currency: e.currency,
         note:     e.note || '',
+        svgData:  e.svgData || null,
+        svgGrid:  e.svgGrid || 16,
         _rowIndex: e._rowIndex,
       }));
       renderMarkers();
@@ -1799,6 +1857,7 @@ buildTabs();
 renderMarkers();
 loadCheckins();
 loadExpenses();
+loadStays();
 // 修正容器尺寸計算延遲導致 tile 不載入
 setTimeout(() => map.invalidateSize(), 200);
 </script>
@@ -1809,13 +1868,19 @@ setTimeout(() => map.invalidateSize(), 200);
 //  畫板掛載（共用 pixelpad.js）
 // ══════════════════════════════════════════
 let padMounted = false;
+let drawingExpenseId = null;   // 設定時：畫板的「完成」存到該筆消費
 
-function openDrawPanel() {
-  document.getElementById('drawModal').classList.add('show');
+function ensurePad() {
   if (!padMounted) {
     PixelPad.mount(document.getElementById('pixelPadMount'), { onDone: onPadDone });
     padMounted = true;
   }
+}
+
+function openDrawPanel() {
+  drawingExpenseId = null;
+  document.getElementById('drawModal').classList.add('show');
+  ensurePad();
   // 有既有塗鴉（編輯中）就載入，否則開全新空白畫布
   if (pendingCheckin.svgData) {
     PixelPad.loadRects(pendingCheckin.svgData, pendingCheckin.svgGrid || 16);
@@ -1824,7 +1889,47 @@ function openDrawPanel() {
   }
 }
 
+// 消費補塗鴉（地圖 popup「…」進入）
+function startExpenseDoodle(id) {
+  const item = expenses.find(x => x.id === id);
+  if (!item) return;
+  map.closePopup();
+  drawingExpenseId = id;
+  document.getElementById('drawModal').classList.add('show');
+  ensurePad();
+  if (item.svgData) PixelPad.loadRects(item.svgData, item.svgGrid || 16);
+  else PixelPad.reset();
+}
+
+// 消費修正位置（地圖 popup「…」進入）
+function startFixExpensePos(id) {
+  map.closePopup();
+  fixingExpenseId = id;
+  map.getContainer().style.cursor = 'crosshair';
+}
+
 function onPadDone(res) {
+  document.getElementById('drawModal').classList.remove('show');
+
+  // 消費補塗鴉模式
+  if (drawingExpenseId) {
+    const item = expenses.find(x => x.id === drawingExpenseId);
+    drawingExpenseId = null;
+    if (!item) return;
+    item.svgData = res.svgData;
+    item.svgGrid = res.grid;
+    renderMarkers();
+    const gasBase = TRIP_CONFIG.apiBase || '';
+    if (gasBase && item._rowIndex) {
+      fetch(gasBase, { method:'POST', body: JSON.stringify({
+        action:'expenseMapEdit', rowIndex:item._rowIndex,
+        svgData: res.svgData || '', svgGrid: res.grid || 16,
+      })}).catch(err => console.warn('塗鴉同步失敗', err));
+    }
+    return;
+  }
+
+  // 打卡塗鴉模式
   pendingCheckin.svgData = res.svgData;
   pendingCheckin.svgGrid = res.grid;
   if (res.svgData) {
@@ -1835,7 +1940,6 @@ function onPadDone(res) {
     pendingCheckin.pngBlob = null;
     document.getElementById('drawThumb').innerHTML = '🖼';
   }
-  document.getElementById('drawModal').classList.remove('show');
 }
 </script>
 

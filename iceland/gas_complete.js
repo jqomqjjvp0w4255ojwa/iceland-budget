@@ -131,10 +131,30 @@ function readExpenseMap(sheet) {
       note:     r[13],
       title:    r[21],
       qty:      r[22],
+      svgData:  r[25] || '',
+      svgGrid:  parseInt(r[26], 10) || 16,
       _rowIndex: i + 1,
     });
   }
   return { expenses: out };
+}
+
+// ── 住宿地圖讀取（住宿 sheet 的 lat/lng 欄）────────────
+function readStayMap(sheet) {
+  var rows = sheet.getDataRange().getDisplayValues();
+  if (rows.length < 2) return { stays: [] };
+  // 用標題列找 lat/lng 欄（容忍前後空白，如「' lng'」）
+  var header = rows[0].map(function(h){ return String(h||'').trim().toLowerCase(); });
+  var latCol = header.indexOf('lat'), lngCol = header.indexOf('lng');
+  if (latCol < 0 || lngCol < 0) return { stays: [] };
+  var stays = [];
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    var lat = parseFloat(r[latCol]), lng = parseFloat(r[lngCol]);
+    if (!lat || !lng) continue;
+    stays.push({ name: r[0] || '', date: r[1] || '', lat: lat, lng: lng });
+  }
+  return { stays: stays };
 }
 
 // ── doGet ────────────────────────────────────────────────
@@ -185,6 +205,17 @@ function doGet(e) {
           .setMimeType(ContentService.MimeType.JSON);
       }
       return ContentService.createTextOutput(JSON.stringify(readExpenseMap(expSheet)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 住宿地圖資料：?sheet=staymap
+    if (param === 'staymap') {
+      var staySheet = ss.getSheetByName(SHEET_NAMES.accommodation);
+      if (!staySheet) {
+        return ContentService.createTextOutput(JSON.stringify({ stays: [] }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify(readStayMap(staySheet)))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -265,6 +296,20 @@ function doPost(e) {
       }
       clearCache();
       return ok('expense saved');
+    }
+
+    // ── 消費地圖小編輯：補塗鴉 / 修正座標 ─────────────────
+    // Z(26) SVG資料 AA(27) SVG格數；X(24) 緯度 Y(25) 經度
+    if (action === 'expenseMapEdit') {
+      var sheet = ss.getSheetByName(SHEET_NAMES.expense);
+      if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.expense);
+      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      if (payload.lat     !== undefined) sheet.getRange(payload.rowIndex, 24).setValue(payload.lat);
+      if (payload.lng     !== undefined) sheet.getRange(payload.rowIndex, 25).setValue(payload.lng);
+      if (payload.svgData !== undefined) sheet.getRange(payload.rowIndex, 26).setValue(payload.svgData);
+      if (payload.svgGrid !== undefined) sheet.getRange(payload.rowIndex, 27).setValue(payload.svgGrid);
+      clearCache();
+      return ok('expense map data updated');
     }
 
     // ── 刪除一般開銷 ──────────────────────────────────────
