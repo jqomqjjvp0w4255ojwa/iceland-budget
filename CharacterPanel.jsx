@@ -1,4 +1,4 @@
-﻿// CharacterPanel.jsx — 角色快速綁定/動態面板
+﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.1
 //
 // 安裝(建議,變成常駐面板):
 //   把這個檔案放到 AE 安裝目錄的 Support Files\Scripts\ScriptUI Panels\
@@ -475,14 +475,14 @@
 
     function buildUI(thisObj) {
         var pal = (thisObj instanceof Panel) ? thisObj
-                : new Window("palette", "角色工具", undefined, { resizeable: true });
+                : new Window("palette", "角色工具 v1.1", undefined, { resizeable: true });
 
         pal.orientation = "column";
         pal.alignChildren = ["fill", "top"];
         pal.spacing = 6; pal.margins = 10;
 
         // --- 標記區 ---
-        var p1 = pal.add("panel", undefined, "1. 標記(先選圖層再按)");
+        var p1 = pal.add("panel", undefined, "1. 標記(先選圖層再按)  [v1.1]");
         p1.orientation = "column"; p1.alignChildren = ["fill", "top"]; p1.margins = 8;
         var rowA = p1.add("group"); var rowB = p1.add("group");
         var tagOrder = ["閉眼", "睜眼", "閉嘴", "張嘴", "眉", "汗", "耳", "鼻"];
