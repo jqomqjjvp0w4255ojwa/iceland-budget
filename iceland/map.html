@@ -279,6 +279,7 @@ body{
 .tag-checkin{background:#4a2a32;color:#f0a0b0;border:1px solid #7a4050;}
 .tag-wish{background:#4a3c1c;color:#e8c060;border:1px solid #7a6430;}
 .tag-stay{background:#1e3a4a;color:#80c0e0;border:1px solid #356a88;}
+.tag-expense{background:#1e4030;color:#8ad8a8;border:1px solid #357a52;}
 .diary-date{font-size:8px;color:var(--muted);}
 .diary-note{font-size:9px;color:var(--muted);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .diary-footer{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
@@ -626,6 +627,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
       <div class="layer-opt on" id="lo-checkin" onclick="toggleFilter('checkin')"><span class="layer-check"></span>🐾 打卡</div>
       <div class="layer-opt on" id="lo-wish" onclick="toggleFilter('wish')"><span class="layer-check"></span>💗 想去</div>
       <div class="layer-opt on" id="lo-stay" onclick="toggleFilter('stay')"><span class="layer-check"></span>🏠 住宿</div>
+      <div class="layer-opt on" id="lo-expense" onclick="toggleFilter('expense')"><span class="layer-check"></span>💰 消費</div>
       <div class="layer-opt on" id="lo-trail" onclick="toggleFilter('trail')"><span class="layer-check"></span>〰 足跡連線</div>
       <div class="layer-opt" id="lo-timebar" onclick="toggleTimeBar()"><span class="layer-check"></span>⏳ 時間軸</div>
       <div class="layers-section">地圖風格</div>
@@ -798,11 +800,15 @@ const STAYS = (window.APP_DATA?.accommodation || []).map((a, i) => ({
 
 // 打卡資料（從 GAS 載入）
 let checkins = [];
+// 消費資料（從帳簿 sheet 讀，有座標的才會出現）
+let expenses = [];
+// 地圖上所有項目（打卡 + 消費）
+function allItems() { return checkins.concat(expenses); }
 
 // ══════════════════════════════════════════
 //  狀態
 // ══════════════════════════════════════════
-let filters = { checkin:true, wish:true, stay:true, trail:true };
+let filters = { checkin:true, wish:true, stay:true, expense:true, trail:true };
 let members = TRIP_CONFIG.members || [];
 let drawerOpen = false;
 let currentTab = 'all';
@@ -935,8 +941,30 @@ function getMemberByName(name) {
   return { name, color:'#8a95a4', icon:'📍', ...(m||{}) };
 }
 
-function makeMarkerIcon(item, zoom) {
+function makeMarkerIcon(item, zoom, labeled) {
   const m = getMemberByName(item.who);
+
+  // 消費：付款人 sprite＋💰 角標；最新幾筆加品項金額小標籤，其餘收起
+  if (item.type === 'expense') {
+    if (zoom < 7) {
+      return L.divIcon({
+        html:`<div style="font-size:18px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">💰</div>`,
+        className:'', iconSize:[24,24], iconAnchor:[12,12],
+      });
+    }
+    const label = labeled
+      ? `<div style="font-family:var(--px);font-size:7px;color:#cfead8;background:rgba(20,46,32,.88);border:1px solid #357a52;border-radius:3px;padding:1px 4px;white-space:nowrap;margin-top:1px;">${item.name} -${item.amount} ${item.currency}</div>`
+      : '';
+    return L.divIcon({
+      html:`<div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">
+        <div style="width:22px;height:36px;position:relative;">
+          ${spriteSvg(m)}
+          <span style="position:absolute;right:-7px;bottom:-2px;font-size:10px;">💰</span>
+        </div>${label}
+      </div>`,
+      className:'', iconSize:[labeled?90:26, labeled?52:38], iconAnchor:[labeled?45:13, 36],
+    });
+  }
 
   // 稍微放大就顯示塗鴉（讓地圖長滿塗鴉的感覺）
   if (zoom >= 7 && item.svgData) {
@@ -1010,8 +1038,14 @@ function renderMarkers() {
 
   // 打卡足跡
   const visible = getVisible();
+  // 消費標籤只給最新 5 筆，其餘收成 💰 角標
+  const labeledIds = new Set(
+    visible.filter(it => it.type==='expense')
+      .sort((a,b) => itemTs(b) - itemTs(a))
+      .slice(0, 5).map(it => it.id)
+  );
   visible.forEach(item => {
-    const icon = makeMarkerIcon(item, zoom);
+    const icon = makeMarkerIcon(item, zoom, labeledIds.has(item.id));
     const m = getMemberByName(item.who);
     const marker = L.marker([item.lat, item.lng], {
       icon,
@@ -1031,8 +1065,9 @@ function renderMarkers() {
 }
 
 function typeMeta(t) {
-  return t==='wish' ? { label:'想去', tag:'tag-wish', icon:'💗' }
-       : t==='stay' ? { label:'住宿', tag:'tag-stay', icon:'🏠' }
+  return t==='wish'    ? { label:'想去', tag:'tag-wish', icon:'💗' }
+       : t==='stay'    ? { label:'住宿', tag:'tag-stay', icon:'🏠' }
+       : t==='expense' ? { label:'消費', tag:'tag-expense', icon:'💰' }
        : { label:'打卡', tag:'tag-checkin', icon:'🐾' };
 }
 
@@ -1046,10 +1081,34 @@ function itemImgHtml(item) {
 function buildPopupContent(item) {
   const m = getMemberByName(item.who);
   const t = typeMeta(item.type);
-  const headIcon = item.type==='checkin' ? spriteSvg(m) : t.icon;
+  const headIcon = (item.type==='checkin'||item.type==='expense') ? spriteSvg(m) : t.icon;
 
   const el = document.createElement('div');
   el.className = 'popup-inner';
+
+  // 消費：一般打卡的長相＋消費小資訊（帳目修改回帳簿做）
+  if (item.type === 'expense') {
+    el.innerHTML = `
+      <div class="popup-header">
+        <div class="popup-icon">${headIcon}</div>
+        <div style="flex:1;">
+          <div class="popup-title">${item.name}</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:3px;">
+            <span class="diary-tag ${t.tag}">${t.label}</span>
+            ${item.date?`<span style="font-size:8px;color:var(--muted)">${item.date}</span>`:''}
+          </div>
+        </div>
+      </div>
+      <div class="popup-note" style="color:#8ad8a8;">−${item.amount} ${item.currency}　<span style="color:var(--muted)">${item.who} 付款</span></div>
+      ${item.locName?`<div class="popup-note">📍 ${item.locName}</div>`:''}
+      ${item.note?`<div class="popup-note">${item.note}</div>`:''}
+      <div class="popup-actions">
+        <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
+        <button class="popup-action-btn" onclick="location.href='index.html'">📒 到帳簿看</button>
+      </div>
+    `;
+    return el;
+  }
   el.innerHTML = `
     <div class="popup-header">
       <div class="popup-icon">${headIcon}</div>
@@ -1085,6 +1144,7 @@ const TABS = [
   { key:'checkin', label:'打卡' },
   { key:'wish', label:'想去' },
   { key:'stay', label:'住宿' },
+  { key:'expense', label:'消費' },
 ];
 
 function buildTabs() {
@@ -1102,7 +1162,7 @@ function setTab(key) {
 }
 
 function getVisible() {
-  return checkins.filter(item => {
+  return allItems().filter(item => {
     if (!filters[item.type]) return false;
     if (currentTab !== 'all' && item.type !== currentTab) return false;
     if (memberFilter && item.who !== memberFilter) return false;
@@ -1120,7 +1180,7 @@ let tlStamps = [], tlTimer = null;   // 刻度＝每筆紀錄，不是均分時�
 
 function toggleTimeBar() {
   if (!timeBarOn) {
-    tlStamps = checkins.map(itemTs).filter(Boolean).sort((a,b)=>a-b);
+    tlStamps = allItems().map(itemTs).filter(Boolean).sort((a,b)=>a-b);
     if (tlStamps.length < 2) { alert('紀錄還太少，多打幾次卡再來玩時間軸吧'); return; }
     timeBarOn = true;
     const r = document.getElementById('timeRange');
@@ -1194,7 +1254,7 @@ function renderCards() {
       ? `<svg viewBox="0 0 ${g} ${g}" style="image-rendering:pixelated;width:100%;height:100%;">${item.svgData}</svg>`
       : item.imageUrl
       ? `<img src="${item.imageUrl}" alt="">`
-      : item.type==='checkin'
+      : (item.type==='checkin'||item.type==='expense')
       ? spriteSvg(m)
       : `<span style="font-size:24px;">${t.icon}</span>`;
 
@@ -1206,7 +1266,12 @@ function renderCards() {
           <span class="diary-tag ${t.tag}">${t.label}</span>
           ${item.date?`<span class="diary-date">${item.date}</span>`:''}
         </div>
-        ${item.note?`<div class="diary-note">${item.note}</div>`:''}
+        ${(() => {
+          const n = item.type==='expense'
+            ? `−${item.amount} ${item.currency}${item.note?' · '+item.note:''}`
+            : item.note;
+          return n ? `<div class="diary-note">${n}</div>` : '';
+        })()}
         <div class="diary-footer">
           <span class="diary-comments">${item.comments?.length?`💬 ${item.comments.length}`:''}</span>
           <div class="diary-author">${spriteSvg(m)}</div>
@@ -1695,12 +1760,45 @@ async function loadCheckins() {
 }
 
 // ══════════════════════════════════════════
+//  帳簿消費載入（有座標的雜支）
+// ══════════════════════════════════════════
+async function loadExpenses() {
+  const gasBase = TRIP_CONFIG.apiBase || '';
+  if (!gasBase) return;
+  try {
+    const res = await fetch(gasBase + '?sheet=expensemap', { cache:'no-store' });
+    const data = await res.json();
+    if (data.expenses && Array.isArray(data.expenses)) {
+      expenses = data.expenses.map(e => ({
+        id:       e.id,
+        type:     'expense',
+        who:      e.payer,
+        lat:      e.lat,
+        lng:      e.lng,
+        name:     e.title || e.category || e.location || '消費',
+        locName:  e.location || '',
+        date:     e.date,
+        time:     e.date,            // itemTs 用 Date.parse 解析
+        amount:   e.amount,
+        currency: e.currency,
+        note:     e.note || '',
+        _rowIndex: e._rowIndex,
+      }));
+      renderMarkers();
+    }
+  } catch(e) {
+    console.warn('消費資料載入失敗', e);
+  }
+}
+
+// ══════════════════════════════════════════
 //  初始化
 // ══════════════════════════════════════════
 buildTopbarMembers();
 buildTabs();
 renderMarkers();
 loadCheckins();
+loadExpenses();
 // 修正容器尺寸計算延遲導致 tile 不載入
 setTimeout(() => map.invalidateSize(), 200);
 </script>
