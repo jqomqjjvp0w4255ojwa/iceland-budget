@@ -7,6 +7,7 @@ let _pxSplitSel  = new Set(['花','猴','寧']);
 let _pxCustomAmt = {'花':0,'猴':0,'寧':0};
 let _twdManualEdited = false; // 使用者手動改過換算台幣
 let _isSubmitting = false; // 防止重複送出
+let _pxLat = null, _pxLng = null; // 記帳 GPS 座標（腳印地圖用）
 
 // 背景送出 GAS，debounce 確保多次操作只觸發一次 sync
 let _bgSyncTimer = null;
@@ -317,6 +318,25 @@ window.openPxModal = function(type, prefill = null) {
     }
     document.getElementById('pxExpNote').value = prefill?.note || '';
     document.getElementById('pxExpDate').value = prefill?.date || pxLocalNow();
+
+    // 新增模式：背景抓 GPS，記帳同時留下腳印地圖座標（抓不到就略過）
+    _pxLat = null; _pxLng = null;
+    if (!_editMode && navigator.geolocation && locSuggests) {
+      let gpsChip = document.getElementById('pxGpsChip');
+      if (!gpsChip) {
+        gpsChip = document.createElement('span');
+        gpsChip.id = 'pxGpsChip';
+        gpsChip.style.cssText = "font-size:10px;color:#7a8a6a;font-family:'Silkscreen',monospace;padding:2px 4px;";
+        locSuggests.appendChild(gpsChip);
+      }
+      gpsChip.textContent = '📍 定位中…';
+      navigator.geolocation.getCurrentPosition(pos => {
+        _pxLat = pos.coords.latitude;
+        _pxLng = pos.coords.longitude;
+        gpsChip.textContent = '📍 已定位（會出現在腳印地圖）';
+      }, () => { gpsChip.textContent = ''; },
+      { enableHighAccuracy:true, timeout:8000, maximumAge:60000 });
+    }
     document.getElementById('pxExpShared').checked = prefill?.isShared !== false; // 預設勾選
 
     // 修改模式標題
@@ -695,6 +715,8 @@ window.pxSubmitExpense = async function(nextMode = false) {
     'split花': splits['花'], 'split猴': splits['猴'], 'split寧': splits['寧'],
     date, location: loc, note, isShared,
     fuelMileage, fuelLiters, fuelBrand, tags,
+    lat: _editMode ? undefined : (_pxLat ?? ''),
+    lng: _editMode ? undefined : (_pxLng ?? ''),
   };
 
   // 先存起來，cancelPxModal 會 reset _editMode

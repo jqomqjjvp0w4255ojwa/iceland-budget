@@ -109,6 +109,54 @@ function readCheckinSheet(sheet) {
   return { checkins: checkins };
 }
 
+// ── 消費地圖讀取（一般開銷裡有座標的，給腳印地圖用）──────
+// 欄位：A地點 B日期 C類別 D金額 E幣別 … I付款人 N備註 V品項 W數量 X緯度 Y經度
+function readExpenseMap(sheet) {
+  var rows = sheet.getDataRange().getDisplayValues();
+  var out = [];
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    var lat = parseFloat(r[23]), lng = parseFloat(r[24]);
+    if (!lat || !lng) continue;
+    out.push({
+      id:       'exp_' + (i + 1),
+      lat:      lat,
+      lng:      lng,
+      location: r[0],
+      date:     r[1],
+      category: r[2],
+      amount:   r[3],
+      currency: r[4],
+      payer:    r[8],
+      note:     r[13],
+      title:    r[21],
+      qty:      r[22],
+      svgData:  r[25] || '',
+      svgGrid:  parseInt(r[26], 10) || 16,
+      _rowIndex: i + 1,
+    });
+  }
+  return { expenses: out };
+}
+
+// ── 住宿地圖讀取（住宿 sheet 的 lat/lng 欄）────────────
+function readStayMap(sheet) {
+  var rows = sheet.getDataRange().getDisplayValues();
+  if (rows.length < 2) return { stays: [] };
+  // 用標題列找 lat/lng 欄（容忍前後空白，如「' lng'」）
+  var header = rows[0].map(function(h){ return String(h||'').trim().toLowerCase(); });
+  var latCol = header.indexOf('lat'), lngCol = header.indexOf('lng');
+  if (latCol < 0 || lngCol < 0) return { stays: [] };
+  var stays = [];
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    var lat = parseFloat(r[latCol]), lng = parseFloat(r[lngCol]);
+    if (!lat || !lng) continue;
+    stays.push({ name: r[0] || '', date: r[1] || '', lat: lat, lng: lng });
+  }
+  return { stays: stays };
+}
+
 // ── doGet ────────────────────────────────────────────────
 function doGet(e) {
   var param = (e && e.parameter && e.parameter.sheet) || '總覽';
@@ -140,13 +188,34 @@ function doGet(e) {
     }
 
     // 單獨讀取打卡資料：?sheet=checkin
-    if (param === 'checkin' || param === '寫入_腳印') {
-      var checkinSheet = ss.getSheetByName(SHEET_NAMES.checkin);
+    if (param === 'checkin' || param === '寫入_腳印') {      var checkinSheet = ss.getSheetByName(SHEET_NAMES.checkin);
       if (!checkinSheet) {
         return ContentService.createTextOutput(JSON.stringify({ checkins: [] }))
           .setMimeType(ContentService.MimeType.JSON);
       }
       return ContentService.createTextOutput(JSON.stringify(readCheckinSheet(checkinSheet)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 消費地圖資料：?sheet=expensemap
+    if (param === 'expensemap') {
+      var expSheet = ss.getSheetByName(SHEET_NAMES.expense);
+      if (!expSheet) {
+        return ContentService.createTextOutput(JSON.stringify({ expenses: [] }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify(readExpenseMap(expSheet)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 住宿地圖資料：?sheet=staymap
+    if (param === 'staymap') {
+      var staySheet = ss.getSheetByName(SHEET_NAMES.accommodation);
+      if (!staySheet) {
+        return ContentService.createTextOutput(JSON.stringify({ stays: [] }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify(readStayMap(staySheet)))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -208,6 +277,11 @@ function doPost(e) {
         payload.title          || '',
         payload.qty            || 1,
       ];
+      // X(24) 緯度 Y(25) 經度：記帳時有抓到 GPS 才寫，地圖用
+      // 編輯時前端不送 lat/lng（undefined），只寫 23 欄保留原座標
+      if (action === 'addExpense' || payload.lat !== undefined || payload.lng !== undefined) {
+        row.push(payload.lat || '', payload.lng || '');
+      }
       if (action === 'editExpense' && payload.rowIndex) {
         sheet.getRange(payload.rowIndex, 1, 1, row.length).setValues([row]);
       } else {
@@ -222,6 +296,20 @@ function doPost(e) {
       }
       clearCache();
       return ok('expense saved');
+    }
+
+    // ── 消費地圖小編輯：補塗鴉 / 修正座標 ─────────────────
+    // Z(26) SVG資料 AA(27) SVG格數；X(24) 緯度 Y(25) 經度
+    if (action === 'expenseMapEdit') {
+      var sheet = ss.getSheetByName(SHEET_NAMES.expense);
+      if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.expense);
+      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      if (payload.lat     !== undefined) sheet.getRange(payload.rowIndex, 24).setValue(payload.lat);
+      if (payload.lng     !== undefined) sheet.getRange(payload.rowIndex, 25).setValue(payload.lng);
+      if (payload.svgData !== undefined) sheet.getRange(payload.rowIndex, 26).setValue(payload.svgData);
+      if (payload.svgGrid !== undefined) sheet.getRange(payload.rowIndex, 27).setValue(payload.svgGrid);
+      clearCache();
+      return ok('expense map data updated');
     }
 
     // ── 刪除一般開銷 ──────────────────────────────────────
@@ -287,7 +375,7 @@ function doPost(e) {
       var now = new Date().toISOString();
       var row = [
         id,
-        now,
+        payload.time || now,   // B 時間戳：可由前端指定（補登舊日期）
         payload.type     || 'checkin',
         payload.who      || '',
         payload.name     || '',
@@ -315,6 +403,7 @@ function doPost(e) {
       var sheet = ss.getSheetByName(SHEET_NAMES.checkin);
       if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.checkin);
       if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      if (payload.time     !== undefined) sheet.getRange(payload.rowIndex, 2).setValue(payload.time);
       if (payload.note     !== undefined) sheet.getRange(payload.rowIndex, 8).setValue(payload.note);
       if (payload.imageUrl !== undefined) sheet.getRange(payload.rowIndex, 9).setValue(payload.imageUrl);
       if (payload.comments !== undefined) sheet.getRange(payload.rowIndex, 10).setValue(JSON.stringify(payload.comments));
