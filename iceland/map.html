@@ -822,8 +822,17 @@ async function loadStays() {
 let checkins = [];
 // 消費資料（從帳簿 sheet 讀，有座標的才會出現）
 let expenses = [];
-// 地圖上所有項目（打卡 + 消費）
-function allItems() { return checkins.concat(expenses); }
+// 住宿轉成列表項目（卡片/分頁用）
+function stayItems() {
+  return STAYS.map(s => ({
+    id: s.id, type: 'stay', who: '',
+    name: s.name, date: s.date,
+    lat: s.lat, lng: s.lng,
+    note: '', time: '',
+  }));
+}
+// 地圖上所有項目（打卡 + 消費 + 住宿）
+function allItems() { return checkins.concat(expenses, stayItems()); }
 
 // ══════════════════════════════════════════
 //  狀態
@@ -1089,6 +1098,7 @@ function renderMarkers() {
         }),
         fallbackIcon:'🏠', memberColor:'#6a8aa8', svgData:null,
       }).bindPopup(`<div class="popup-inner"><div class="popup-header"><div class="popup-icon">🏠</div><div class="popup-title">${s.name}</div></div><div class="popup-note">${s.date}</div></div>`, {className:'px-popup', maxWidth:240, closeButton:false});
+      markers[s.id] = m;
       clusterGroup.addLayer(m);
     });
   }
@@ -1102,6 +1112,7 @@ function renderMarkers() {
       .slice(0, 5).map(it => it.id)
   );
   visible.forEach(item => {
+    if (item.type === 'stay') return;   // 住宿 marker 上面已畫
     const icon = makeMarkerIcon(item, zoom, labeledIds.has(item.id));
     const m = getMemberByName(item.who);
     const marker = L.marker([item.lat, item.lng], {
