@@ -1,7 +1,7 @@
 // 台灣版 service worker
 // ⚠ CACHE_NAME 與快取路徑都是 taiwan 專用，與 iceland 版完全分開，
 //   兩個 PWA 同時安裝也不會互相打架。
-const CACHE_NAME = 'taiwan-diary-v1.0'
+const CACHE_NAME = 'taiwan-diary-v1.1'
 
 const ASSETS = [
   '/iceland-budget/taiwan/',
@@ -10,6 +10,7 @@ const ASSETS = [
   '/iceland-budget/taiwan/manifest.json',
   '/iceland-budget/taiwan/config.js',
   '/iceland-budget/taiwan/sprites.js',
+  '/iceland-budget/shared/pixelpad.js',
 ];
 
 self.addEventListener('install', (event) => {

@@ -8,11 +8,10 @@
 
 | 檔案 | 說明 |
 |---|---|
-| `index.html` | 主頁：腳印地圖＋打卡（含像素畫板）＋想去清單＋小旅程管理 |
+| `index.html` | 主頁：腳印地圖＋打卡＋想去清單＋小旅程管理（畫板用 `../shared/pixelpad.js`） |
 | `stats.html` | 被動式統計：縣市踩點染色（像素台灣）＋足跡時間軸＋旅程回顧 |
 | `config.js` | 設定檔（成員、GAS 網址、地圖視角）。每個欄位前端都有預設值，缺欄位不會壞版 |
-| `sprites.js` | 成員像素圖（用 `spritetool.html` 生成程式碼貼入；沒綁定就用 emoji 備援） |
-| `spritetool.html` | 成員綁定工具（複製自冰島版，生成 sprites.js / config.js 程式碼） |
+| `sprites.js` | 成員像素圖（用 `../shared/spritetool.html` 生成程式碼貼入；沒綁定就用 emoji 備援） |
 | `gas_taiwan.js` | Google Apps Script 後端（貼到 Apps Script 部署） |
 | `manifest.json` / `sw.js` | PWA（快取名 `taiwan-diary-*`，與冰島版分開） |
 
