@@ -334,6 +334,59 @@
         } finally { app.endUndoGroup(); }
     }
 
+    // ================= 4. 表達式工具 =================
+
+    var PROP_CHOICES = [
+        { label: "位置",     match: "ADBE Position" },
+        { label: "縮放",     match: "ADBE Scale" },
+        { label: "旋轉",     match: "ADBE Rotate Z" },
+        { label: "不透明度", match: "ADBE Opacity" },
+        { label: "錨點",     match: "ADBE Anchor Point" }
+    ];
+
+    // 收集要套表達式的屬性:
+    //   時間軸有「選取屬性」(反白 Position 之類)→ 套在那些屬性上
+    //   只選圖層 → 套在下拉選單指定的變形屬性上
+    function getExprTargets(comp, dropdownIndex) {
+        var sel = comp.selectedLayers;
+        if (sel.length === 0) return null;
+        var props = [], i, j;
+        for (i = 0; i < sel.length; i++) {
+            var sp;
+            try { sp = sel[i].selectedProperties; } catch (e) { sp = []; }
+            for (j = 0; j < sp.length; j++) {
+                if (sp[j].propertyType === PropertyType.PROPERTY && sp[j].canSetExpression) props.push(sp[j]);
+            }
+        }
+        if (props.length > 0) return props;
+        var match = PROP_CHOICES[dropdownIndex].match;
+        for (i = 0; i < sel.length; i++) {
+            try {
+                var p = sel[i].property("ADBE Transform Group").property(match);
+                if (p && p.canSetExpression) props.push(p);
+            } catch (e) {}
+        }
+        return props;
+    }
+
+    function applyExprToSelection(exprText, dropdownIndex, undoName) {
+        var comp = activeComp(); if (!comp) return;
+        var props = getExprTargets(comp, dropdownIndex);
+        if (!props) { alert("先選取圖層(或直接反白要套的屬性)再按按鈕。"); return; }
+        if (props.length === 0) { alert("選取的圖層上找不到可套表達式的屬性。"); return; }
+        var ok = 0, fail = [];
+        app.beginUndoGroup(undoName);
+        try {
+            for (var i = 0; i < props.length; i++) {
+                try { props[i].expression = exprText; ok++; }
+                catch (e) { fail.push(props[i].parentProperty ? props[i].name : "?"); }
+            }
+        } finally { app.endUndoGroup(); }
+        var msg = (exprText === "" ? "已清除 " : "已套用到 ") + ok + " 個屬性。";
+        if (fail.length) msg += "\n套不上的:" + fail.join("、") + "(表達式跟屬性維度可能不合)";
+        alert(msg);
+    }
+
     // ================= UI =================
 
     function buildUI(thisObj) {
@@ -381,6 +434,45 @@
         var bOff = p3.add("button", undefined, "■ 停止說話"); bOff.preferredSize.width = 110;
         bOn.onClick  = function () { setMouthKey(true); };
         bOff.onClick = function () { setMouthKey(false); };
+
+        // --- 表達式工具區 ---
+        var p4 = pal.add("panel", undefined, "4. 表達式工具(多選圖層一次套)");
+        p4.orientation = "column"; p4.alignChildren = ["fill", "top"]; p4.margins = 8;
+
+        var rowProp = p4.add("group");
+        rowProp.add("statictext", undefined, "套在:");
+        var propDrop = rowProp.add("dropdownlist", undefined, (function () {
+            var a = [];
+            for (var i = 0; i < PROP_CHOICES.length; i++) a.push(PROP_CHOICES[i].label);
+            return a;
+        })());
+        propDrop.selection = 0;
+        rowProp.add("statictext", undefined, "(時間軸有反白屬性時以反白為準)");
+
+        var rowE1 = p4.add("group");
+        var bPing  = rowE1.add("button", undefined, "pingpong");  bPing.preferredSize.width = 80;
+        var bCycle = rowE1.add("button", undefined, "cycle");     bCycle.preferredSize.width = 80;
+        var bWig   = rowE1.add("button", undefined, "wiggle…");   bWig.preferredSize.width = 80;
+        var bClear = rowE1.add("button", undefined, "清除");      bClear.preferredSize.width = 60;
+
+        bPing.onClick  = function () { applyExprToSelection('loopOut("pingpong")', propDrop.selection.index, "套用 pingpong"); };
+        bCycle.onClick = function () { applyExprToSelection('loopOut("cycle")',    propDrop.selection.index, "套用 cycle"); };
+        bWig.onClick   = function () {
+            var f = parseFloat(prompt("wiggle 頻率(每秒幾次):", "2"));  if (isNaN(f)) return;
+            var a = parseFloat(prompt("wiggle 幅度:", "10"));            if (isNaN(a)) return;
+            applyExprToSelection("wiggle(" + f + ", " + a + ")", propDrop.selection.index, "套用 wiggle");
+        };
+        bClear.onClick = function () { applyExprToSelection("", propDrop.selection.index, "清除表達式"); };
+
+        var customBox = p4.add("edittext", undefined, "", { multiline: true });
+        customBox.preferredSize.height = 64;
+        var rowE2 = p4.add("group");
+        var bCustom = rowE2.add("button", undefined, "套用自訂表達式"); bCustom.preferredSize.width = 140;
+        bCustom.onClick = function () {
+            var txt = customBox.text;
+            if (!txt || txt.replace(/\s/g, "") === "") { alert("先在上面的框貼入表達式。"); return; }
+            applyExprToSelection(txt, propDrop.selection.index, "套用自訂表達式");
+        };
 
         pal.layout.layout(true);
         pal.onResizing = pal.onResize = function () { this.layout.resize(); };
