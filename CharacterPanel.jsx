@@ -1,4 +1,4 @@
-﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.6
+﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.7
 //
 // 安裝(建議,變成常駐面板):
 //   把這個檔案放到 AE 安裝目錄的 Support Files\Scripts\ScriptUI Panels\
@@ -701,7 +701,7 @@
 
     function buildUI(thisObj) {
         var pal = (thisObj instanceof Panel) ? thisObj
-                : new Window("palette", "角色工具 v1.6", undefined, { resizeable: true });
+                : new Window("palette", "角色工具 v1.7", undefined, { resizeable: true });
 
         pal.orientation = "column";
         pal.alignChildren = ["fill", "fill"];
@@ -736,20 +736,29 @@
         }
 
         function updateScrollbars() {
+            // 要用「面板實際高度」算可視範圍:被壓扁時 tab.size 回報的
+            // 仍是排版需要的完整高度,用它判斷會永遠以為不用捲
+            var paneH = 0;
+            try { paneH = pal.size.height; } catch (e) {}
+            if (!paneH) return;
+            var headH = 46; // 分頁標籤列 + 邊距
             for (var i = 0; i < scrollTabs.length; i++) {
                 var tab = scrollTabs[i], c = tab.__c, sb = tab.__sb;
                 try {
-                    tab.__baseY = c.location.y; // 重新排版後的基準位置
-                    var overflow = (c.location.y + c.size.height) - (tab.size.height - 6);
+                    if (sb.value === 0) tab.__baseY = c.location.y; // 只在未捲動時更新基準
+                    var viewH = paneH - headH;
+                    var overflow = c.size.height - viewH;
                     if (overflow > 0) {
-                        sb.maxvalue = overflow;
-                        sb.value = 0;
+                        sb.maxvalue = overflow + 12;
+                        if (sb.value > sb.maxvalue) sb.value = sb.maxvalue;
                         sb.visible = true;
+                        try { sb.size = [14, Math.max(viewH - 6, 40)]; } catch (e2) {}
                     } else {
                         sb.value = 0;
                         sb.visible = false;
                     }
-                } catch (e) {}
+                    c.location = [c.location.x, Math.round(tab.__baseY - sb.value)];
+                } catch (e3) {}
             }
         }
         tabs.onChange = updateScrollbars;
@@ -757,7 +766,7 @@
 
         // --- 標記 ---
         var p1 = makeTab("標記");
-        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.6]");
+        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.7]");
         var rowA = p1.add("group"); var rowB = p1.add("group");
         var tagOrder = ["閉眼", "睜眼", "閉嘴", "張嘴", "眉", "汗", "耳", "鼻"];
         var fullRigCheck;
@@ -772,6 +781,17 @@
         var bSpec = rowB.add("button", undefined, "特殊…");
         bSpec.preferredSize.width = 52;
         bSpec.onClick = doSpecialTag;
+
+        var rowCtl = p1.add("group");
+        var bCtl = rowCtl.add("button", undefined, "建 control(含常用滑桿)");
+        bCtl.preferredSize.width = 180;
+        bCtl.onClick = function () {
+            var comp = activeComp(); if (!comp) return;
+            app.beginUndoGroup("建 control");
+            try { ensureControl(comp); } finally { app.endUndoGroup(); }
+            alert("control 已就緒:eye / mouth / 眉 / emo 滑桿 + face position 點控制。\n" +
+                  "(已存在的話只補缺少的滑桿,不會動到既有 key)");
+        };
         fullRigCheck = p1.add("checkbox", undefined, "完整綁定(建 face/eye/mouth/ear Null 並 parent)");
         fullRigCheck.value = false;
 
