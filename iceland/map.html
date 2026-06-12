@@ -698,6 +698,9 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
         <input class="name-input" id="placeName" placeholder="地點名稱（選填，預設用座標）" maxlength="40">
       </div>
 
+      <!-- 消費帳目資訊（編輯消費時顯示，點了去帳簿） -->
+      <div class="step-row" id="expenseInfoRow" style="display:none;font-size:10px;color:var(--gold);cursor:pointer;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius);" onclick="location.href='index.html'"></div>
+
       <!-- 日期（編輯時也會顯示） -->
       <div class="step-row" id="stepDate">
         <div class="step-label"><div class="step-num">📅</div>日期</div>
@@ -868,7 +871,10 @@ function renderStayLine() {
 // Cluster group
 const clusterGroup = L.markerClusterGroup({
   maxClusterRadius: 36,
-  disableClusteringAtZoom: 11,
+  // 同座標多筆：點 cluster 在最大縮放時展開成一圈選項（spiderfy 圓輪）
+  spiderfyOnMaxZoom: true,
+  spiderfyDistanceMultiplier: 1.8,
+  zoomToBoundsOnClick: true,
   iconCreateFunction: cluster => {
     const children = cluster.getAllChildMarkers();
     // 取時間最新的一筆當代表縮圖
@@ -913,28 +919,9 @@ map.on('click', e => {
   }
 });
 
-// 修正消費座標模式：點地圖把該筆消費移過去
-let fixingExpenseId = null;
-map.on('click', e => {
-  if (!fixingExpenseId) return;
-  const item = expenses.find(x => x.id === fixingExpenseId);
-  fixingExpenseId = null;
-  map.getContainer().style.cursor = '';
-  if (!item) return;
-  item.lat = e.latlng.lat;
-  item.lng = e.latlng.lng;
-  renderMarkers();
-  const gasBase = TRIP_CONFIG.apiBase || '';
-  if (gasBase && item._rowIndex) {
-    fetch(gasBase, { method:'POST', body: JSON.stringify({
-      action:'expenseMapEdit', rowIndex:item._rowIndex, lat:item.lat, lng:item.lng,
-    })}).catch(err => console.warn('座標同步失敗', err));
-  }
-});
-
 // 長按地圖（手機）／右鍵（電腦）→ 快速放標籤
 map.on('contextmenu', e => {
-  if (pickingLocation || fixingExpenseId) return;
+  if (pickingLocation) return;
   showQuickTag(e.latlng);
 });
 
@@ -1027,12 +1014,18 @@ function makeMarkerIcon(item, zoom, labeled) {
   // 想去/住宿 → 固定圖示
   if (item.type==='wish' || item.type==='stay') {
     return L.divIcon({
-      html:`<div style="font-size:22px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">${item.type==='wish'?'💗':'🏠'}</div>`,
+      html:`<div style="font-size:${zoom>=7?22:16}px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">${item.type==='wish'?'💗':'🏠'}</div>`,
       className:'', iconSize:[28,28], iconAnchor:[14,14],
     });
   }
 
-  // 打卡 → 成員 sprite
+  // 打卡 → 成員 sprite（縮小時也是像素小人，只是小一點）
+  if (zoom < 7) {
+    return L.divIcon({
+      html:`<div style="width:14px;height:24px;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">${spriteSvg(m)}</div>`,
+      className:'', iconSize:[14,24], iconAnchor:[7,22],
+    });
+  }
   return L.divIcon({
     html:`<div style="width:24px;height:40px;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">${spriteSvg(m)}</div>`,
     className:'', iconSize:[24,40], iconAnchor:[12,38],
@@ -1129,41 +1122,12 @@ function itemImgHtml(item) {
 function buildPopupContent(item) {
   const m = getMemberByName(item.who);
   const t = typeMeta(item.type);
-  const headIcon = (item.type==='checkin'||item.type==='expense') ? spriteSvg(m) : t.icon;
+  const isExp = item.type === 'expense';
+  const headIcon = (item.type==='checkin' || isExp) ? spriteSvg(m) : t.icon;
 
+  // 打卡與消費共用同一個窗：有資料的欄位才顯示
   const el = document.createElement('div');
   el.className = 'popup-inner';
-
-  // 消費：跟普通打卡同樣的窗，多一行金額/品項（帳目修改回帳簿做）
-  if (item.type === 'expense') {
-    el.innerHTML = `
-      <div class="popup-header">
-        <div class="popup-icon">${headIcon}</div>
-        <div style="flex:1;">
-          <div class="popup-title">${item.name}</div>
-          <div style="display:flex;gap:6px;align-items:center;margin-top:3px;">
-            <span class="diary-tag ${t.tag}">${t.label}</span>
-            ${item.date?`<span style="font-size:8px;color:var(--muted)">${item.date}</span>`:''}
-          </div>
-        </div>
-        <button class="popup-more" title="更多"
-          onclick="const x=this.closest('.popup-header').querySelector('.popup-extra');x.style.display=x.style.display==='flex'?'none':'flex';">…</button>
-        <div class="popup-extra">
-          <button class="popup-action-btn" onclick="startExpenseDoodle('${item.id}')">✏ 加塗鴉</button>
-          <button class="popup-action-btn" onclick="startFixExpensePos('${item.id}')">📍 修正位置</button>
-          <button class="popup-action-btn" onclick="location.href='index.html'">📒 到帳簿看</button>
-        </div>
-      </div>
-      ${itemImgHtml(item)}
-      <div class="popup-note" style="color:var(--gold);">−${item.amount} ${item.currency}</div>
-      ${item.locName?`<div class="popup-note">📍 ${item.locName}</div>`:''}
-      ${item.note?`<div class="popup-note">${item.note}</div>`:''}
-      <div class="popup-actions">
-        <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
-      </div>
-    `;
-    return el;
-  }
   el.innerHTML = `
     <div class="popup-header">
       <div class="popup-icon">${headIcon}</div>
@@ -1174,6 +1138,7 @@ function buildPopupContent(item) {
           ${item.date?`<span style="font-size:8px;color:var(--muted)">${item.date}</span>`:''}
         </div>
       </div>
+      ${isExp?`<span style="width:13px;height:13px;border-radius:50%;background:var(--gold);color:#332b10;font-family:var(--px);font-size:9px;line-height:13px;text-align:center;flex-shrink:0;margin-right:2px;">$</span>`:''}
       <button class="popup-more" title="更多"
         onclick="const x=this.closest('.popup-header').querySelector('.popup-extra');x.style.display=x.style.display==='flex'?'none':'flex';">…</button>
       <div class="popup-extra">
@@ -1183,8 +1148,10 @@ function buildPopupContent(item) {
     </div>
     ${itemImgHtml(item)}
     ${item.note?`<div class="popup-note">${item.note}</div>`:''}
+    ${isExp?`<div class="popup-note" style="color:var(--gold);cursor:pointer;" onclick="location.href='index.html'">🧾 ${item.name}　−${item.amount} ${item.currency}　›</div>`:''}
+    ${isExp&&item.locName?`<div class="popup-note" style="color:var(--muted);">📍 ${item.locName}</div>`:''}
     <div class="popup-actions">
-      <button class="popup-action-btn" onclick="openComments('${item.id}')">💬 查看留言（${item.comments?.length||0}）</button>
+      ${!isExp?`<button class="popup-action-btn" onclick="openComments('${item.id}')">💬 查看留言（${item.comments?.length||0}）</button>`:''}
       <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
     </div>
   `;
@@ -1410,6 +1377,8 @@ function openCheckin() {
   pendingCheckin = { type:'checkin', lat:null, lng:null, who:null, text:'', svgData:null, svgGrid:16, pngBlob:null };
   selectType('checkin');
   setStepsVisible(true);
+  document.getElementById('stepDate').style.display = '';
+  document.getElementById('expenseInfoRow').style.display = 'none';
   document.getElementById('checkinSheet').classList.remove('tall');
   document.getElementById('checkinModalTitle').textContent = '新增紀錄';
   // 日期預設今天
@@ -1451,10 +1420,11 @@ function tryGPS(force) {
   }, { enableHighAccuracy:true, timeout:8000, maximumAge:60000 });
 }
 
-// 編輯既有打卡（只能改日記與塗鴉，地點/角色/類型固定）
+// 編輯既有打卡/消費（同一個窗：改日記與塗鴉，地點/角色/類型固定）
 function startEditCheckin(id) {
-  const item = checkins.find(c=>c.id===id);
+  const item = allItems().find(c=>c.id===id);
   if (!item) return;
+  const isExp = item.type === 'expense';
   map.closePopup();
   editingId = id;
   pendingCheckin = {
@@ -1462,10 +1432,15 @@ function startEditCheckin(id) {
     text:item.note||'', svgData:item.svgData||null, svgGrid:item.svgGrid||16, pngBlob:null,
   };
   setStepsVisible(false);
+  // 消費：日期/金額在帳簿管理 → 藏日期欄、顯示帳目資訊列
+  document.getElementById('stepDate').style.display = isExp ? 'none' : '';
+  const expRow = document.getElementById('expenseInfoRow');
+  expRow.style.display = isExp ? '' : 'none';
+  if (isExp) expRow.innerHTML = `🧾 ${item.name}　−${item.amount} ${item.currency}　<span style="color:var(--muted)">金額品項到帳簿改 ›</span>`;
   document.getElementById('checkinSheet').classList.remove('tall');
   document.getElementById('checkinModalTitle').textContent = '編輯：' + (item.name||'');
   // 顯示原日期，可修改
-  document.getElementById('checkinDate').value = (item.date||'').replace(/\//g,'-');
+  document.getElementById('checkinDate').value = (item.date||'').slice(0,10).replace(/\//g,'-');
   document.getElementById('diaryText').value = item.note||'';
   document.getElementById('charCount').textContent = String((item.note||'').length);
   document.getElementById('drawThumb').innerHTML = item.svgData
@@ -1475,8 +1450,26 @@ function startEditCheckin(id) {
   document.getElementById('checkinModal').classList.add('show');
 }
 
-// 刪除打卡
+// 刪除打卡/消費
 async function deleteCheckin(id) {
+  // 消費：同步刪除帳簿那一列
+  const expItem = expenses.find(c=>c.id===id);
+  if (expItem) {
+    if (!confirm(`刪除「${expItem.name}」？\n帳簿裡這筆消費也會一併刪除`)) return;
+    map.closePopup();
+    expenses = expenses.filter(c=>c.id!==id);
+    renderMarkers();
+    const gasBase = TRIP_CONFIG.apiBase || '';
+    if (gasBase && expItem._rowIndex) {
+      try {
+        await fetch(gasBase, { method:'POST', body: JSON.stringify({
+          action:'deleteExpense', rowIndex:expItem._rowIndex,
+        })});
+        loadExpenses();
+      } catch(e) { console.warn('雲端刪除失敗', e); }
+    }
+    return;
+  }
   const item = checkins.find(c=>c.id===id);
   if (!item) return;
   if (!confirm(`刪除「${item.name}」這筆紀錄？`)) return;
@@ -1571,9 +1564,29 @@ async function submitCheckin() {
   btn.disabled = true;
   btn.textContent = '送出中…';
 
-  // ── 編輯模式：更新日記與塗鴉
+  // ── 編輯模式：更新日記與塗鴉（打卡與消費共用此窗）
   if (editingId) {
     try {
+      const expItem = expenses.find(c=>c.id===editingId);
+      if (expItem) {
+        expItem.note    = pendingCheckin.text;
+        expItem.svgData = pendingCheckin.svgData;
+        expItem.svgGrid = pendingCheckin.svgGrid;
+        const gasBase = TRIP_CONFIG.apiBase || '';
+        if (gasBase && expItem._rowIndex) {
+          await fetch(gasBase, { method:'POST', body: JSON.stringify({
+            action:   'expenseMapEdit',
+            rowIndex: expItem._rowIndex,
+            note:     expItem.note,
+            svgData:  expItem.svgData || '',
+            svgGrid:  expItem.svgGrid || 16,
+          })});
+        }
+        editingId = null;
+        closeCheckin();
+        renderMarkers();
+        return;
+      }
       const item = checkins.find(c=>c.id===editingId);
       if (item) {
         let imageUrl = item.imageUrl || '';
@@ -1868,7 +1881,6 @@ setTimeout(() => map.invalidateSize(), 200);
 //  畫板掛載（共用 pixelpad.js）
 // ══════════════════════════════════════════
 let padMounted = false;
-let drawingExpenseId = null;   // 設定時：畫板的「完成」存到該筆消費
 
 function ensurePad() {
   if (!padMounted) {
@@ -1878,7 +1890,6 @@ function ensurePad() {
 }
 
 function openDrawPanel() {
-  drawingExpenseId = null;
   document.getElementById('drawModal').classList.add('show');
   ensurePad();
   // 有既有塗鴉（編輯中）就載入，否則開全新空白畫布
@@ -1889,47 +1900,8 @@ function openDrawPanel() {
   }
 }
 
-// 消費補塗鴉（地圖 popup「…」進入）
-function startExpenseDoodle(id) {
-  const item = expenses.find(x => x.id === id);
-  if (!item) return;
-  map.closePopup();
-  drawingExpenseId = id;
-  document.getElementById('drawModal').classList.add('show');
-  ensurePad();
-  if (item.svgData) PixelPad.loadRects(item.svgData, item.svgGrid || 16);
-  else PixelPad.reset();
-}
-
-// 消費修正位置（地圖 popup「…」進入）
-function startFixExpensePos(id) {
-  map.closePopup();
-  fixingExpenseId = id;
-  map.getContainer().style.cursor = 'crosshair';
-}
-
 function onPadDone(res) {
   document.getElementById('drawModal').classList.remove('show');
-
-  // 消費補塗鴉模式
-  if (drawingExpenseId) {
-    const item = expenses.find(x => x.id === drawingExpenseId);
-    drawingExpenseId = null;
-    if (!item) return;
-    item.svgData = res.svgData;
-    item.svgGrid = res.grid;
-    renderMarkers();
-    const gasBase = TRIP_CONFIG.apiBase || '';
-    if (gasBase && item._rowIndex) {
-      fetch(gasBase, { method:'POST', body: JSON.stringify({
-        action:'expenseMapEdit', rowIndex:item._rowIndex,
-        svgData: res.svgData || '', svgGrid: res.grid || 16,
-      })}).catch(err => console.warn('塗鴉同步失敗', err));
-    }
-    return;
-  }
-
-  // 打卡塗鴉模式
   pendingCheckin.svgData = res.svgData;
   pendingCheckin.svgGrid = res.grid;
   if (res.svgData) {

@@ -298,12 +298,13 @@ function doPost(e) {
       return ok('expense saved');
     }
 
-    // ── 消費地圖小編輯：補塗鴉 / 修正座標 ─────────────────
-    // Z(26) SVG資料 AA(27) SVG格數；X(24) 緯度 Y(25) 經度
+    // ── 消費地圖小編輯：備註/塗鴉/座標 ────────────────────
+    // N(14) 備註；X(24) 緯度 Y(25) 經度；Z(26) SVG資料 AA(27) SVG格數
     if (action === 'expenseMapEdit') {
       var sheet = ss.getSheetByName(SHEET_NAMES.expense);
       if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.expense);
       if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      if (payload.note    !== undefined) sheet.getRange(payload.rowIndex, 14).setValue(payload.note);
       if (payload.lat     !== undefined) sheet.getRange(payload.rowIndex, 24).setValue(payload.lat);
       if (payload.lng     !== undefined) sheet.getRange(payload.rowIndex, 25).setValue(payload.lng);
       if (payload.svgData !== undefined) sheet.getRange(payload.rowIndex, 26).setValue(payload.svgData);
