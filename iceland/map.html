@@ -751,14 +751,10 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
   </div>
 </div>
 
-<!-- 消費卡片 Modal（地圖上直接看，不跳頁） -->
-<div class="modal-overlay" id="expCardModal" onclick="if(event.target===this)this.classList.remove('show')">
-  <div class="modal-box" style="max-width:360px;border-radius:12px;border:2px solid var(--border);margin-bottom:10vh;">
-    <div class="modal-header">
-      <div class="modal-title">🧾 帳目卡片</div>
-      <button class="modal-close" onclick="document.getElementById('expCardModal').classList.remove('show')">✕</button>
-    </div>
-    <div class="modal-body" id="expCardBody"></div>
+<!-- 消費卡片 Modal（地圖上直接看，不跳頁；點外面關閉） -->
+<div class="modal-overlay" id="expCardModal" style="align-items:center;" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal-box" style="max-width:360px;border-radius:12px;border:2px solid var(--border);">
+    <div class="modal-body" id="expCardBody" style="padding:10px;"></div>
   </div>
 </div>
 
@@ -1466,7 +1462,7 @@ function startEditCheckin(id) {
   const expRow = document.getElementById('expenseInfoRow');
   expRow.style.display = isExp ? '' : 'none';
   if (isExp) {
-    expRow.innerHTML = `🧾 ${item.name}　−${item.amount} ${item.currency}　<span style="color:var(--muted)">點看帳目卡片 ›</span>`;
+    expRow.innerHTML = `🧾 ${item.name}　−${item.amount} ${item.currency}`;
     expRow.onclick = () => openExpenseCard(item.id);
   }
   document.getElementById('checkinSheet').classList.remove('tall');
@@ -1706,7 +1702,7 @@ async function submitCheckin() {
     // POST 到 GAS
     const gasBase = TRIP_CONFIG.apiBase || '';
     if (gasBase) {
-      await fetch(gasBase, {
+      const resp = await fetch(gasBase, {
         method:'POST',
         body: JSON.stringify({
           action:   'addCheckin',
@@ -1722,6 +1718,11 @@ async function submitCheckin() {
           svgGrid:  item.svgGrid || 16,
         }),
       });
+      // 採用 GAS 回傳的正式 ID，重載時才認得是同一筆（避免本地+雲端雙重顯示）
+      try {
+        const r = await resp.json();
+        if (r?.ok && r.msg?.id) item.id = r.msg.id;
+      } catch(e) { /* 回應讀不到就留臨時 ID，5 分鐘保護仍適用 */ }
     }
 
     checkins.unshift(item);
@@ -1813,7 +1814,18 @@ function closeComments() {
 function openExpenseCard(id) {
   const item = expenses.find(x => x.id === id);
   if (!item) return;
-  const m = getMemberByName(item.who);
+  const members3 = (window.TRIP_MEMBERS || []).filter(n => (item.burden?.[n]||0) > 0);
+  const burdenChips = members3.map(n => {
+    const mm = getMemberByName(n);
+    return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted);">
+      <span style="width:10px;height:17px;display:inline-block;">${spriteSvg(mm)}</span>NT$${Math.round(item.burden[n]).toLocaleString()}
+    </span>`;
+  }).join('');
+  const tagChips = (item.tags||'').split(',').filter(Boolean).map(t =>
+    `<span style="background:rgba(42,74,26,.35);border:1px solid rgba(42,74,26,.6);color:#c8d8a8;font-size:8px;padding:2px 8px;border-radius:999px;">${t.trim()}</span>`
+  ).join('');
+  const ntAmount = Math.round(item.total || item.twd || 0);
+
   document.getElementById('expCardBody').innerHTML = `
     <div style="position:relative;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;">
       <!-- ⋮ 選單（同帳簿卡片） -->
@@ -1822,22 +1834,27 @@ function openExpenseCard(id) {
       <div style="display:none;position:absolute;right:8px;top:calc(50% + 18px);z-index:20;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.45);">
         <button class="popup-action-btn" style="border:none;justify-content:flex-start;padding:10px 14px;min-width:96px;color:#e08090;" onclick="document.getElementById('expCardModal').classList.remove('show');deleteCheckin('${item.id}')">🗑️ 刪除</button>
       </div>
-      <!-- 第一行：[類別] ---- 金額 -->
-      <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;padding-right:28px;">
+      <!-- 第一行：[類別][共同/個人] ---- NT$ 金額 -->
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;padding-right:26px;">
         <span style="font-size:8px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${item.category||'雜支'}</span>
+        <span style="font-size:8px;padding:1px 6px;border-radius:4px;white-space:nowrap;${item.isShared?'background:rgba(78,195,121,.18);color:#7ec885;border:1px solid rgba(78,195,121,.4);':'background:var(--bg);color:var(--muted);border:1px solid var(--border);'}">${item.isShared?'共同':'個人'}</span>
         <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
-        <span style="font-size:13px;color:var(--gold);white-space:nowrap;">−${item.amount} ${item.currency}</span>
+        <span style="font-size:13px;color:var(--gold);white-space:nowrap;">NT$ ${ntAmount.toLocaleString()}</span>
       </div>
+      ${item.currency&&item.currency!=='NT'?`<div style="font-size:8px;color:var(--muted);text-align:right;margin-bottom:4px;">${item.amount} ${item.currency}</div>`:''}
       <!-- 品項 -->
-      ${item.name?`<div style="font-size:11px;color:var(--text);margin-bottom:6px;">${item.name}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>`:''}
+      ${item.name?`<div style="font-size:11px;color:var(--text);margin-bottom:5px;">${item.name}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>`:''}
+      <!-- 標籤 -->
+      ${tagChips?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">${tagChips}</div>`:''}
       <!-- 備註 -->
       ${item.note?`<div style="font-size:9px;color:var(--muted);line-height:1.6;margin-bottom:6px;">📌 ${item.note}</div>`:''}
-      <!-- 底部：付款人 sprite + 地點 + 日期 -->
-      <div style="display:flex;align-items:center;gap:8px;font-size:8px;color:var(--muted);">
-        <div style="width:16px;height:26px;">${spriteSvg(m)}</div>
-        ${item.locName?`<span>📍 ${item.locName}</span>`:''}
+      <!-- 底部：付款人 + 各人負擔 + 日期 -->
+      <div style="display:flex;align-items:center;gap:6px;font-size:8px;color:var(--muted);flex-wrap:wrap;">
+        <div style="width:14px;height:23px;" title="付款人 ${item.who}">${spriteSvg(getMemberByName(item.who))}</div>
+        ${burdenChips}
         <span style="margin-left:auto;">${item.date||''}</span>
       </div>
+      ${item.locName?`<div style="font-size:8px;color:var(--muted);margin-top:5px;">📍 ${item.locName}</div>`:''}
     </div>
   `;
   document.getElementById('expCardModal').classList.add('show');
@@ -1881,8 +1898,13 @@ function applyCheckins(cloud) {
     };
   });
   // 樂觀更新保護：剛送出、雲端尚未出現的本地項目（5 分鐘內）保留
+  // 雲端已有同人同座標的就視為同一筆，不重複顯示
+  const cloudKeys = new Set(cloud.map(c =>
+    `${c.who}|${(+c.lat).toFixed(5)}|${(+c.lng).toFixed(5)}`));
   checkins.forEach(c => {
-    if (!cloudIds.has(c.id) && Date.now() - itemTs(c) < 5*60*1000) merged.unshift(c);
+    const key = `${c.who}|${(+c.lat).toFixed(5)}|${(+c.lng).toFixed(5)}`;
+    if (!cloudIds.has(c.id) && !cloudKeys.has(key) &&
+        Date.now() - itemTs(c) < 5*60*1000) merged.unshift(c);
   });
   checkins = merged;
 }
@@ -1904,6 +1926,11 @@ function applyExpenses(cloud) {
     time:     e.date,            // itemTs 用 Date.parse 解析
     amount:   e.amount,
     currency: e.currency,
+    twd:      e.twd || 0,
+    total:    e.total || 0,
+    burden:   e.burden || {},
+    isShared: !!e.isShared,
+    tags:     e.tags || '',
     note:     e.note || '',
     comments: e.comments || [],
     svgData:  e.svgData || localById[e.id]?.svgData || null,
