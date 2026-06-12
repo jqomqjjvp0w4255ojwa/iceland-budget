@@ -1,4 +1,4 @@
-﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.3
+﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.4
 //
 // 安裝(建議,變成常駐面板):
 //   把這個檔案放到 AE 安裝目錄的 Support Files\Scripts\ScriptUI Panels\
@@ -436,8 +436,10 @@
 
     // ================= 5. 快速命名 + 控制 NULL =================
 
-    var NAME_SECTION = "CharacterPanel_QuickNames";
-    var DEFAULT_NAMES = ["頭", "身體", "左手", "右手", "左腳", "右腳", "尾巴", "帽子", "角", "包包"];
+    var NAME_SECTION = "CharacterPanel_QuickNames2";
+    var DEFAULT_NAMES = ["頭", "身體", "屁股", "尾巴",
+                         "手", "上臂", "下臂", "帽子",
+                         "腳", "大腿", "小腿", "包包"];
 
     function namesSave(list) {
         try {
@@ -461,15 +463,47 @@
         return list;
     }
 
+    function isAllDigits(s) {
+        if (s.length === 0) return false;
+        for (var i = 0; i < s.length; i++) {
+            var c = s.charCodeAt(i);
+            if (c < 48 || c > 57) return false;
+        }
+        return true;
+    }
+
+    // 數「手」「手1」「手2」「手 2」這類都算同一家族
+    function nameCount(comp, base) {
+        var n = 0;
+        for (var i = 1; i <= comp.numLayers; i++) {
+            var nm = comp.layer(i).name;
+            if (nm === base) { n++; continue; }
+            if (nm.indexOf(base) === 0) {
+                var rest = nm.substring(base.length);
+                if (rest.charAt(0) === " ") rest = rest.substring(1);
+                if (isAllDigits(rest)) n++;
+            }
+        }
+        return n;
+    }
+
+    // 編號規則(配合不分左右的習慣):
+    //   單選且沒有同名 → 「手」
+    //   多選 → 一次編好「手1、手2…」
+    //   已有同名 → 接著編下一號
     function doRename(base) {
         var comp = activeComp(); if (!comp) return;
         var sel = comp.selectedLayers;
         if (sel.length === 0) { alert("先選取圖層,再點名稱按鈕。"); return; }
         app.beginUndoGroup("更名 " + base);
         try {
-            for (var i = 0; i < sel.length; i++) {
-                var idx = countByBase(comp, base); // 同名自動編號:頭、頭 2、頭 3…
-                sel[i].name = (idx === 0) ? base : base + " " + (idx + 1);
+            var existing = nameCount(comp, base);
+            if (sel.length === 1 && existing === 0) {
+                sel[0].name = base;
+            } else {
+                for (var i = 0; i < sel.length; i++) {
+                    sel[i].name = base + (existing + i + 1); // 手1、手2…
+                }
             }
         } finally { app.endUndoGroup(); }
     }
@@ -556,7 +590,7 @@
 
     function buildUI(thisObj) {
         var pal = (thisObj instanceof Panel) ? thisObj
-                : new Window("palette", "角色工具 v1.3", undefined, { resizeable: true });
+                : new Window("palette", "角色工具 v1.4", undefined, { resizeable: true });
 
         pal.orientation = "column";
         pal.alignChildren = ["fill", "fill"];
@@ -569,7 +603,7 @@
         // --- 標記 ---
         var p1 = tabs.add("tab", undefined, "標記");
         p1.orientation = "column"; p1.alignChildren = ["fill", "top"]; p1.margins = 8;
-        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.3]");
+        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.4]");
         var rowA = p1.add("group"); var rowB = p1.add("group");
         var tagOrder = ["閉眼", "睜眼", "閉嘴", "張嘴", "眉", "汗", "耳", "鼻"];
         var fullRigCheck;
