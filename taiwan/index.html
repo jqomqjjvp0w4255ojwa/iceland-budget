@@ -372,6 +372,21 @@ body{
 .submit-btn:active{background:#d84848;}
 .submit-btn:disabled{background:#dcc8a8;cursor:not-allowed;}
 
+/* ── 範圍日曆（點兩下選起訖） */
+.tcal{border:1.5px solid var(--border);border-radius:var(--radius);background:#fffdf7;padding:8px;}
+.tcal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.tcal-title{font-size:10px;color:var(--text);letter-spacing:1px;}
+.tcal-nav{width:30px;height:26px;border:1.5px solid var(--border2);background:var(--panel2);color:var(--text);font-family:var(--px);font-size:10px;border-radius:4px;cursor:pointer;}
+.tcal-nav:active{background:var(--border);}
+.tcal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.tcal-dow{font-size:8px;color:var(--muted);text-align:center;padding:2px 0;}
+.tcal-day{font-size:9px;text-align:center;padding:8px 0;border-radius:4px;cursor:pointer;color:var(--text);user-select:none;-webkit-user-select:none;}
+.tcal-day:active{background:var(--panel2);}
+.tcal-day.today{box-shadow:inset 0 0 0 1.5px var(--mango);}
+.tcal-day.inr{background:#ffe9e9;color:#d84848;}
+.tcal-day.sel{background:var(--accent);color:#fff;}
+.tcal-label{font-size:8px;color:var(--muted);margin-top:6px;text-align:center;line-height:1.6;}
+
 /* ── 旅程列表 */
 .trip-item{
   border:1.5px solid var(--border);border-radius:var(--radius);
@@ -394,6 +409,29 @@ body{
   background:transparent;color:var(--muted);
   font-family:var(--px);font-size:10px;border-radius:var(--radius);cursor:pointer;
 }
+
+/* ── 快問快答 */
+.qa-q{font-size:10px;color:var(--text);margin:14px 0 8px;line-height:1.6;}
+.qa-q:first-child{margin-top:0;}
+.qa-chips{display:flex;gap:8px;flex-wrap:wrap;}
+.qa-chip{padding:9px 12px;border:2px solid var(--border);border-radius:var(--radius);background:var(--panel2);font-family:var(--px);font-size:10px;color:var(--text);cursor:pointer;}
+.qa-chip.on{border-color:var(--accent2);background:#e2f4e6;color:#3a8a4a;}
+.qa-skip{width:100%;padding:10px;margin-top:10px;border:none;background:transparent;color:var(--muted);font-family:var(--px);font-size:9px;cursor:pointer;text-decoration:underline;}
+
+/* ── 行前資訊小卡片 */
+.tdetail-sum{font-size:9px;color:var(--muted);line-height:1.8;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--border);}
+.tcard-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+@media (min-width:900px){.tcard-grid{grid-template-columns:repeat(3,1fr);}}
+.tcard{border:2px solid var(--border);border-radius:var(--radius);background:#fffdf7;padding:10px;cursor:pointer;box-shadow:2px 2px 0 rgba(180,130,60,0.15);min-height:88px;display:flex;flex-direction:column;}
+.tcard:active{transform:translate(1px,1px);box-shadow:none;}
+.tcard-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.tcard-icon{font-size:14px;}
+.tcard-title{font-size:9px;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tcard-text{font-size:8px;color:var(--muted);line-height:1.7;white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;flex:1;}
+.tcard-empty{color:var(--border2);font-style:normal;}
+.tcard-typebar{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;align-items:center;}
+.tcard-typebtn{padding:8px 10px;border:1.5px dashed var(--border2);border-radius:var(--radius);background:transparent;font-family:var(--px);font-size:9px;color:var(--muted);cursor:pointer;}
+.tcard-typebtn:active{background:var(--panel2);}
 
 /* ── 留言 */
 .comment-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
@@ -594,11 +632,9 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
         <input class="form-input" id="tripName" placeholder="例：台南小旅行" maxlength="30" style="margin-top:0;">
       </div>
       <div class="step-row">
-        <div class="step-label">日期</div>
-        <div style="display:flex;gap:8px;">
-          <input class="form-input" type="date" id="tripDateStart" style="margin-top:0;flex:1;">
-          <input class="form-input" type="date" id="tripDateEnd" style="margin-top:0;flex:1;">
-        </div>
+        <div class="step-label">日期（點第 1 下＝出發、第 2 下＝回程）</div>
+        <div class="tcal" id="tripCal"></div>
+        <div class="tcal-label" id="tripCalLabel">尚未選擇日期</div>
       </div>
       <div class="step-row">
         <div class="step-label">成員</div>
@@ -609,6 +645,59 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
         <textarea class="diary-textarea" id="tripMemo" placeholder="自由備忘…" maxlength="500" style="height:110px;"></textarea>
       </div>
       <button class="submit-btn" id="tripSubmitBtn" onclick="submitTrip()">🧳 儲存旅程</button>
+    </div>
+  </div>
+</div>
+
+<!-- 行前快問快答 Modal -->
+<div class="modal-overlay" id="tripQAModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">⚡ 行前快問快答</div>
+      <button class="modal-close" onclick="qaDone(true)">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="qa-q">🚌 這趟怎麼去？（可複選）</div>
+      <div class="qa-chips" id="qaGo"></div>
+      <div class="qa-q">🔑 當地要租交通工具嗎？</div>
+      <div class="qa-chips" id="qaRent"></div>
+      <div class="qa-q">🏠 要訂住宿嗎？</div>
+      <div class="qa-chips" id="qaStay"></div>
+      <button class="submit-btn" onclick="qaDone()" style="margin-top:18px;">🗂 生成行前小卡片</button>
+      <button class="qa-skip" onclick="qaDone(true)">跳過，只留備忘卡</button>
+    </div>
+  </div>
+</div>
+
+<!-- 旅程詳情（小卡片）Modal -->
+<div class="modal-overlay" id="tripDetailModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="tripDetailTitle">🧳 旅程</div>
+      <button class="modal-close" onclick="closeTripDetail()">✕</button>
+    </div>
+    <div class="modal-body" id="tripDetailBody"></div>
+  </div>
+</div>
+
+<!-- 卡片編輯 Modal -->
+<div class="modal-overlay" id="cardEditModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="cardEditTitle">✎ 編輯卡片</div>
+      <button class="modal-close" onclick="closeCardEdit()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="step-row">
+        <div class="step-label">卡片標題</div>
+        <input class="form-input" id="cardTitleInput" maxlength="20" style="margin-top:0;">
+      </div>
+      <div class="step-row">
+        <div class="step-label">內容（時間、地址、訂位代號…什麼都能塞）</div>
+        <textarea class="diary-textarea" id="cardTextInput" maxlength="500" style="height:130px;" placeholder="例：&#10;9/14 08:05 台北→台南&#10;車次 123 · 訂位代號 ABC123"></textarea>
+      </div>
+      <button class="submit-btn" onclick="saveCardEdit()">💾 儲存卡片</button>
+      <button class="qa-skip" style="color:#d84848;" onclick="deleteCardEdit()">🗑 刪除這張卡</button>
     </div>
   </div>
 </div>
@@ -679,7 +768,7 @@ function spriteSvg(m) {
 let checkins = [];
 let trips = [];
 let filters = { checkin:true, wish:true };
-const members = CFG.members;
+let members = [...CFG.members];   // config 固定班底＋雲端臨時成員
 let drawerOpen = false;
 let currentTab = 'all';
 let memberFilter = null;
@@ -1281,6 +1370,285 @@ async function submitCheckin() {
 }
 
 // ══════════════════════════════════════════
+//  範圍日曆：第 1 下選出發日、第 2 下選回程日
+// ══════════════════════════════════════════
+let tcal = { y:0, m:0, start:'', end:'' };  // m: 0-11
+
+function fmtD(y,m,d){ return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+
+function tcalInit(start, end) {
+  const base = start ? new Date(start) : new Date();
+  tcal = { y:base.getFullYear(), m:base.getMonth(), start:start||'', end:end||'' };
+  renderTripCal();
+}
+
+function tcalNav(dir) {
+  tcal.m += dir;
+  if (tcal.m < 0)  { tcal.m = 11; tcal.y--; }
+  if (tcal.m > 11) { tcal.m = 0;  tcal.y++; }
+  renderTripCal();
+}
+
+function tcalPick(dateStr) {
+  if (!tcal.start || (tcal.start && tcal.end)) {
+    // 第 1 下（或重選）：設出發日、清回程
+    tcal.start = dateStr; tcal.end = '';
+  } else if (dateStr < tcal.start) {
+    // 點得比出發日早 → 當成重選出發日
+    tcal.start = dateStr;
+  } else {
+    // 第 2 下：設回程日（同一天也可以，一日遊）
+    tcal.end = dateStr;
+  }
+  renderTripCal();
+}
+
+function renderTripCal() {
+  const el = document.getElementById('tripCal');
+  const first = new Date(tcal.y, tcal.m, 1);
+  const days = new Date(tcal.y, tcal.m+1, 0).getDate();
+  const pad = first.getDay();
+  const todayStr = fmtD(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  let cells = ['日','一','二','三','四','五','六'].map(d=>`<div class="tcal-dow">${d}</div>`).join('');
+  for (let i=0;i<pad;i++) cells += '<div></div>';
+  for (let d=1;d<=days;d++) {
+    const ds = fmtD(tcal.y, tcal.m, d);
+    let cls = 'tcal-day';
+    if (ds === todayStr) cls += ' today';
+    if (ds === tcal.start || ds === tcal.end) cls += ' sel';
+    else if (tcal.start && tcal.end && ds > tcal.start && ds < tcal.end) cls += ' inr';
+    cells += `<div class="${cls}" onclick="tcalPick('${ds}')">${d}</div>`;
+  }
+  el.innerHTML = `
+    <div class="tcal-head">
+      <button class="tcal-nav" type="button" onclick="tcalNav(-1)">◀</button>
+      <div class="tcal-title">${tcal.y} 年 ${tcal.m+1} 月</div>
+      <button class="tcal-nav" type="button" onclick="tcalNav(1)">▶</button>
+    </div>
+    <div class="tcal-grid">${cells}</div>`;
+  const lbl = document.getElementById('tripCalLabel');
+  if (tcal.start && tcal.end) lbl.textContent = `🧳 ${tcal.start} 出發 → ${tcal.end} 回程`;
+  else if (tcal.start) lbl.textContent = `🧳 ${tcal.start} 出發 → 再點一下選回程日`;
+  else lbl.textContent = '尚未選擇日期';
+}
+
+// ══════════════════════════════════════════
+//  臨時新增成員（存雲端成員表，所有裝置共享）
+// ══════════════════════════════════════════
+const NEW_MEMBER_ICONS  = ['🍇','🍍','🥭','🍑','🍓','🥝','🍌','🍈'];
+const NEW_MEMBER_COLORS = ['#8a4fbb','#d9a514','#ff8c1a','#ff9e9e','#e0335c','#7aa844','#e8c531','#7ec8a0'];
+
+function applyMembers(cloud) {
+  const known = new Set(CFG.members.map(m=>m.name));
+  const extra = (cloud||[]).filter(m=>m.name && !known.has(m.name)).map((m,i)=>({
+    name:  m.name,
+    icon:  m.icon  || NEW_MEMBER_ICONS[i % NEW_MEMBER_ICONS.length],
+    color: m.color || NEW_MEMBER_COLORS[i % NEW_MEMBER_COLORS.length],
+  }));
+  members = [...CFG.members, ...extra];
+}
+
+async function addNewMember() {
+  const name = (prompt('新成員的名字？') || '').trim();
+  if (!name) return;
+  if (members.some(m=>m.name===name)) { alert('已經有這位成員了'); }
+  else {
+    const i = members.length - CFG.members.length;
+    const m = {
+      name,
+      icon:  NEW_MEMBER_ICONS[i % NEW_MEMBER_ICONS.length],
+      color: NEW_MEMBER_COLORS[i % NEW_MEMBER_COLORS.length],
+    };
+    members.push(m);
+    buildTopbarMembers();
+    gasPost({ action:'addMember', name:m.name, color:m.color, icon:m.icon });
+  }
+  if (!tripFormMembers.includes(name)) tripFormMembers.push(name);
+  buildTripMemberGrid();
+}
+
+// ══════════════════════════════════════════
+//  行前快問快答 → 生成資訊小卡片
+// ══════════════════════════════════════════
+const QA_GO = [
+  { k:'train',   label:'🚆 火車', card:{ icon:'🚆', title:'火車票' } },
+  { k:'hsr',     label:'🚄 高鐵', card:{ icon:'🚄', title:'高鐵票' } },
+  { k:'bus',     label:'🚌 客運', card:{ icon:'🚌', title:'客運票' } },
+  { k:'plane',   label:'✈️ 飛機', card:{ icon:'✈️', title:'機票' } },
+  { k:'boat',    label:'⛴ 船',   card:{ icon:'⛴', title:'船票' } },
+  { k:'drive',   label:'🚗 自駕', card:null },
+  { k:'scooter', label:'🛵 騎車', card:null },
+];
+const QA_RENT = [
+  { k:'rentcar',     label:'🚗 租車',   card:{ icon:'🚗', title:'租車' } },
+  { k:'rentscooter', label:'🛵 租機車', card:{ icon:'🛵', title:'租機車' } },
+  { k:'rentbike',    label:'🚲 租單車', card:{ icon:'🚲', title:'租單車' } },
+  { k:'norent',      label:'不用',      card:null },
+];
+const QA_STAY = [
+  { k:'stay',   label:'🏠 要訂住宿', card:{ icon:'🏠', title:'住宿' } },
+  { k:'nostay', label:'當天來回',    card:null },
+];
+
+let qaTripId = null;
+let qaSel = { go:new Set(), rent:new Set(), stay:null };
+
+function openTripQA(tripId) {
+  qaTripId = tripId;
+  qaSel = { go:new Set(), rent:new Set(), stay:null };
+  renderQA();
+  document.getElementById('tripQAModal').classList.add('show');
+}
+
+function renderQA() {
+  document.getElementById('qaGo').innerHTML = QA_GO.map(o =>
+    `<button class="qa-chip ${qaSel.go.has(o.k)?'on':''}" onclick="qaToggle('go','${o.k}')">${o.label}</button>`).join('');
+  document.getElementById('qaRent').innerHTML = QA_RENT.map(o =>
+    `<button class="qa-chip ${qaSel.rent.has(o.k)?'on':''}" onclick="qaToggle('rent','${o.k}')">${o.label}</button>`).join('');
+  document.getElementById('qaStay').innerHTML = QA_STAY.map(o =>
+    `<button class="qa-chip ${qaSel.stay===o.k?'on':''}" onclick="qaToggle('stay','${o.k}')">${o.label}</button>`).join('');
+}
+
+function qaToggle(group, k) {
+  if (group === 'stay') {
+    qaSel.stay = (qaSel.stay === k) ? null : k;
+  } else if (group === 'rent' && k === 'norent') {
+    qaSel.rent = qaSel.rent.has('norent') ? new Set() : new Set(['norent']);
+  } else {
+    qaSel[group].delete('norent');
+    qaSel[group].has(k) ? qaSel[group].delete(k) : qaSel[group].add(k);
+  }
+  renderQA();
+}
+
+function newCard(spec) {
+  return { id:'cd_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), icon:spec.icon, title:spec.title, text:spec.text||'' };
+}
+
+function qaDone(skip) {
+  document.getElementById('tripQAModal').classList.remove('show');
+  const t = tripById(qaTripId);
+  qaTripId = null;
+  if (!t) return;
+  const cards = [];
+  if (!skip) {
+    QA_GO.forEach(o => { if (qaSel.go.has(o.k) && o.card) cards.push(newCard(o.card)); });
+    QA_RENT.forEach(o => { if (qaSel.rent.has(o.k) && o.card) cards.push(newCard(o.card)); });
+    const stay = QA_STAY.find(o => o.k === qaSel.stay);
+    if (stay?.card) cards.push(newCard(stay.card));
+  }
+  cards.push(newCard({ icon:'📝', title:'備忘' }));
+  t.cards = cards;
+  gasPost({ action:'editTrip', id:t.id, cards });
+  openTripDetail(t.id);
+}
+
+// ══════════════════════════════════════════
+//  旅程詳情：資訊小卡片
+// ══════════════════════════════════════════
+const CARD_ADD_TYPES = [
+  { icon:'🚆', title:'車票' }, { icon:'🏠', title:'住宿' }, { icon:'🚗', title:'租車' },
+  { icon:'🎫', title:'票券' }, { icon:'🍜', title:'美食' }, { icon:'📝', title:'備忘' },
+];
+let detailTripId = null;
+
+function openTripDetail(id) {
+  detailTripId = id;
+  closeTrips();
+  renderTripDetail();
+  document.getElementById('tripDetailModal').classList.add('show');
+}
+function closeTripDetail() {
+  document.getElementById('tripDetailModal').classList.remove('show');
+  detailTripId = null;
+  openTrips();
+}
+
+function renderTripDetail() {
+  const t = tripById(detailTripId);
+  if (!t) return;
+  document.getElementById('tripDetailTitle').textContent = '🧳 ' + t.name;
+  const dates = [t.dateStart, t.dateEnd].filter(Boolean).join(' ~ ');
+  const count = checkins.filter(c=>c.tripId===t.id).length;
+  const cards = t.cards || [];
+  document.getElementById('tripDetailBody').innerHTML = `
+    <div class="tdetail-sum">
+      📅 ${dates||'未定'}　👥 ${(t.members||[]).join('、')||'—'}${count?`　🐾 ${count} 筆紀錄`:''}
+      ${t.memo?`<br>📝 ${t.memo}`:''}
+    </div>
+    <div class="tcard-grid">
+      ${cards.map(c => `
+        <div class="tcard" onclick="openCardEdit('${c.id}')">
+          <div class="tcard-head"><span class="tcard-icon">${c.icon}</span><span class="tcard-title">${c.title}</span></div>
+          <div class="tcard-text ${c.text?'':'tcard-empty'}">${c.text || '點我填入資訊…'}</div>
+        </div>`).join('')}
+    </div>
+    <div class="tcard-typebar">
+      <span style="font-size:8px;color:var(--muted);">＋加卡片：</span>
+      ${CARD_ADD_TYPES.map((s,i) =>
+        `<button class="tcard-typebtn" onclick="addCard(${i})">${s.icon} ${s.title}</button>`).join('')}
+    </div>
+    <button class="trip-btn" style="width:100%;margin-top:12px;padding:9px;" onclick="setTripFilter('${t.id}');closeTripDetailOnly();">🗺 在地圖上只看此旅程</button>
+  `;
+}
+function closeTripDetailOnly() {
+  document.getElementById('tripDetailModal').classList.remove('show');
+  detailTripId = null;
+}
+
+function saveTripCards(t) {
+  gasPost({ action:'editTrip', id:t.id, cards:t.cards||[] });
+}
+
+function addCard(typeIdx) {
+  const t = tripById(detailTripId);
+  if (!t) return;
+  t.cards = t.cards || [];
+  const c = newCard(CARD_ADD_TYPES[typeIdx]);
+  t.cards.push(c);
+  saveTripCards(t);
+  renderTripDetail();
+  openCardEdit(c.id);
+}
+
+// ── 卡片編輯
+let editingCardId = null;
+
+function openCardEdit(cardId) {
+  const t = tripById(detailTripId);
+  const c = t?.cards?.find(x=>x.id===cardId);
+  if (!c) return;
+  editingCardId = cardId;
+  document.getElementById('cardEditTitle').textContent = c.icon + ' 編輯卡片';
+  document.getElementById('cardTitleInput').value = c.title;
+  document.getElementById('cardTextInput').value = c.text || '';
+  document.getElementById('cardEditModal').classList.add('show');
+}
+function closeCardEdit() {
+  document.getElementById('cardEditModal').classList.remove('show');
+  editingCardId = null;
+}
+function saveCardEdit() {
+  const t = tripById(detailTripId);
+  const c = t?.cards?.find(x=>x.id===editingCardId);
+  if (!c) return closeCardEdit();
+  c.title = document.getElementById('cardTitleInput').value.trim() || c.title;
+  c.text  = document.getElementById('cardTextInput').value.trim();
+  saveTripCards(t);
+  closeCardEdit();
+  renderTripDetail();
+}
+function deleteCardEdit() {
+  const t = tripById(detailTripId);
+  if (!t?.cards) return closeCardEdit();
+  if (!confirm('刪除這張卡？')) return;
+  t.cards = t.cards.filter(x=>x.id!==editingCardId);
+  saveTripCards(t);
+  closeCardEdit();
+  renderTripDetail();
+}
+
+// ══════════════════════════════════════════
 //  小旅程
 // ══════════════════════════════════════════
 let editingTripId = null;
@@ -1300,14 +1668,15 @@ function renderTrips() {
     const count = checkins.filter(c=>c.tripId===t.id).length;
     const dates = [t.dateStart, t.dateEnd].filter(Boolean).join(' ~ ');
     return `<div class="trip-item ${tripFilter===t.id?'on':''}">
-      <div class="trip-item-head" onclick="setTripFilter('${t.id}')">
+      <div class="trip-item-head" onclick="openTripDetail('${t.id}')">
         <span style="font-size:14px;">🧳</span>
         <span class="trip-item-name">${t.name}</span>
         <span class="trip-item-date">${dates}</span>
       </div>
-      <div class="trip-item-meta">${(t.members||[]).join('、')}${count?` · ${count} 筆紀錄`:''}${t.memo?`\n📝 ${t.memo}`:''}</div>
+      <div class="trip-item-meta">${(t.members||[]).join('、')}${count?` · ${count} 筆紀錄`:''}${(t.cards||[]).length?` · 🗂 ${t.cards.length} 張卡`:''}</div>
       <div class="trip-actions">
-        <button class="trip-btn" onclick="setTripFilter('${t.id}')">${tripFilter===t.id?'✓ 篩選中（點選取消）':'只看此旅程'}</button>
+        <button class="trip-btn" onclick="openTripDetail('${t.id}')">🗂 行前卡片</button>
+        <button class="trip-btn" onclick="setTripFilter('${t.id}')">${tripFilter===t.id?'✓ 篩選中':'只看此旅程'}</button>
         <button class="trip-btn" onclick="openTripForm('${t.id}')">✎ 編輯</button>
         <button class="trip-btn danger" onclick="deleteTrip('${t.id}')">🗑</button>
       </div>
@@ -1338,7 +1707,10 @@ function buildTripMemberGrid() {
       <div class="member-choice-avatar">${spriteSvg(m)}</div>
       <div class="member-choice-name">${m.name}</div>
     </div>`
-  ).join('');
+  ).join('') + `<div class="member-choice" onclick="addNewMember()" style="border-style:dashed;background:transparent;">
+      <div class="member-choice-avatar" style="font-size:22px;color:var(--muted);">＋</div>
+      <div class="member-choice-name" style="color:var(--muted);">新成員</div>
+    </div>`;
 }
 function toggleTripMember(name) {
   const i = tripFormMembers.indexOf(name);
@@ -1351,8 +1723,7 @@ function openTripForm(id) {
   const t = id ? tripById(id) : null;
   document.getElementById('tripFormTitle').textContent = t ? '編輯小旅程' : '新增小旅程';
   document.getElementById('tripName').value = t?.name || '';
-  document.getElementById('tripDateStart').value = t?.dateStart || '';
-  document.getElementById('tripDateEnd').value = t?.dateEnd || '';
+  tcalInit(t?.dateStart || '', t?.dateEnd || '');
   document.getElementById('tripMemo').value = t?.memo || '';
   tripFormMembers = t ? [...(t.members||[])] : members.map(m=>m.name);
   buildTripMemberGrid();
@@ -1370,8 +1741,8 @@ async function submitTrip() {
   btn.disabled = true;
   const data = {
     name,
-    dateStart: document.getElementById('tripDateStart').value,
-    dateEnd:   document.getElementById('tripDateEnd').value,
+    dateStart: tcal.start,
+    dateEnd:   tcal.end || tcal.start,   // 只點一下＝一日遊
     members:   tripFormMembers,
     memo:      document.getElementById('tripMemo').value.trim(),
   };
@@ -1380,14 +1751,18 @@ async function submitTrip() {
       const resp = await gasPost({ action:'editTrip', id:editingTripId, ...data });
       const t = tripById(editingTripId);
       if (t) Object.assign(t, data);
+      closeTripForm();
+      renderMarkers();
+      openTrips();
     } else {
       const resp = await gasPost({ action:'addTrip', ...data });
       const id = resp?.msg?.id || ('tp' + Date.now());
-      trips.unshift({ id, ...data });
+      trips.unshift({ id, cards:[], ...data });
+      closeTripForm();
+      renderMarkers();
+      // 新旅程 → 行前快問快答生成小卡片
+      openTripQA(id);
     }
-    closeTripForm();
-    renderMarkers();
-    openTrips();
   } catch(e) {
     console.error('旅程儲存失敗', e);
     alert('儲存失敗，請稍後再試');
@@ -1525,6 +1900,7 @@ async function loadData() {
     const data = await res.json();
     if (Array.isArray(data.checkins)) applyCheckins(data.checkins);
     if (Array.isArray(data.trips)) trips = data.trips;
+    if (Array.isArray(data.members)) { applyMembers(data.members); buildTopbarMembers(); }
     buildTabs();
     renderMarkers();
   } catch(e) {

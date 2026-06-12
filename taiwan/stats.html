@@ -238,6 +238,16 @@ async function load() {
       const data = await res.json();
       if (Array.isArray(data.checkins)) checkins = data.checkins;
       if (Array.isArray(data.trips)) trips = data.trips;
+      // 雲端臨時成員併入（config 固定班底優先）
+      if (Array.isArray(data.members)) {
+        const known = new Set(CFG.members.map(m=>m.name));
+        data.members.forEach(m => {
+          if (m.name && !known.has(m.name)) {
+            CFG.members.push({ name:m.name, icon:m.icon||'🍇', color:m.color||'#8a4fbb' });
+            known.add(m.name);
+          }
+        });
+      }
     } catch(e) { console.warn('資料載入失敗', e); }
   }
   render();
