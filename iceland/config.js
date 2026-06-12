@@ -13,7 +13,7 @@ window.TRIP_CONFIG = {
   cacheKey:    'cached_iceland_budget',
 
   // ── Google Apps Script API
-  apiBase: 'https://script.google.com/macros/s/AKfycbyHZ794jnb5ow1WkFiddBtU5O-eg1vB3_Jch5jvpHwf3oxVqrw6Mfwt1YOXvcROAz2q/exec',
+  apiBase: 'https://script.google.com/macros/s/AKfycbxCZYlN5sf-uT3ea8f5fGcN1Bufzf3UR4qnhKn5a_T_Nc1yr3CNU5fn-Zg2q2iUsA6O/exec',
 
   // ── Cloudflare R2 圖片上傳 Worker
   r2Worker: 'https://worker-little-field-805c.xfish7.workers.dev',
