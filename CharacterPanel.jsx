@@ -1,4 +1,4 @@
-﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.4
+﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.5
 //
 // 安裝(建議,變成常駐面板):
 //   把這個檔案放到 AE 安裝目錄的 Support Files\Scripts\ScriptUI Panels\
@@ -549,6 +549,117 @@
         alert(sel.length + " 個圖層已綁到「" + nm + "」之下,劇情動作打在它身上。");
     }
 
+    // ================= 6. 節奏調整 =================
+
+    // 遞迴收集「有 2 個以上 key 且掛著 loopOut」的屬性(含 Puppet pin)
+    function scanLoopProps(group, out) {
+        for (var i = 1; i <= group.numProperties; i++) {
+            var p;
+            try { p = group.property(i); } catch (e) { continue; }
+            if (!p) continue;
+            if (p.propertyType === PropertyType.PROPERTY) {
+                try {
+                    if (p.numKeys >= 2 && p.expressionEnabled && p.expression.indexOf("loopOut") !== -1) out.push(p);
+                } catch (e) {}
+            } else {
+                try { scanLoopProps(p, out); } catch (e) {}
+            }
+        }
+    }
+
+    // 循環 key 節奏:輸入「一趟幾格」,把選取圖層上所有 loop 的 key 重新等比排時間
+    function retimeLoopKeys() {
+        var comp = activeComp(); if (!comp) return;
+        var sel = comp.selectedLayers;
+        if (sel.length === 0) { alert("先選取有循環 key 的圖層(嘴、呼吸、Puppet 都可以)。"); return; }
+        var fIn = prompt("循環一趟要幾格?(第一個到最後一個 key 的距離)", "7");
+        if (fIn === null) return;
+        var frames = parseFloat(fIn);
+        if (isNaN(frames) || frames <= 0) { alert("要輸入正數。"); return; }
+        var newSpan = frames * comp.frameDuration;
+
+        var count = 0;
+        app.beginUndoGroup("循環 key 節奏");
+        try {
+            for (var s = 0; s < sel.length; s++) {
+                var props = [];
+                scanLoopProps(sel[s], props);
+                for (var p = 0; p < props.length; p++) {
+                    var prop = props[p];
+                    var n = prop.numKeys;
+                    var t1 = prop.keyTime(1);
+                    var oldSpan = prop.keyTime(n) - t1;
+                    if (oldSpan <= 0) continue;
+                    var times = [], vals = [];
+                    for (var k = 1; k <= n; k++) {
+                        times.push(t1 + (prop.keyTime(k) - t1) * newSpan / oldSpan);
+                        vals.push(prop.keyValue(k));
+                    }
+                    for (var r = n; r >= 1; r--) prop.removeKey(r);
+                    for (var a = 0; a < n; a++) prop.setValueAtTime(times[a], vals[a]);
+                    count++;
+                }
+            }
+        } finally { app.endUndoGroup(); }
+        alert(count === 0 ? "選取的圖層上找不到「key + loopOut」的循環屬性。"
+                          : "已重排 " + count + " 個循環屬性,一趟 = " + frames + " 格。");
+    }
+
+    // 在表達式文字裡找「label + 數字」,把數字乘上倍率
+    function scaleNumber(ex, label, factor) {
+        var idx = ex.indexOf(label);
+        if (idx === -1) return null;
+        var start = idx + label.length, end = start;
+        while (end < ex.length && "0123456789.".indexOf(ex.charAt(end)) !== -1) end++;
+        var num = parseFloat(ex.substring(start, end));
+        if (isNaN(num)) return null;
+        var v = Math.round(num * factor * 100) / 100;
+        return ex.substring(0, idx) + label + v + ex.substring(end);
+    }
+
+    // 遞迴收集有表達式的屬性
+    function scanExprProps(group, out) {
+        for (var i = 1; i <= group.numProperties; i++) {
+            var p;
+            try { p = group.property(i); } catch (e) { continue; }
+            if (!p) continue;
+            if (p.propertyType === PropertyType.PROPERTY) {
+                try { if (p.expressionEnabled && p.expression !== "") out.push(p); } catch (e) {}
+            } else {
+                try { scanExprProps(p, out); } catch (e) {}
+            }
+        }
+    }
+
+    // 表達式倍速:speed/wiggle 乘上倍率、period 除以倍率(對面板生的說話/呼吸/漂浮都有效)
+    function retimeExprSpeed() {
+        var comp = activeComp(); if (!comp) return;
+        var sel = comp.selectedLayers;
+        if (sel.length === 0) { alert("先選取掛了動態表達式的圖層。"); return; }
+        var mIn = prompt("倍速?(2 = 快兩倍,0.5 = 慢一半)", "1.5");
+        if (mIn === null) return;
+        var m = parseFloat(mIn);
+        if (isNaN(m) || m <= 0) { alert("要輸入正數。"); return; }
+
+        var count = 0;
+        app.beginUndoGroup("表達式倍速");
+        try {
+            for (var s = 0; s < sel.length; s++) {
+                var props = [];
+                scanExprProps(sel[s], props);
+                for (var p = 0; p < props.length; p++) {
+                    var ex = props[p].expression, changed = false, r;
+                    r = scaleNumber(ex, "var speed = ", m);     if (r !== null) { ex = r; changed = true; }
+                    r = scaleNumber(ex, "period = ", 1 / m);    if (r !== null) { ex = r; changed = true; }
+                    r = scaleNumber(ex, "wiggle(", m);          if (r !== null) { ex = r; changed = true; }
+                    if (changed) { props[p].expression = ex; count++; }
+                }
+            }
+        } finally { app.endUndoGroup(); }
+        alert(count === 0 ? "選取的圖層上找不到可調速的表達式(speed / period / wiggle)。"
+                          : "已調整 " + count + " 個表達式,倍速 ×" + m + "。");
+    }
+
     // ---- 常用表達式庫(存在 AE 偏好設定,跨專案永久保留) ----
 
     var LIB_SECTION = "CharacterPanel_ExprLib";
@@ -590,7 +701,7 @@
 
     function buildUI(thisObj) {
         var pal = (thisObj instanceof Panel) ? thisObj
-                : new Window("palette", "角色工具 v1.4", undefined, { resizeable: true });
+                : new Window("palette", "角色工具 v1.5", undefined, { resizeable: true });
 
         pal.orientation = "column";
         pal.alignChildren = ["fill", "fill"];
@@ -603,7 +714,7 @@
         // --- 標記 ---
         var p1 = tabs.add("tab", undefined, "標記");
         p1.orientation = "column"; p1.alignChildren = ["fill", "top"]; p1.margins = 8;
-        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.4]");
+        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.5]");
         var rowA = p1.add("group"); var rowB = p1.add("group");
         var tagOrder = ["閉眼", "睜眼", "閉嘴", "張嘴", "眉", "汗", "耳", "鼻"];
         var fullRigCheck;
@@ -689,15 +800,89 @@
         bBr.onClick    = doBreath;
         bFl.onClick    = doFloat;
 
-        // --- 演出 ---
+        p2.add("statictext", undefined, "節奏(用數字調,不用憑感覺拉 key):");
+        var rowRt = p2.add("group");
+        var bLoopT = rowRt.add("button", undefined, "循環 key 節奏…"); bLoopT.preferredSize.width = 110;
+        var bExprT = rowRt.add("button", undefined, "表達式倍速…");   bExprT.preferredSize.width = 110;
+        bLoopT.onClick = retimeLoopKeys;
+        bExprT.onClick = retimeExprSpeed;
+
+        // --- 演出(遠端 key:人待在主場景,key 寫進角色的 control) ---
         var p3 = tabs.add("tab", undefined, "演出");
         p3.orientation = "column"; p3.alignChildren = ["fill", "top"]; p3.margins = 8;
-        p3.add("statictext", undefined, "停在目前時間,點按鈕打 HOLD key:");
+
+        var rigComps = [];
+        var rowChar = p3.add("group");
+        rowChar.add("statictext", undefined, "角色:");
+        var charDrop = rowChar.add("dropdownlist", undefined, []);
+        charDrop.preferredSize.width = 150;
+        var bScan = rowChar.add("button", undefined, "↻"); bScan.preferredSize.width = 30;
+
+        function refreshRigComps() {
+            rigComps = [];
+            charDrop.removeAll();
+            try {
+                for (var i = 1; i <= app.project.numItems; i++) {
+                    var it = app.project.item(i);
+                    if (it instanceof CompItem && findLayer(it, "control")) {
+                        rigComps.push(it);
+                        var folder = (it.parentFolder && it.parentFolder.name !== "Root")
+                                   ? "  [" + it.parentFolder.name + "]" : "";
+                        charDrop.add("item", it.name + folder);
+                    }
+                }
+            } catch (e) {}
+            if (charDrop.items.length > 0) charDrop.selection = 0;
+        }
+        refreshRigComps();
+        bScan.onClick = refreshRigComps;
+
+        function targetComp() {
+            if (!charDrop.selection) { alert("先按 ↻ 掃描專案,再從下拉選角色(有 control 的合成)。"); return null; }
+            return rigComps[charDrop.selection.index];
+        }
+
+        // 用「目前開著的合成」的時間下 key(你們所有合成都是同一條全片時間軸)
+        function nowTime(tc) {
+            var a = app.project.activeItem;
+            return (a instanceof CompItem) ? a.time : tc.time;
+        }
+
+        function remoteKey(sliderName, val) {
+            var tc = targetComp(); if (!tc) return;
+            app.beginUndoGroup("演出 key:" + sliderName);
+            try {
+                ensureControl(tc);
+                var slider = findLayer(tc, "control")
+                    .property("ADBE Effect Parade").property(sliderName).property(1);
+                var t = nowTime(tc);
+                slider.setValueAtTime(t, val);
+                var k = slider.nearestKeyIndex(t);
+                slider.setInterpolationTypeAtKey(k,
+                    KeyframeInterpolationType.HOLD, KeyframeInterpolationType.HOLD);
+            } finally { app.endUndoGroup(); }
+        }
+
+        p3.add("statictext", undefined, "停在目前時間,點按鈕(不用進頭合成):");
         var rowT = p3.add("group");
         var bOn  = rowT.add("button", undefined, "▶ 開始說話"); bOn.preferredSize.width = 110;
         var bOff = rowT.add("button", undefined, "■ 停止說話"); bOff.preferredSize.width = 110;
-        bOn.onClick  = function () { setMouthKey(true); };
-        bOff.onClick = function () { setMouthKey(false); };
+        bOn.onClick  = function () { var tc = targetComp(); if (!tc) return; remoteKey("mouth", talkValue(tc)); };
+        bOff.onClick = function () { remoteKey("mouth", 0); };
+
+        var rowX = p3.add("group");
+        rowX.add("statictext", undefined, "滑桿:");
+        var sldDrop = rowX.add("dropdownlist", undefined, ["eye", "mouth", "眉", "emo"]);
+        sldDrop.selection = 0;
+        rowX.add("statictext", undefined, "值:");
+        var valBox = rowX.add("edittext", undefined, "1");
+        valBox.preferredSize.width = 36;
+        var bKey = rowX.add("button", undefined, "下 HOLD key");
+        bKey.onClick = function () {
+            var v = parseFloat(valBox.text);
+            if (isNaN(v)) { alert("值要是數字。"); return; }
+            remoteKey(sldDrop.selection.text, v);
+        };
 
         // --- 表達式工具 ---
         var p4 = tabs.add("tab", undefined, "表達式");
