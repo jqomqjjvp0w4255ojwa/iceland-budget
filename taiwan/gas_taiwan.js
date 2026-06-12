@@ -26,8 +26,9 @@ var CHECKIN_HEADER = [
 ];
 
 // 旅程：A旅程ID B名稱 C開始日期 D結束日期 E成員(逗號分隔) F備忘 G建立時間
+//       H卡片JSON（行前資訊小卡：車票/住宿/租車/備忘…）
 var TRIP_HEADER = [
-  '旅程ID','名稱','開始日期','結束日期','成員','備忘','建立時間'
+  '旅程ID','名稱','開始日期','結束日期','成員','備忘','建立時間','卡片JSON'
 ];
 
 // 成員（旅程中臨時新增的成員；config.js 的固定班底不在這裡）：
@@ -120,6 +121,8 @@ function readTripSheet(sheet) {
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
     if (!r[0]) continue;
+    var cards = [];
+    try { cards = JSON.parse(r[7] || '[]'); } catch (e) {}
     trips.push({
       id:        r[0],
       name:      r[1] || '',
@@ -128,6 +131,7 @@ function readTripSheet(sheet) {
       members:   String(r[4] || '').split(',').map(function(s){return s.trim();}).filter(String),
       memo:      r[5] || '',
       createdAt: r[6] || '',
+      cards:     cards,
       _rowIndex: i + 1,
     });
   }
@@ -301,6 +305,7 @@ function doPost(e) {
         (payload.members || []).join(','),
         payload.memo      || '',
         now,
+        JSON.stringify(payload.cards || []),
       ];
       sheet.getRange(firstEmptyRow(sheet), 1, 1, row.length).setValues([row]);
       return ok({ msg: 'trip saved', id: id });
@@ -315,6 +320,7 @@ function doPost(e) {
       if (payload.dateEnd   !== undefined) sheet.getRange(rowIdx, 4).setValue(payload.dateEnd);
       if (payload.members   !== undefined) sheet.getRange(rowIdx, 5).setValue((payload.members || []).join(','));
       if (payload.memo      !== undefined) sheet.getRange(rowIdx, 6).setValue(payload.memo);
+      if (payload.cards     !== undefined) sheet.getRange(rowIdx, 8).setValue(JSON.stringify(payload.cards));
       return ok('trip updated');
     }
 
