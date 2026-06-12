@@ -1,6 +1,6 @@
 (function () {
   const API_BASE = (window.TRIP_CONFIG && window.TRIP_CONFIG.apiBase) ||
-    "https://script.google.com/macros/s/AKfycbxBdeUQOcSl0Lv5LAHhRm7E1LJjMXJMBj38bVpBdnOD3qAJ90hlF1geh145OKdT1t4b/exec";
+    "https://script.google.com/macros/s/AKfycbyHZ794jnb5ow1WkFiddBtU5O-eg1vB3_Jch5jvpHwf3oxVqrw6Mfwt1YOXvcROAz2q/exec";
   const CACHE_KEY = (window.TRIP_CONFIG && window.TRIP_CONFIG.cacheKey) || 'cached_iceland_budget';
   window._GAS_BASE = API_BASE;
   const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
