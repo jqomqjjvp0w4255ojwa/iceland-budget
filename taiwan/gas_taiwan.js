@@ -13,6 +13,7 @@ var SHEET_NAMES = {
   checkin: '寫入_腳印',
   trip:    '寫入_旅程',
   expense: '寫入_帳目',
+  member:  '寫入_成員',
 };
 
 // ── 各表標題列 ───────────────────────────────────────────
@@ -27,6 +28,12 @@ var CHECKIN_HEADER = [
 // 旅程：A旅程ID B名稱 C開始日期 D結束日期 E成員(逗號分隔) F備忘 G建立時間
 var TRIP_HEADER = [
   '旅程ID','名稱','開始日期','結束日期','成員','備忘','建立時間'
+];
+
+// 成員（旅程中臨時新增的成員；config.js 的固定班底不在這裡）：
+// A成員ID B名稱 C代表色 D Emoji E建立時間
+var MEMBER_HEADER = [
+  '成員ID','名稱','代表色','Emoji','建立時間'
 ];
 
 // 帳目（第二階段帳簿用，結構先定好）：
@@ -155,6 +162,24 @@ function readExpenseSheet(sheet) {
   return { expenses: expenses };
 }
 
+// ── 成員表 → 物件陣列 ────────────────────────────────────
+function readMemberSheet(sheet) {
+  var rows = sheet.getDataRange().getDisplayValues();
+  var members = [];
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    if (!r[0]) continue;
+    members.push({
+      id:    r[0],
+      name:  r[1] || '',
+      color: r[2] || '',
+      icon:  r[3] || '',
+      _rowIndex: i + 1,
+    });
+  }
+  return { members: members };
+}
+
 // ── doGet ────────────────────────────────────────────────
 //  ?sheet=all      → { checkins, trips, expenses }
 //  ?sheet=checkin  → { checkins }
@@ -172,6 +197,10 @@ function doGet(e) {
     if (param === 'all' || param === 'trips') {
       var ts = getOrCreateSheet(ss, SHEET_NAMES.trip, TRIP_HEADER);
       result.trips = readTripSheet(ts).trips;
+    }
+    if (param === 'all' || param === 'members') {
+      var ms = getOrCreateSheet(ss, SHEET_NAMES.member, MEMBER_HEADER);
+      result.members = readMemberSheet(ms).members;
     }
     if (param === 'all' || param === 'expenses') {
       var es = getOrCreateSheet(ss, SHEET_NAMES.expense, EXPENSE_HEADER);
@@ -295,6 +324,37 @@ function doPost(e) {
       if (rowIdx < 2) throw new Error('找不到旅程');
       sheet.deleteRow(rowIdx);
       return ok('trip deleted');
+    }
+
+    // ════ 成員 ════════════════════════════════════════════
+    if (action === 'addMember') {
+      var sheet = getOrCreateSheet(ss, SHEET_NAMES.member, MEMBER_HEADER);
+      if (!payload.name) throw new Error('缺少成員名稱');
+      // 同名不重複建
+      var bVals = sheet.getRange('B:B').getValues();
+      for (var i = 1; i < bVals.length; i++) {
+        if (String(bVals[i][0]||'').trim() === payload.name) {
+          return ok({ msg: 'member exists', id: String(sheet.getRange(i+1,1).getValue()) });
+        }
+      }
+      var id  = 'mb_' + new Date().getTime();
+      var row = [
+        id,
+        payload.name,
+        payload.color || '',
+        payload.icon  || '',
+        new Date().toISOString(),
+      ];
+      sheet.getRange(firstEmptyRow(sheet), 1, 1, row.length).setValues([row]);
+      return ok({ msg: 'member saved', id: id });
+    }
+
+    if (action === 'deleteMember') {
+      var sheet = getOrCreateSheet(ss, SHEET_NAMES.member, MEMBER_HEADER);
+      var rowIdx = payload.rowIndex || findRowById(sheet, payload.id || '');
+      if (rowIdx < 2) throw new Error('找不到成員');
+      sheet.deleteRow(rowIdx);
+      return ok('member deleted');
     }
 
     // ════ 帳目（第二階段帳簿）═════════════════════════════

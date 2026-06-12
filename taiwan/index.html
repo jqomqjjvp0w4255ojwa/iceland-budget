@@ -372,6 +372,21 @@ body{
 .submit-btn:active{background:#d84848;}
 .submit-btn:disabled{background:#dcc8a8;cursor:not-allowed;}
 
+/* ── 範圍日曆（點兩下選起訖） */
+.tcal{border:1.5px solid var(--border);border-radius:var(--radius);background:#fffdf7;padding:8px;}
+.tcal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.tcal-title{font-size:10px;color:var(--text);letter-spacing:1px;}
+.tcal-nav{width:30px;height:26px;border:1.5px solid var(--border2);background:var(--panel2);color:var(--text);font-family:var(--px);font-size:10px;border-radius:4px;cursor:pointer;}
+.tcal-nav:active{background:var(--border);}
+.tcal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.tcal-dow{font-size:8px;color:var(--muted);text-align:center;padding:2px 0;}
+.tcal-day{font-size:9px;text-align:center;padding:8px 0;border-radius:4px;cursor:pointer;color:var(--text);user-select:none;-webkit-user-select:none;}
+.tcal-day:active{background:var(--panel2);}
+.tcal-day.today{box-shadow:inset 0 0 0 1.5px var(--mango);}
+.tcal-day.inr{background:#ffe9e9;color:#d84848;}
+.tcal-day.sel{background:var(--accent);color:#fff;}
+.tcal-label{font-size:8px;color:var(--muted);margin-top:6px;text-align:center;line-height:1.6;}
+
 /* ── 旅程列表 */
 .trip-item{
   border:1.5px solid var(--border);border-radius:var(--radius);
@@ -594,11 +609,9 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
         <input class="form-input" id="tripName" placeholder="例：台南小旅行" maxlength="30" style="margin-top:0;">
       </div>
       <div class="step-row">
-        <div class="step-label">日期</div>
-        <div style="display:flex;gap:8px;">
-          <input class="form-input" type="date" id="tripDateStart" style="margin-top:0;flex:1;">
-          <input class="form-input" type="date" id="tripDateEnd" style="margin-top:0;flex:1;">
-        </div>
+        <div class="step-label">日期（點第 1 下＝出發、第 2 下＝回程）</div>
+        <div class="tcal" id="tripCal"></div>
+        <div class="tcal-label" id="tripCalLabel">尚未選擇日期</div>
       </div>
       <div class="step-row">
         <div class="step-label">成員</div>
@@ -679,7 +692,7 @@ function spriteSvg(m) {
 let checkins = [];
 let trips = [];
 let filters = { checkin:true, wish:true };
-const members = CFG.members;
+let members = [...CFG.members];   // config 固定班底＋雲端臨時成員
 let drawerOpen = false;
 let currentTab = 'all';
 let memberFilter = null;
@@ -1281,6 +1294,104 @@ async function submitCheckin() {
 }
 
 // ══════════════════════════════════════════
+//  範圍日曆：第 1 下選出發日、第 2 下選回程日
+// ══════════════════════════════════════════
+let tcal = { y:0, m:0, start:'', end:'' };  // m: 0-11
+
+function fmtD(y,m,d){ return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+
+function tcalInit(start, end) {
+  const base = start ? new Date(start) : new Date();
+  tcal = { y:base.getFullYear(), m:base.getMonth(), start:start||'', end:end||'' };
+  renderTripCal();
+}
+
+function tcalNav(dir) {
+  tcal.m += dir;
+  if (tcal.m < 0)  { tcal.m = 11; tcal.y--; }
+  if (tcal.m > 11) { tcal.m = 0;  tcal.y++; }
+  renderTripCal();
+}
+
+function tcalPick(dateStr) {
+  if (!tcal.start || (tcal.start && tcal.end)) {
+    // 第 1 下（或重選）：設出發日、清回程
+    tcal.start = dateStr; tcal.end = '';
+  } else if (dateStr < tcal.start) {
+    // 點得比出發日早 → 當成重選出發日
+    tcal.start = dateStr;
+  } else {
+    // 第 2 下：設回程日（同一天也可以，一日遊）
+    tcal.end = dateStr;
+  }
+  renderTripCal();
+}
+
+function renderTripCal() {
+  const el = document.getElementById('tripCal');
+  const first = new Date(tcal.y, tcal.m, 1);
+  const days = new Date(tcal.y, tcal.m+1, 0).getDate();
+  const pad = first.getDay();
+  const todayStr = fmtD(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  let cells = ['日','一','二','三','四','五','六'].map(d=>`<div class="tcal-dow">${d}</div>`).join('');
+  for (let i=0;i<pad;i++) cells += '<div></div>';
+  for (let d=1;d<=days;d++) {
+    const ds = fmtD(tcal.y, tcal.m, d);
+    let cls = 'tcal-day';
+    if (ds === todayStr) cls += ' today';
+    if (ds === tcal.start || ds === tcal.end) cls += ' sel';
+    else if (tcal.start && tcal.end && ds > tcal.start && ds < tcal.end) cls += ' inr';
+    cells += `<div class="${cls}" onclick="tcalPick('${ds}')">${d}</div>`;
+  }
+  el.innerHTML = `
+    <div class="tcal-head">
+      <button class="tcal-nav" type="button" onclick="tcalNav(-1)">◀</button>
+      <div class="tcal-title">${tcal.y} 年 ${tcal.m+1} 月</div>
+      <button class="tcal-nav" type="button" onclick="tcalNav(1)">▶</button>
+    </div>
+    <div class="tcal-grid">${cells}</div>`;
+  const lbl = document.getElementById('tripCalLabel');
+  if (tcal.start && tcal.end) lbl.textContent = `🧳 ${tcal.start} 出發 → ${tcal.end} 回程`;
+  else if (tcal.start) lbl.textContent = `🧳 ${tcal.start} 出發 → 再點一下選回程日`;
+  else lbl.textContent = '尚未選擇日期';
+}
+
+// ══════════════════════════════════════════
+//  臨時新增成員（存雲端成員表，所有裝置共享）
+// ══════════════════════════════════════════
+const NEW_MEMBER_ICONS  = ['🍇','🍍','🥭','🍑','🍓','🥝','🍌','🍈'];
+const NEW_MEMBER_COLORS = ['#8a4fbb','#d9a514','#ff8c1a','#ff9e9e','#e0335c','#7aa844','#e8c531','#7ec8a0'];
+
+function applyMembers(cloud) {
+  const known = new Set(CFG.members.map(m=>m.name));
+  const extra = (cloud||[]).filter(m=>m.name && !known.has(m.name)).map((m,i)=>({
+    name:  m.name,
+    icon:  m.icon  || NEW_MEMBER_ICONS[i % NEW_MEMBER_ICONS.length],
+    color: m.color || NEW_MEMBER_COLORS[i % NEW_MEMBER_COLORS.length],
+  }));
+  members = [...CFG.members, ...extra];
+}
+
+async function addNewMember() {
+  const name = (prompt('新成員的名字？') || '').trim();
+  if (!name) return;
+  if (members.some(m=>m.name===name)) { alert('已經有這位成員了'); }
+  else {
+    const i = members.length - CFG.members.length;
+    const m = {
+      name,
+      icon:  NEW_MEMBER_ICONS[i % NEW_MEMBER_ICONS.length],
+      color: NEW_MEMBER_COLORS[i % NEW_MEMBER_COLORS.length],
+    };
+    members.push(m);
+    buildTopbarMembers();
+    gasPost({ action:'addMember', name:m.name, color:m.color, icon:m.icon });
+  }
+  if (!tripFormMembers.includes(name)) tripFormMembers.push(name);
+  buildTripMemberGrid();
+}
+
+// ══════════════════════════════════════════
 //  小旅程
 // ══════════════════════════════════════════
 let editingTripId = null;
@@ -1338,7 +1449,10 @@ function buildTripMemberGrid() {
       <div class="member-choice-avatar">${spriteSvg(m)}</div>
       <div class="member-choice-name">${m.name}</div>
     </div>`
-  ).join('');
+  ).join('') + `<div class="member-choice" onclick="addNewMember()" style="border-style:dashed;background:transparent;">
+      <div class="member-choice-avatar" style="font-size:22px;color:var(--muted);">＋</div>
+      <div class="member-choice-name" style="color:var(--muted);">新成員</div>
+    </div>`;
 }
 function toggleTripMember(name) {
   const i = tripFormMembers.indexOf(name);
@@ -1351,8 +1465,7 @@ function openTripForm(id) {
   const t = id ? tripById(id) : null;
   document.getElementById('tripFormTitle').textContent = t ? '編輯小旅程' : '新增小旅程';
   document.getElementById('tripName').value = t?.name || '';
-  document.getElementById('tripDateStart').value = t?.dateStart || '';
-  document.getElementById('tripDateEnd').value = t?.dateEnd || '';
+  tcalInit(t?.dateStart || '', t?.dateEnd || '');
   document.getElementById('tripMemo').value = t?.memo || '';
   tripFormMembers = t ? [...(t.members||[])] : members.map(m=>m.name);
   buildTripMemberGrid();
@@ -1370,8 +1483,8 @@ async function submitTrip() {
   btn.disabled = true;
   const data = {
     name,
-    dateStart: document.getElementById('tripDateStart').value,
-    dateEnd:   document.getElementById('tripDateEnd').value,
+    dateStart: tcal.start,
+    dateEnd:   tcal.end || tcal.start,   // 只點一下＝一日遊
     members:   tripFormMembers,
     memo:      document.getElementById('tripMemo').value.trim(),
   };
@@ -1525,6 +1638,7 @@ async function loadData() {
     const data = await res.json();
     if (Array.isArray(data.checkins)) applyCheckins(data.checkins);
     if (Array.isArray(data.trips)) trips = data.trips;
+    if (Array.isArray(data.members)) { applyMembers(data.members); buildTopbarMembers(); }
     buildTabs();
     renderMarkers();
   } catch(e) {
