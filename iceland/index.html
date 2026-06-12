@@ -325,15 +325,14 @@
     .swipe-card-wrap{position:relative;border-radius:8px;margin-bottom:8px;}
     .swipe-hint{
       display:block;
-      position:absolute;top:8px;right:8px;
+      position:absolute;top:50%;right:6px;transform:translateY(-50%);
       font-size:1.05rem;color:var(--muted);opacity:.6;cursor:pointer;
-      line-height:1;padding:4px 8px;z-index:3;
-      border:1px solid var(--border);border-radius:6px;background:var(--bg3,rgba(0,0,0,.2));
+      line-height:1;padding:6px 8px;z-index:3;
     }
     .swipe-card-wrap:hover .swipe-hint,.swipe-card-wrap.open .swipe-hint{opacity:1;}
     .swipe-card-actions{
       display:none;
-      position:absolute;right:8px;top:38px;z-index:20;
+      position:absolute;right:8px;top:calc(50% + 16px);z-index:20;
       flex-direction:column;
       background:var(--card,#1c2430);
       border:1px solid var(--border);border-radius:8px;

@@ -235,6 +235,28 @@
     };
   }
 
+  // 地圖深連結：#editExp=rowIndex → 自動打開該筆消費的編輯窗
+  function maybeOpenDeepLink() {
+    const m = location.hash.match(/^#editExp=(\d+)$/);
+    if (!m) return;
+    const rowIndex = parseInt(m[1], 10);
+    const item = (window.APP_DATA?.expenses || []).find(e => e._rowIndex === rowIndex);
+    if (!item) return;
+    history.replaceState(null, '', location.pathname + location.search); // 用過即清
+    const splitSel = (item.splitMode||'').split(',').map(x=>x.trim())
+      .filter(x => (window.TRIP_MEMBERS||[]).includes(x));
+    window.openEditExpense?.(rowIndex, {
+      category: item.category, amount: item.amount, currency: item.currency,
+      twd: item.twd, location: item.location, note: item.note, date: item.date, payer: item.payer,
+      isShared: item.isShared, title: item.title, qty: item.qty,
+      splitMode: item.splitMode,
+      splitSel: splitSel.length ? splitSel : Object.keys(item.burden||{}).filter(k=>(item.burden[k]||0)>0),
+      customAmt: item.burden||{},
+      tags: item.tags||'',
+    });
+  }
+  window.__maybeOpenDeepLink = maybeOpenDeepLink;
+
   window.__syncIcelandBudgetFromSheets = async function () {
     // 還有離線記帳未送出時，先送佇列再同步，避免雲端舊資料覆蓋本地新增
     if (window.getPendingCount?.() > 0) {
@@ -270,6 +292,7 @@
       localStorage.setItem(CACHE_KEY, JSON.stringify(window.APP_DATA));
       window.renderAll?.();
       window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+      window.__maybeOpenDeepLink?.();
 
     } catch (error) {
       console.error(error);
