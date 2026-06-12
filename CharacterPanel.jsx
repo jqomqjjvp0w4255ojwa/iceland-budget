@@ -193,6 +193,52 @@
         } finally { app.endUndoGroup(); }
     }
 
+    // ---- 特殊表情(暈眼、X眼、哭嚎嘴…):掛到滑桿的下一個空值 ----
+
+    function nextSliderValue(comp, sliderName) {
+        // 標準慣例已占用的最大值
+        var reserved = { eye: 1, mouth: 3, "眉": 3, emo: 3 };
+        var maxV = (reserved[sliderName] !== undefined) ? reserved[sliderName] : 0;
+        for (var i = 1; i <= comp.numLayers; i++) {
+            try {
+                var op = opacityProp(comp.layer(i));
+                if (!op.expressionEnabled) continue;
+                var ex = op.expression;
+                if (ex.indexOf('effect("' + sliderName + '")') === -1) continue;
+                var m = ex.match(/==\s*(\d+)/);
+                if (m && parseInt(m[1], 10) > maxV) maxV = parseInt(m[1], 10);
+            } catch (e) {}
+        }
+        return maxV + 1;
+    }
+
+    function doSpecialTag() {
+        var comp = activeComp(); if (!comp) return;
+        var sel = comp.selectedLayers;
+        if (sel.length === 0) { alert("先選取特殊表情的圖層(暈眼、X眼、哭嚎嘴…)再按。"); return; }
+        var sliderName = prompt("掛在哪個滑桿?(eye / mouth / 眉 / emo)", "eye");
+        if (sliderName === null) return;
+        if (sliderName !== "eye" && sliderName !== "mouth" && sliderName !== "眉" && sliderName !== "emo") {
+            alert("滑桿名稱要是 eye / mouth / 眉 / emo 其中之一。"); return;
+        }
+        app.beginUndoGroup("特殊狀態標記");
+        try {
+            ensureControl(comp);
+            var v = nextSliderValue(comp, sliderName);
+            var vIn = prompt("用哪個滑桿值?(這個滑桿下一個空值是 " + v + ")", String(v));
+            if (vIn === null) return;
+            v = parseInt(vIn, 10); if (isNaN(v)) return;
+            var base = prompt("圖層命名(方便之後辨認,例:暈眼):", sel[0].name);
+            if (base === null) return;
+            for (var i = 0; i < sel.length; i++) {
+                if (base !== "") sel[i].name = (i === 0) ? base : base + " " + (i + 1);
+                opacityProp(sel[i]).expression = switchExpr(sliderName, v);
+            }
+            alert("完成!演出時把 control > " + sliderName + " 滑桿切到 " + v +
+                  " 就會顯示「" + base + "」。\n(滑桿 key 記得用 HOLD)");
+        } finally { app.endUndoGroup(); }
+    }
+
     // ================= 2. 一鍵動態 =================
 
     function doBlink() {
@@ -387,6 +433,43 @@
         alert(msg);
     }
 
+    // ---- 常用表達式庫(存在 AE 偏好設定,跨專案永久保留) ----
+
+    var LIB_SECTION = "CharacterPanel_ExprLib";
+
+    function libSave(items) {
+        try {
+            app.settings.saveSetting(LIB_SECTION, "count", String(items.length));
+            for (var i = 0; i < items.length; i++) {
+                app.settings.saveSetting(LIB_SECTION, "name_" + i, encodeURIComponent(items[i].name));
+                app.settings.saveSetting(LIB_SECTION, "expr_" + i, encodeURIComponent(items[i].expr));
+            }
+        } catch (e) {}
+    }
+
+    function libLoad() {
+        var items = [];
+        try {
+            if (!app.settings.haveSetting(LIB_SECTION, "count")) {
+                // 第一次使用先放兩個範例
+                items = [
+                    { name: "持續旋轉(暈眼用)", expr: "value + time * 180" },
+                    { name: "驚嚇震動", expr: "wiggle(12, 6)" }
+                ];
+                libSave(items);
+                return items;
+            }
+            var n = parseInt(app.settings.getSetting(LIB_SECTION, "count"), 10) || 0;
+            for (var i = 0; i < n; i++) {
+                items.push({
+                    name: decodeURIComponent(app.settings.getSetting(LIB_SECTION, "name_" + i)),
+                    expr: decodeURIComponent(app.settings.getSetting(LIB_SECTION, "expr_" + i))
+                });
+            }
+        } catch (e) {}
+        return items;
+    }
+
     // ================= UI =================
 
     function buildUI(thisObj) {
@@ -411,6 +494,9 @@
                 b.onClick = function () { doTag(base, fullRigCheck.value); };
             })(tagOrder[i]);
         }
+        var bSpec = rowB.add("button", undefined, "特殊…");
+        bSpec.preferredSize.width = 52;
+        bSpec.onClick = doSpecialTag;
         fullRigCheck = p1.add("checkbox", undefined, "完整綁定(建 face/eye/mouth/ear Null 並 parent)");
         fullRigCheck.value = false;
 
@@ -472,6 +558,51 @@
             var txt = customBox.text;
             if (!txt || txt.replace(/\s/g, "") === "") { alert("先在上面的框貼入表達式。"); return; }
             applyExprToSelection(txt, propDrop.selection.index, "套用自訂表達式");
+        };
+
+        // --- 常用表達式庫 ---
+        p4.add("statictext", undefined, "我的常用表達式(點一下=載入上面的框,雙擊=直接套用):");
+        var libItems = libLoad();
+        var rowLib = p4.add("group"); rowLib.alignChildren = ["fill", "fill"];
+        var libList = rowLib.add("listbox", undefined, []);
+        libList.preferredSize = [170, 84];
+        var libBtns = rowLib.add("group");
+        libBtns.orientation = "column"; libBtns.alignChildren = ["fill", "top"];
+        var bLibApply = libBtns.add("button", undefined, "套用");
+        var bLibAdd   = libBtns.add("button", undefined, "+ 存入");
+        var bLibDel   = libBtns.add("button", undefined, "− 刪除");
+
+        function refreshLib() {
+            libList.removeAll();
+            for (var i = 0; i < libItems.length; i++) libList.add("item", libItems[i].name);
+        }
+        refreshLib();
+
+        libList.onChange = function () {
+            if (libList.selection) customBox.text = libItems[libList.selection.index].expr;
+        };
+        libList.onDoubleClick = function () {
+            if (libList.selection)
+                applyExprToSelection(libItems[libList.selection.index].expr, propDrop.selection.index, "套用常用表達式");
+        };
+        bLibApply.onClick = function () {
+            if (!libList.selection) { alert("先在清單選一個表達式。"); return; }
+            applyExprToSelection(libItems[libList.selection.index].expr, propDrop.selection.index, "套用常用表達式");
+        };
+        bLibAdd.onClick = function () {
+            var txt = customBox.text;
+            if (!txt || txt.replace(/\s/g, "") === "") { alert("先把表達式貼進上面的框,再按「存入」。"); return; }
+            var nm = prompt("幫這個表達式取個名字:", "");
+            if (!nm) return;
+            libItems.push({ name: nm, expr: txt });
+            libSave(libItems);
+            refreshLib();
+        };
+        bLibDel.onClick = function () {
+            if (!libList.selection) { alert("先在清單選一個要刪的。"); return; }
+            libItems.splice(libList.selection.index, 1);
+            libSave(libItems);
+            refreshLib();
         };
 
         pal.layout.layout(true);
