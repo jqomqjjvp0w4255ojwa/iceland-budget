@@ -699,6 +699,14 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
         <div class="step-label">內容（時間、地址、訂位代號…什麼都能塞）</div>
         <textarea class="diary-textarea" id="cardTextInput" maxlength="500" style="height:130px;" placeholder="例：&#10;9/14 08:05 台北→台南&#10;車次 123 · 訂位代號 ABC123"></textarea>
       </div>
+      <div class="step-row">
+        <div class="step-label">地點（設定後，旅程篩選時會出現在地圖上）</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="trip-btn" style="flex:1;padding:9px;" onclick="pickCardLocation()">📍 在地圖上選點</button>
+          <button class="trip-btn" id="cardLocClear" style="display:none;" onclick="clearCardLocation()">✕ 清除</button>
+        </div>
+        <div style="font-size:8px;color:var(--muted);margin-top:6px;" id="cardLocStatus">尚未設定</div>
+      </div>
       <button class="submit-btn" onclick="saveCardEdit()">💾 儲存卡片</button>
       <button class="qa-skip" style="color:#d84848;" onclick="deleteCardEdit()">🗑 刪除這張卡</button>
     </div>
@@ -780,6 +788,7 @@ let pendingCheckin = {};
 let pendingWishId = null; // 想去 → 打卡轉換時，要移除的想去項目
 let currentCommentId = null;
 let pickingLocation = false;
+let pickingCard = null;   // {tripId, cardId} 行前卡片選點中
 let markers = {};
 const isDesktop = () => window.matchMedia('(min-width:900px)').matches;
 
@@ -840,6 +849,23 @@ map.on('zoomend', () => renderMarkers());
 
 map.on('click', e => {
   closeLayers();
+  // 行前卡片選點模式
+  if (pickingCard) {
+    const t = tripById(pickingCard.tripId);
+    const c = t?.cards?.find(x=>x.id===pickingCard.cardId);
+    const pc = pickingCard;
+    pickingCard = null;
+    map.getContainer().style.cursor = '';
+    if (t && c) {
+      c.lat = e.latlng.lat;
+      c.lng = e.latlng.lng;
+      saveTripCards(t);
+      renderMarkers();
+      openTripDetail(pc.tripId);
+      openCardEdit(pc.cardId);
+    }
+    return;
+  }
   if (!pickingLocation) return;
   pendingCheckin.lat = e.latlng.lat;
   pendingCheckin.lng = e.latlng.lng;
@@ -899,7 +925,44 @@ function renderMarkers() {
     markers[item.id] = marker;
     clusterGroup.addLayer(marker);
   });
+  // 旅程篩選時：該旅程有座標的行前卡片浮上地圖
+  if (tripFilter) {
+    const t = tripById(tripFilter);
+    (t?.cards || []).filter(c => c.lat && c.lng).forEach(c => {
+      const marker = L.marker([c.lat, c.lng], {
+        icon: L.divIcon({
+          html:`<div style="width:34px;height:34px;border:2px solid var(--border2,#e0b35e);border-radius:8px;background:#fffaf0;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:2px 2px 0 rgba(180,130,60,0.3);">${c.icon}</div>`,
+          className:'', iconSize:[34,34], iconAnchor:[17,17],
+        }),
+        fallbackIcon: c.icon, memberColor:'#e0b35e', svgData:null,
+      }).bindPopup(() => buildCardPopup(t, c), { className:'px-popup', maxWidth:240 });
+      clusterGroup.addLayer(marker);
+    });
+  }
+
   renderCards();
+}
+
+function buildCardPopup(t, c) {
+  const el = document.createElement('div');
+  el.className = 'popup-inner';
+  el.innerHTML = `
+    <div class="popup-header">
+      <div class="popup-icon" style="font-size:22px;">${c.icon}</div>
+      <div style="flex:1;">
+        <div class="popup-title">${c.title}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:3px;">
+          <span class="diary-tag tag-trip">🧳 ${t.name}</span>
+        </div>
+      </div>
+    </div>
+    ${c.text?`<div class="popup-note" style="white-space:pre-wrap;">${c.text}</div>`:''}
+    <div class="popup-actions">
+      <button class="popup-action-btn" onclick="navigateTo(${c.lat},${c.lng})">➤ 導航</button>
+      <button class="popup-action-btn" onclick="map.closePopup();openTripDetail('${t.id}');openCardEdit('${c.id}')">✎ 編輯卡片</button>
+    </div>
+  `;
+  return el;
 }
 
 function typeMeta(t) {
@@ -1582,7 +1645,7 @@ function renderTripDetail() {
     <div class="tcard-grid">
       ${cards.map(c => `
         <div class="tcard" onclick="openCardEdit('${c.id}')">
-          <div class="tcard-head"><span class="tcard-icon">${c.icon}</span><span class="tcard-title">${c.title}</span></div>
+          <div class="tcard-head"><span class="tcard-icon">${c.icon}</span><span class="tcard-title">${c.title}</span>${c.lat?'<span style="font-size:9px;">📍</span>':''}</div>
           <div class="tcard-text ${c.text?'':'tcard-empty'}">${c.text || '點我填入資訊…'}</div>
         </div>`).join('')}
     </div>
@@ -1625,7 +1688,39 @@ function openCardEdit(cardId) {
   document.getElementById('cardEditTitle').textContent = c.icon + ' 編輯卡片';
   document.getElementById('cardTitleInput').value = c.title;
   document.getElementById('cardTextInput').value = c.text || '';
+  updateCardLocStatus(c);
   document.getElementById('cardEditModal').classList.add('show');
+}
+
+function updateCardLocStatus(c) {
+  const has = !!(c.lat && c.lng);
+  document.getElementById('cardLocStatus').textContent = has
+    ? `📍 已設定（${(+c.lat).toFixed(4)}, ${(+c.lng).toFixed(4)}）`
+    : '尚未設定';
+  document.getElementById('cardLocClear').style.display = has ? '' : 'none';
+}
+
+// 進入地圖選點模式（先把目前編輯內容存起來，免得選完點消失）
+function pickCardLocation() {
+  const t = tripById(detailTripId);
+  const c = t?.cards?.find(x=>x.id===editingCardId);
+  if (!c) return;
+  c.title = document.getElementById('cardTitleInput').value.trim() || c.title;
+  c.text  = document.getElementById('cardTextInput').value.trim();
+  pickingCard = { tripId: detailTripId, cardId: editingCardId };
+  document.getElementById('cardEditModal').classList.remove('show');
+  closeTripDetailOnly();
+  map.getContainer().style.cursor = 'crosshair';
+}
+
+function clearCardLocation() {
+  const t = tripById(detailTripId);
+  const c = t?.cards?.find(x=>x.id===editingCardId);
+  if (!c) return;
+  delete c.lat; delete c.lng;
+  saveTripCards(t);
+  renderMarkers();
+  updateCardLocStatus(c);
 }
 function closeCardEdit() {
   document.getElementById('cardEditModal').classList.remove('show');
@@ -1640,6 +1735,7 @@ function saveCardEdit() {
   saveTripCards(t);
   closeCardEdit();
   renderTripDetail();
+  renderMarkers();
 }
 function deleteCardEdit() {
   const t = tripById(detailTripId);
@@ -1649,6 +1745,7 @@ function deleteCardEdit() {
   saveTripCards(t);
   closeCardEdit();
   renderTripDetail();
+  renderMarkers();
 }
 
 // ══════════════════════════════════════════
