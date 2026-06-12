@@ -321,28 +321,32 @@
       content:'▶';position:absolute;right:8px;top:50%;transform:translateY(-50%);
       font-size:8px;opacity:.6;
     }
-    /* ══ 滑動卡片 ══ */
-    .swipe-card-wrap{position:relative;overflow:hidden;border-radius:8px;margin-bottom:8px;}
-    /* 電腦版滑動提示（觸控裝置隱藏） */
+    /* ══ 卡片「⋮」直排選單（手機/電腦統一，不再左滑） ══ */
+    .swipe-card-wrap{position:relative;border-radius:8px;margin-bottom:8px;}
     .swipe-hint{
+      display:block;
+      position:absolute;top:8px;right:8px;
+      font-size:1.05rem;color:var(--muted);opacity:.6;cursor:pointer;
+      line-height:1;padding:4px 8px;z-index:3;
+      border:1px solid var(--border);border-radius:6px;background:var(--bg3,rgba(0,0,0,.2));
+    }
+    .swipe-card-wrap:hover .swipe-hint,.swipe-card-wrap.open .swipe-hint{opacity:1;}
+    .swipe-card-actions{
       display:none;
-      position:absolute;top:50%;right:10px;transform:translateY(-50%);
-      font-size:1.2rem;color:var(--muted);opacity:.5;pointer-events:all;cursor:pointer;
-      line-height:1;letter-spacing:-2px;
+      position:absolute;right:8px;top:38px;z-index:20;
+      flex-direction:column;
+      background:var(--card,#1c2430);
+      border:1px solid var(--border);border-radius:8px;
+      overflow:hidden;
+      box-shadow:0 4px 14px rgba(0,0,0,.45);
     }
-    @media(hover:hover){
-      .swipe-hint{ display:block; }
-      .swipe-card-wrap:hover .swipe-hint{ opacity:.8; }
-      .swipe-card-wrap.open .swipe-hint{ display:none; }
-    }
-    .swipe-card-actions{position:absolute;right:0;top:0;bottom:0;display:flex;align-items:stretch;transform:translateX(100%);transition:transform .25s ease;z-index:1;}
-    .swipe-card-wrap.open .swipe-card-actions{transform:translateX(0);}
-    .swipe-action-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:60px;cursor:pointer;border:none;font-family:'Silkscreen',monospace;font-size:6px;}
-    .swipe-action-btn.edit{background:#2a4a7a;color:#81d4fa;}
-    .swipe-action-btn.delete{background:#6a1a1a;color:#ff8a80;}
-    .swipe-action-btn span{font-size:1.1rem;line-height:1;}
-    .swipe-card-content{position:relative;z-index:2;background:var(--card);transition:transform .25s ease;touch-action:pan-y;}
-    .swipe-card-wrap.open .swipe-card-content{transform:translateX(-120px);}
+    .swipe-card-wrap.open .swipe-card-actions{display:flex;}
+    .swipe-action-btn{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-width:96px;padding:10px 14px;cursor:pointer;border:none;font-family:'Silkscreen',monospace;font-size:8px;background:transparent;}
+    .swipe-action-btn.edit{color:#81d4fa;}
+    .swipe-action-btn.delete{color:#ff8a80;border-top:1px solid var(--border);}
+    .swipe-action-btn:active{background:rgba(255,255,255,.06);}
+    .swipe-action-btn span{font-size:1rem;line-height:1;}
+    .swipe-card-content{position:relative;z-index:2;background:var(--card);}
     /* ══ 刪除確認框 ══ */
     .px-delete-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:center;justify-content:center;}
     .px-delete-overlay.show{display:flex;}

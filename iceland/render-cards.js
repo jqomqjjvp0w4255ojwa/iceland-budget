@@ -240,7 +240,7 @@ function renderDaily(expenses) {
           </button>
         </div>
         <div class="swipe-card-content card" style="position:relative;${item.isShared?'border:1.5px solid rgba(78,195,121,.35);':''}">
-          <span class="swipe-hint" title="點擊或滑動可修改/刪除" onclick="this.closest('.swipe-card-wrap').classList.toggle('open')">⋮</span>
+          <span class="swipe-hint" title="修改/刪除" onclick="const w=this.closest('.swipe-card-wrap');document.querySelectorAll('.swipe-card-wrap.open').forEach(x=>{if(x!==w)x.classList.remove('open')});w.classList.toggle('open')">⋮</span>
           <div style="padding:10px 14px 10px;">
             <!-- 第一行：[類別][共同/個人] ---- NT金額 -->
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
@@ -315,71 +315,13 @@ function renderDaily(expenses) {
 
 
 window.initSwipeCards = function(container) {
+  // 已改為「⋮」直排選單：不再有滑動手勢，只處理點外面自動關閉
   const wraps = container.querySelectorAll('.swipe-card-wrap');
-  wraps.forEach(wrap => {
-    let startX = 0, startY = 0, isDragging = false, isHoriz = null;
-    const content = wrap.querySelector('.swipe-card-content');
-    if (!content) return;
-
-    function openCard()  { wraps.forEach(w => w.classList.remove('open')); wrap.classList.add('open'); }
-    function closeCard() { wrap.classList.remove('open'); }
-
-    // ── 觸控
-    content.addEventListener('touchstart', e => {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      isDragging = false; isHoriz = null;
-    }, {passive:true});
-
-    content.addEventListener('touchmove', e => {
-      const dx = e.touches[0].clientX - startX;
-      const dy = e.touches[0].clientY - startY;
-      if (isHoriz === null) isHoriz = Math.abs(dx) > Math.abs(dy);
-      if (!isHoriz) return;
-      e.preventDefault();
-      isDragging = true;
-    }, {passive:false});
-
-    content.addEventListener('touchend', e => {
-      if (!isDragging) return;
-      const dx = e.changedTouches[0].clientX - startX;
-      if (dx < -40) openCard();
-      else if (dx > 20) closeCard();
-      isDragging = false;
-    }, {passive:true});
-
-    // ── 滑鼠（電腦版）
-    content.addEventListener('mousedown', e => {
-      startX = e.clientX; startY = e.clientY;
-      isDragging = false; isHoriz = null;
-      content._mouseDown = true;
-    });
-    document.addEventListener('mousemove', e => {
-      if (!content._mouseDown) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      if (isHoriz === null) isHoriz = Math.abs(dx) > Math.abs(dy);
-      if (isHoriz && Math.abs(dx) > 5) isDragging = true;
-    });
-    document.addEventListener('mouseup', e => {
-      if (!content._mouseDown) return;
-      content._mouseDown = false;
-      if (!isDragging) return;
-      const dx = e.clientX - startX;
-      if (dx < -40) openCard();
-      else if (dx > 20) closeCard();
-      isDragging = false;
-    });
-
-    // 點擊其他卡片時關閉
-    document.addEventListener('touchstart', e => {
-      if (!wrap.contains(e.target)) closeCard();
-    }, {passive:true});
-    document.addEventListener('mousedown', e => {
-      if (!wrap.contains(e.target)) closeCard();
-    });
-  });
-};
+  function closeAll(e) {
+    wraps.forEach(w => { if (!w.contains(e.target)) w.classList.remove('open'); });
+  }
+  document.addEventListener('pointerdown', closeAll, { passive:true });
+}
 
 function renderRepay(items, splitData) {
   if (!items.length) return `<div class="empty">💸 還款記錄會顯示在這裡</div>`;
@@ -421,7 +363,7 @@ function renderRepay(items, splitData) {
           </button>
         </div>
         <div class="swipe-card-content card" style="position:relative;">
-          <span class="swipe-hint" title="點擊或滑動可修改/刪除" onclick="this.closest('.swipe-card-wrap').classList.toggle('open')">⋮</span>
+          <span class="swipe-hint" title="修改/刪除" onclick="const w=this.closest('.swipe-card-wrap');document.querySelectorAll('.swipe-card-wrap.open').forEach(x=>{if(x!==w)x.classList.remove('open')});w.classList.toggle('open')">⋮</span>
           <div class="card-header">
             <div>
               <div class="card-date" style="font-size:.85rem">${date}</div>
@@ -578,7 +520,7 @@ function renderTransport(d) {
           </button>
         </div>
         <div class="swipe-card-content card paid-card" style="position:relative;">
-          <span class="swipe-hint" title="點擊或滑動可修改/刪除" onclick="this.closest('.swipe-card-wrap').classList.toggle('open')">⋮</span>
+          <span class="swipe-hint" title="修改/刪除" onclick="const w=this.closest('.swipe-card-wrap');document.querySelectorAll('.swipe-card-wrap.open').forEach(x=>{if(x!==w)x.classList.remove('open')});w.classList.toggle('open')">⋮</span>
           <div style="padding:10px 14px 10px;">
             <!-- 第一行：[類別] ---- NT金額 -->
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">

@@ -333,8 +333,8 @@ window.openPxModal = function(type, prefill = null) {
       navigator.geolocation.getCurrentPosition(pos => {
         _pxLat = pos.coords.latitude;
         _pxLng = pos.coords.longitude;
-        gpsChip.textContent = '📍 已定位（會出現在腳印地圖）';
-      }, () => { gpsChip.textContent = ''; },
+        gpsChip.textContent = `📍 ${_pxLat.toFixed(4)}, ${_pxLng.toFixed(4)}`;
+      }, () => { gpsChip.textContent = '📍 定位失敗'; },
       { enableHighAccuracy:true, timeout:8000, maximumAge:60000 });
     }
     document.getElementById('pxExpShared').checked = prefill?.isShared !== false; // 預設勾選
