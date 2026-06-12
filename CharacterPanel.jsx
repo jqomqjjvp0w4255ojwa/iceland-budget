@@ -1,4 +1,4 @@
-﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.5
+﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.6
 //
 // 安裝(建議,變成常駐面板):
 //   把這個檔案放到 AE 安裝目錄的 Support Files\Scripts\ScriptUI Panels\
@@ -701,7 +701,7 @@
 
     function buildUI(thisObj) {
         var pal = (thisObj instanceof Panel) ? thisObj
-                : new Window("palette", "角色工具 v1.5", undefined, { resizeable: true });
+                : new Window("palette", "角色工具 v1.6", undefined, { resizeable: true });
 
         pal.orientation = "column";
         pal.alignChildren = ["fill", "fill"];
@@ -709,12 +709,55 @@
 
         // 分頁籤排版,壓低面板高度
         var tabs = pal.add("tabbedpanel");
-        tabs.alignChildren = ["fill", "top"];
+        tabs.alignChildren = ["fill", "fill"];
+
+        // ScriptUI 沒有原生捲軸 → 手工做:內容放在群組裡,
+        // 分頁高度不夠時右側出現捲軸,拖動時把內容群組往上移
+        var scrollTabs = [];
+        function makeTab(title) {
+            var tab = tabs.add("tab", undefined, title);
+            tab.orientation = "row";
+            tab.alignChildren = ["left", "top"];
+            tab.margins = 6; tab.spacing = 2;
+            var content = tab.add("group");
+            content.orientation = "column";
+            content.alignChildren = ["fill", "top"];
+            content.spacing = 6;
+            var sb = tab.add("scrollbar");
+            sb.preferredSize.width = 14;
+            sb.alignment = ["right", "fill"];
+            sb.minvalue = 0; sb.maxvalue = 0; sb.value = 0;
+            tab.__c = content; tab.__sb = sb; tab.__baseY = 0;
+            sb.onChanging = function () {
+                content.location = [content.location.x, Math.round(tab.__baseY - sb.value)];
+            };
+            scrollTabs.push(tab);
+            return content;
+        }
+
+        function updateScrollbars() {
+            for (var i = 0; i < scrollTabs.length; i++) {
+                var tab = scrollTabs[i], c = tab.__c, sb = tab.__sb;
+                try {
+                    tab.__baseY = c.location.y; // 重新排版後的基準位置
+                    var overflow = (c.location.y + c.size.height) - (tab.size.height - 6);
+                    if (overflow > 0) {
+                        sb.maxvalue = overflow;
+                        sb.value = 0;
+                        sb.visible = true;
+                    } else {
+                        sb.value = 0;
+                        sb.visible = false;
+                    }
+                } catch (e) {}
+            }
+        }
+        tabs.onChange = updateScrollbars;
+        pal.__updateScroll = updateScrollbars;
 
         // --- 標記 ---
-        var p1 = tabs.add("tab", undefined, "標記");
-        p1.orientation = "column"; p1.alignChildren = ["fill", "top"]; p1.margins = 8;
-        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.5]");
+        var p1 = makeTab("標記");
+        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.6]");
         var rowA = p1.add("group"); var rowB = p1.add("group");
         var tagOrder = ["閉眼", "睜眼", "閉嘴", "張嘴", "眉", "汗", "耳", "鼻"];
         var fullRigCheck;
@@ -733,8 +776,7 @@
         fullRigCheck.value = false;
 
         // --- 命名 / 控制 NULL ---
-        var p5 = tabs.add("tab", undefined, "命名");
-        p5.orientation = "column"; p5.alignChildren = ["fill", "top"]; p5.margins = 8;
+        var p5 = makeTab("命名");
 
         var rowSuf = p5.add("group");
         rowSuf.add("statictext", undefined, "選圖層 → 點名稱更名。字尾:");
@@ -760,6 +802,7 @@
                 })(nameList[i]);
             }
             pal.layout.layout(true);
+            updateScrollbars();
         }
         rebuildNames();
 
@@ -788,8 +831,7 @@
         bNuShared.onClick = doNullShared;
 
         // --- 動態 ---
-        var p2 = tabs.add("tab", undefined, "動態");
-        p2.orientation = "column"; p2.alignChildren = ["fill", "top"]; p2.margins = 8;
+        var p2 = makeTab("動態");
         var rowC = p2.add("group"); var rowD = p2.add("group");
         var bBlink = rowC.add("button", undefined, "隨機眨眼");   bBlink.preferredSize.width = 110;
         var bTalk  = rowC.add("button", undefined, "說話設定");   bTalk.preferredSize.width = 110;
@@ -808,8 +850,7 @@
         bExprT.onClick = retimeExprSpeed;
 
         // --- 演出(遠端 key:人待在主場景,key 寫進角色的 control) ---
-        var p3 = tabs.add("tab", undefined, "演出");
-        p3.orientation = "column"; p3.alignChildren = ["fill", "top"]; p3.margins = 8;
+        var p3 = makeTab("演出");
 
         var rigComps = [];
         var rowChar = p3.add("group");
@@ -885,8 +926,7 @@
         };
 
         // --- 表達式工具 ---
-        var p4 = tabs.add("tab", undefined, "表達式");
-        p4.orientation = "column"; p4.alignChildren = ["fill", "top"]; p4.margins = 8;
+        var p4 = makeTab("表達式");
 
         var rowProp = p4.add("group");
         rowProp.add("statictext", undefined, "套在:");
@@ -969,11 +1009,18 @@
         };
 
         pal.layout.layout(true);
-        pal.onResizing = pal.onResize = function () { this.layout.resize(); };
+        updateScrollbars();
+        pal.onResizing = pal.onResize = function () {
+            this.layout.resize();
+            updateScrollbars();
+        };
         return pal;
     }
 
     var ui = buildUI(thisObj);
-    if (ui instanceof Window) { ui.center(); ui.show(); }
+    if (ui instanceof Window) {
+        ui.center(); ui.show();
+        if (ui.__updateScroll) ui.__updateScroll();
+    }
 
 })(this);
