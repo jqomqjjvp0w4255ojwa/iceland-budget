@@ -151,18 +151,19 @@ body{
   background:var(--panel);
   border-top:2px solid var(--border);
   flex-shrink:0;display:flex;flex-direction:column;
-  transition:height .3s ease;height:44px;overflow:hidden;z-index:500;
+  transition:height .3s ease;height:54px;overflow:hidden;z-index:500;
 }
 .card-drawer.expanded{height:55vh;}
 .drawer-handle{
-  height:44px;display:flex;align-items:center;
-  padding:0 14px;cursor:pointer;flex-shrink:0;gap:10px;
-  user-select:none;-webkit-user-select:none;
+  display:flex;flex-direction:column;
+  padding:6px 14px 0;cursor:grab;flex-shrink:0;gap:4px;
+  user-select:none;-webkit-user-select:none;touch-action:none;
 }
 .drawer-pill{
-  width:32px;height:4px;background:var(--border2);border-radius:2px;
-  margin:0 auto;position:absolute;left:50%;transform:translateX(-50%);
+  width:40px;height:4px;background:var(--border2);border-radius:2px;
+  margin:0 auto;flex-shrink:0;
 }
+.drawer-row{display:flex;align-items:center;gap:10px;width:100%;padding-bottom:4px;}
 .drawer-tabs{display:flex;gap:0;flex:1;overflow-x:auto;}
 .dtab{
   font-family:var(--px);font-size:9px;padding:4px 10px;
@@ -543,8 +544,10 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
   <div class="card-drawer" id="cardDrawer">
     <div class="drawer-handle" id="drawerHandle">
       <div class="drawer-pill"></div>
-      <div class="drawer-tabs" id="drawerTabs"></div>
-      <div class="drawer-count" id="drawerCount">0 筆</div>
+      <div class="drawer-row">
+        <div class="drawer-tabs" id="drawerTabs"></div>
+        <div class="drawer-count" id="drawerCount">0 筆</div>
+      </div>
     </div>
     <div class="card-list" id="cardList"></div>
   </div>
@@ -1688,6 +1691,7 @@ function renderTrips() {
 function setTripFilter(id) {
   tripFilter = (tripFilter===id) ? null : id;
   buildTabs();
+  buildTopbarMembers();
   renderMarkers();
   renderTrips();
   closeTrips();
@@ -1696,6 +1700,7 @@ function setTripFilter(id) {
 function clearTripFilter() {
   tripFilter = null;
   buildTabs();
+  buildTopbarMembers();
   renderMarkers();
 }
 
@@ -1844,7 +1849,14 @@ function navigateTo(lat, lng) {
 // ══════════════════════════════════════════
 function buildTopbarMembers() {
   const el = document.getElementById('topbarMembers');
-  el.innerHTML = members.map(m =>
+  // 旅程篩選中 → 只顯示該旅程的成員；否則顯示全部
+  let show = members;
+  if (tripFilter) {
+    const t = tripById(tripFilter);
+    if (t?.members?.length) show = members.filter(m => t.members.includes(m.name));
+  }
+  if (memberFilter && !show.some(m=>m.name===memberFilter)) { memberFilter = null; }
+  el.innerHTML = show.map(m =>
     `<div class="member-avatar ${memberFilter===m.name?'on':''}" title="${m.name}" onclick="filterByMember('${m.name}')">${spriteSvg(m)}</div>`
   ).join('');
   document.getElementById('appTitle').textContent = CFG.appName;
