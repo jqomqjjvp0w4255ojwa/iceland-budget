@@ -1,4 +1,4 @@
-﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.2
+﻿// CharacterPanel.jsx — 角色快速綁定/動態面板 v1.3
 //
 // 安裝(建議,變成常駐面板):
 //   把這個檔案放到 AE 安裝目錄的 Support Files\Scripts\ScriptUI Panels\
@@ -434,6 +434,87 @@
         alert(msg);
     }
 
+    // ================= 5. 快速命名 + 控制 NULL =================
+
+    var NAME_SECTION = "CharacterPanel_QuickNames";
+    var DEFAULT_NAMES = ["頭", "身體", "左手", "右手", "左腳", "右腳", "尾巴", "帽子", "角", "包包"];
+
+    function namesSave(list) {
+        try {
+            app.settings.saveSetting(NAME_SECTION, "count", String(list.length));
+            for (var i = 0; i < list.length; i++)
+                app.settings.saveSetting(NAME_SECTION, "n_" + i, encodeURIComponent(list[i]));
+        } catch (e) {}
+    }
+
+    function namesLoad() {
+        var list = [];
+        try {
+            if (!app.settings.haveSetting(NAME_SECTION, "count")) {
+                namesSave(DEFAULT_NAMES);
+                return DEFAULT_NAMES.slice(0);
+            }
+            var n = parseInt(app.settings.getSetting(NAME_SECTION, "count"), 10) || 0;
+            for (var i = 0; i < n; i++)
+                list.push(decodeURIComponent(app.settings.getSetting(NAME_SECTION, "n_" + i)));
+        } catch (e) {}
+        return list;
+    }
+
+    function doRename(base) {
+        var comp = activeComp(); if (!comp) return;
+        var sel = comp.selectedLayers;
+        if (sel.length === 0) { alert("先選取圖層,再點名稱按鈕。"); return; }
+        app.beginUndoGroup("更名 " + base);
+        try {
+            for (var i = 0; i < sel.length; i++) {
+                var idx = countByBase(comp, base); // 同名自動編號:頭、頭 2、頭 3…
+                sel[i].name = (idx === 0) ? base : base + " " + (idx + 1);
+            }
+        } finally { app.endUndoGroup(); }
+    }
+
+    // 控制用 NULL:建在圖層錨點位置,圖層 parent 上去。
+    // 原圖層留給微動表達式(呼吸/漂浮/wiggle),劇情動作 key 打在 NULL 上,兩邊不打架。
+    function makeCtrlNull(comp, lay, nullName) {
+        var n = comp.layers.addNull(comp.duration);
+        n.name = nullName;
+        n.moveBefore(lay);
+        if (lay.parent) n.parent = lay.parent;
+        n.property("ADBE Transform Group").property("ADBE Position")
+            .setValue(lay.property("ADBE Transform Group").property("ADBE Position").value);
+        lay.parent = n; // 指定 parent 時 AE 會保持外觀不跳動
+        return n;
+    }
+
+    function doNullEach() {
+        var comp = activeComp(); if (!comp) return;
+        var sel = comp.selectedLayers.slice(0); // 先複製,建 NULL 過程會動到選取
+        if (sel.length === 0) { alert("先選取要加控制 NULL 的圖層。"); return; }
+        app.beginUndoGroup("各建控制 NULL");
+        try {
+            for (var i = 0; i < sel.length; i++) {
+                var base = sel[i].name + "_null";
+                var idx = countByBase(comp, base);
+                makeCtrlNull(comp, sel[i], (idx === 0) ? base : base + " " + (idx + 1));
+            }
+        } finally { app.endUndoGroup(); }
+    }
+
+    function doNullShared() {
+        var comp = activeComp(); if (!comp) return;
+        var sel = comp.selectedLayers.slice(0);
+        if (sel.length === 0) { alert("先選取要綁在同一個 NULL 下的圖層。"); return; }
+        var nm = prompt("這個控制 NULL 的名字:", "NULL");
+        if (!nm) return;
+        app.beginUndoGroup("共建控制 NULL");
+        try {
+            var n = makeCtrlNull(comp, sel[0], nm);
+            for (var i = 1; i < sel.length; i++) sel[i].parent = n;
+        } finally { app.endUndoGroup(); }
+        alert(sel.length + " 個圖層已綁到「" + nm + "」之下,劇情動作打在它身上。");
+    }
+
     // ---- 常用表達式庫(存在 AE 偏好設定,跨專案永久保留) ----
 
     var LIB_SECTION = "CharacterPanel_ExprLib";
@@ -475,7 +556,7 @@
 
     function buildUI(thisObj) {
         var pal = (thisObj instanceof Panel) ? thisObj
-                : new Window("palette", "角色工具 v1.2", undefined, { resizeable: true });
+                : new Window("palette", "角色工具 v1.3", undefined, { resizeable: true });
 
         pal.orientation = "column";
         pal.alignChildren = ["fill", "fill"];
@@ -488,7 +569,7 @@
         // --- 標記 ---
         var p1 = tabs.add("tab", undefined, "標記");
         p1.orientation = "column"; p1.alignChildren = ["fill", "top"]; p1.margins = 8;
-        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.2]");
+        p1.add("statictext", undefined, "先選圖層再按按鈕:  [v1.3]");
         var rowA = p1.add("group"); var rowB = p1.add("group");
         var tagOrder = ["閉眼", "睜眼", "閉嘴", "張嘴", "眉", "汗", "耳", "鼻"];
         var fullRigCheck;
@@ -505,6 +586,61 @@
         bSpec.onClick = doSpecialTag;
         fullRigCheck = p1.add("checkbox", undefined, "完整綁定(建 face/eye/mouth/ear Null 並 parent)");
         fullRigCheck.value = false;
+
+        // --- 命名 / 控制 NULL ---
+        var p5 = tabs.add("tab", undefined, "命名");
+        p5.orientation = "column"; p5.alignChildren = ["fill", "top"]; p5.margins = 8;
+
+        var rowSuf = p5.add("group");
+        rowSuf.add("statictext", undefined, "選圖層 → 點名稱更名。字尾:");
+        var sufNone = rowSuf.add("radiobutton", undefined, "無");
+        var sufF    = rowSuf.add("radiobutton", undefined, "前");
+        var sufB    = rowSuf.add("radiobutton", undefined, "後");
+        sufNone.value = true;
+        function suffix() { return sufF.value ? "前" : (sufB.value ? "後" : ""); }
+
+        var nameList = namesLoad();
+        var nameGrid = p5.add("group");
+        nameGrid.orientation = "column"; nameGrid.alignChildren = ["left", "top"]; nameGrid.spacing = 4;
+
+        function rebuildNames() {
+            while (nameGrid.children.length > 0) nameGrid.remove(nameGrid.children[0]);
+            var row = null;
+            for (var i = 0; i < nameList.length; i++) {
+                if (i % 4 === 0) row = nameGrid.add("group");
+                (function (base) {
+                    var b = row.add("button", undefined, base);
+                    b.preferredSize.width = 52;
+                    b.onClick = function () { doRename(base + suffix()); };
+                })(nameList[i]);
+            }
+            pal.layout.layout(true);
+        }
+        rebuildNames();
+
+        var rowNm = p5.add("group");
+        var bNmAdd = rowNm.add("button", undefined, "+ 新增名稱"); bNmAdd.preferredSize.width = 90;
+        var bNmDel = rowNm.add("button", undefined, "− 刪除名稱"); bNmDel.preferredSize.width = 90;
+        bNmAdd.onClick = function () {
+            var nm = prompt("新增常用名稱:", "");
+            if (!nm) return;
+            nameList.push(nm); namesSave(nameList); rebuildNames();
+        };
+        bNmDel.onClick = function () {
+            var nm = prompt("要刪除哪個名稱?(輸入按鈕上的字)", "");
+            if (!nm) return;
+            for (var i = 0; i < nameList.length; i++) {
+                if (nameList[i] === nm) { nameList.splice(i, 1); namesSave(nameList); rebuildNames(); return; }
+            }
+            alert("清單裡沒有「" + nm + "」。");
+        };
+
+        p5.add("statictext", undefined, "控制 NULL(原圖層做微動,NULL 照劇情動):");
+        var rowNu = p5.add("group");
+        var bNuEach   = rowNu.add("button", undefined, "各建 NULL");     bNuEach.preferredSize.width = 110;
+        var bNuShared = rowNu.add("button", undefined, "共用一個 NULL"); bNuShared.preferredSize.width = 110;
+        bNuEach.onClick = doNullEach;
+        bNuShared.onClick = doNullShared;
 
         // --- 動態 ---
         var p2 = tabs.add("tab", undefined, "動態");
