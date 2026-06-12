@@ -487,6 +487,28 @@ body{
   text-shadow:1px 1px 0 #8a6a3a,-1px 1px 0 #8a6a3a,1px -1px 0 #8a6a3a,-1px -1px 0 #8a6a3a;
 }
 
+/* ── 打卡視窗：半屏 sheet，上方仍可看地圖（overlay 不遮地圖） */
+#checkinModal{background:transparent;pointer-events:none;}
+#checkinModal .modal-box{
+  pointer-events:auto;
+  height:52vh;
+  border:2px solid var(--border2);
+  border-bottom:none;
+  box-shadow:0 -6px 20px rgba(140,100,40,0.35);
+  transition:height .25s ease;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#checkinModal .modal-box.tall{height:92vh;}
+#checkinModal .modal-header{flex-shrink:0;position:static;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;}
+#checkinModal .modal-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+.sheet-pill{
+  height:18px;display:flex;align-items:center;justify-content:center;
+  cursor:grab;flex-shrink:0;touch-action:none;
+}
+.sheet-pill::before{
+  content:'';width:40px;height:4px;border-radius:2px;background:var(--border2);
+}
+
 /* ── iOS 觸控守則（畫板樣式由 shared/pixelpad.js 注入） */
 html,body{overscroll-behavior:none;}
 #map{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
@@ -529,6 +551,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
       <div class="layers-section">顯示項目</div>
       <div class="layer-opt on" id="lo-checkin" onclick="toggleFilter('checkin')"><span class="layer-check"></span>🐾 打卡</div>
       <div class="layer-opt on" id="lo-wish" onclick="toggleFilter('wish')"><span class="layer-check"></span>💗 想去</div>
+      <div class="layer-opt on" id="lo-cards" onclick="toggleFilter('cards')"><span class="layer-check"></span>🗂 行前點</div>
       <div class="layers-section">地圖風格</div>
       <div class="layer-opt style-opt on" id="ls-fruit" onclick="setMapStyle('fruit')"><span class="layer-check"></span>水果</div>
       <div class="layer-opt style-opt" id="ls-light" onclick="setMapStyle('light')"><span class="layer-check"></span>明亮</div>
@@ -555,7 +578,8 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
 
 <!-- 新增打卡 Modal -->
 <div class="modal-overlay" id="checkinModal">
-  <div class="modal-box">
+  <div class="modal-box" id="checkinSheet">
+    <div class="sheet-pill" id="sheetPill"></div>
     <div class="modal-header">
       <div class="modal-title" id="checkinModalTitle">新增紀錄</div>
       <button class="modal-close" onclick="closeCheckin()">✕</button>
@@ -778,7 +802,7 @@ function spriteSvg(m) {
 // ══════════════════════════════════════════
 let checkins = [];
 let trips = [];
-let filters = { checkin:true, wish:true };
+let filters = { checkin:true, wish:true, cards:true };
 let members = [...CFG.members];   // config 固定班底＋雲端臨時成員
 let drawerOpen = false;
 let currentTab = 'all';
@@ -789,6 +813,7 @@ let pendingWishId = null; // 想去 → 打卡轉換時，要移除的想去項�
 let currentCommentId = null;
 let pickingLocation = false;
 let pickingCard = null;   // {tripId, cardId} 行前卡片選點中
+let routeLine = null;     // 旅程路線（出發→途經→目的）
 let markers = {};
 const isDesktop = () => window.matchMedia('(min-width:900px)').matches;
 
@@ -877,6 +902,35 @@ map.on('click', e => {
   checkSubmitReady();
 });
 
+// 長按地圖（手機）／右鍵（電腦）→ 快速打卡/想去
+map.on('contextmenu', e => {
+  if (pickingLocation || pickingCard) return;
+  showQuickTag(e.latlng);
+});
+
+const quickTagPopup = L.popup({ className:'px-popup', closeButton:false, maxWidth:200, autoPan:false, offset:[0,-4] });
+
+function showQuickTag(latlng) {
+  const lat = latlng.lat, lng = latlng.lng;
+  quickTagPopup.setLatLng(latlng).setContent(`
+    <div class="popup-inner" style="padding:8px 10px;">
+      <div style="font-size:8px;color:var(--muted);margin-bottom:6px;">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+      <div style="display:flex;gap:6px;">
+        <button class="popup-action-btn" onclick="quickAdd('checkin',${lat},${lng})">🐾 打卡</button>
+        <button class="popup-action-btn" onclick="quickAdd('wish',${lat},${lng})">💗 想去</button>
+      </div>
+    </div>
+  `).openOn(map);
+}
+
+function quickAdd(type, lat, lng) {
+  map.closePopup(quickTagPopup);
+  openCheckin({ lat, lng });
+  selectType(type);
+  document.getElementById('locationCoord').textContent = '地圖標記位置 · 點此可重選';
+  checkSubmitReady();
+}
+
 // ══════════════════════════════════════════
 //  Marker
 // ══════════════════════════════════════════
@@ -925,10 +979,12 @@ function renderMarkers() {
     markers[item.id] = marker;
     clusterGroup.addLayer(marker);
   });
-  // 旅程篩選時：該旅程有座標的行前卡片浮上地圖
-  if (tripFilter) {
-    const t = tripById(tripFilter);
-    (t?.cards || []).filter(c => c.lat && c.lng).forEach(c => {
+  // 行前卡片上地圖：旅程篩選中→只顯示該旅程；否則「🗂 行前點」圖層開→顯示全部旅程
+  const cardTrips = tripFilter
+    ? trips.filter(t => t.id === tripFilter)
+    : (filters.cards ? trips : []);
+  cardTrips.forEach(t => {
+    (t.cards || []).filter(c => c.lat && c.lng).forEach(c => {
       const marker = L.marker([c.lat, c.lng], {
         icon: L.divIcon({
           html:`<div style="width:34px;height:34px;border:2px solid var(--border2,#e0b35e);border-radius:8px;background:#fffaf0;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:2px 2px 0 rgba(180,130,60,0.3);">${c.icon}</div>`,
@@ -938,6 +994,21 @@ function renderMarkers() {
       }).bindPopup(() => buildCardPopup(t, c), { className:'px-popup', maxWidth:240 });
       clusterGroup.addLayer(marker);
     });
+  });
+
+  // 旅程路線：🚩出發地 → 📍途經 → 🏁目的地（有座標的卡片依序連線）
+  if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+  if (tripFilter) {
+    const t = tripById(tripFilter);
+    const located = (t?.cards || []).filter(c => c.lat && c.lng);
+    const pts = [
+      ...located.filter(c => c.kind === 'depart'),
+      ...located.filter(c => c.kind === 'via'),
+      ...located.filter(c => c.kind === 'dest'),
+    ].map(c => [c.lat, c.lng]);
+    if (pts.length >= 2) {
+      routeLine = L.polyline(pts, { color:'#58b368', weight:2.5, dashArray:'7,5', opacity:0.8 }).addTo(map);
+    }
   }
 
   renderCards();
@@ -1131,6 +1202,18 @@ bindDragToggle(document.getElementById('drawerHandle'), {
   onTap:  toggleDrawer,
 });
 
+// 打卡 sheet：pill 和標題列都是拉桿（上拖全屏/下拖半屏/點擊切換）
+(function(){
+  const sheet = document.getElementById('checkinSheet');
+  const opts = {
+    onUp:   () => sheet.classList.add('tall'),
+    onDown: () => sheet.classList.remove('tall'),
+    onTap:  () => sheet.classList.toggle('tall'),
+  };
+  bindDragToggle(document.getElementById('sheetPill'), opts);
+  bindDragToggle(document.querySelector('#checkinSheet .modal-header'), opts);
+})();
+
 // ══════════════════════════════════════════
 //  側欄 / 圖層
 // ══════════════════════════════════════════
@@ -1217,11 +1300,12 @@ function openCheckin(prefill) {
     pendingCheckin.lat = prefill.lat;
     pendingCheckin.lng = prefill.lng;
     document.getElementById('locationName').textContent = prefill.name || `${prefill.lat.toFixed(4)}, ${prefill.lng.toFixed(4)}`;
-    document.getElementById('locationCoord').textContent = '來自想去清單';
+    document.getElementById('locationCoord').textContent = prefill.name ? '來自想去清單' : '地圖標記位置';
     document.getElementById('placeName').value = prefill.name || '';
   }
   buildMemberGrid();
   buildTripSelect();
+  document.getElementById('checkinSheet').classList.remove('tall');
   document.getElementById('checkinModal').classList.add('show');
   checkSubmitReady();
   if (!prefill) tryGPS();
@@ -1527,7 +1611,13 @@ async function addNewMember() {
     };
     members.push(m);
     buildTopbarMembers();
-    gasPost({ action:'addMember', name:m.name, color:m.color, icon:m.icon });
+    gasPost({ action:'addMember', name:m.name, color:m.color, icon:m.icon }).then(resp => {
+      if (!resp || !resp.ok) {
+        alert('⚠ 成員只存在本機，雲端儲存失敗\n（GAS 可能還是舊版，請重新部署 gas_taiwan.js）');
+      }
+    }).catch(() => {
+      alert('⚠ 成員只存在本機，雲端儲存失敗（網路問題）');
+    });
   }
   if (!tripFormMembers.includes(name)) tripFormMembers.push(name);
   buildTripMemberGrid();
@@ -1588,7 +1678,9 @@ function qaToggle(group, k) {
 }
 
 function newCard(spec) {
-  return { id:'cd_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), icon:spec.icon, title:spec.title, text:spec.text||'' };
+  const c = { id:'cd_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), icon:spec.icon, title:spec.title, text:spec.text||'' };
+  if (spec.kind) c.kind = spec.kind;
+  return c;
 }
 
 function qaDone(skip) {
@@ -1615,6 +1707,8 @@ function qaDone(skip) {
 const CARD_ADD_TYPES = [
   { icon:'🚆', title:'車票' }, { icon:'🏠', title:'住宿' }, { icon:'🚗', title:'租車' },
   { icon:'🎫', title:'票券' }, { icon:'🍜', title:'美食' }, { icon:'📝', title:'備忘' },
+  { icon:'🚩', title:'出發地', kind:'depart' }, { icon:'📍', title:'途經', kind:'via' },
+  { icon:'🏁', title:'目的地', kind:'dest' },
 ];
 let detailTripId = null;
 
