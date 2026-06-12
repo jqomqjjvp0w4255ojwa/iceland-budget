@@ -701,7 +701,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
       </div>
 
       <!-- 消費帳目資訊（編輯消費時顯示，點了去帳簿） -->
-      <div class="step-row" id="expenseInfoRow" style="display:none;font-size:10px;color:var(--gold);cursor:pointer;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius);" onclick="location.href='index.html'"></div>
+      <div class="step-row" id="expenseInfoRow" style="display:none;font-size:10px;color:var(--gold);cursor:pointer;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius);"></div>
 
       <!-- 日期（編輯時也會顯示） -->
       <div class="step-row" id="stepDate">
@@ -748,6 +748,17 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
       <input class="comment-input" id="commentInput" placeholder="寫下留言…" onkeydown="if(event.key==='Enter')sendComment()">
       <button class="comment-send" onclick="sendComment()">送出</button>
     </div>
+  </div>
+</div>
+
+<!-- 消費卡片 Modal（地圖上直接看，不跳頁） -->
+<div class="modal-overlay" id="expCardModal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal-box" style="max-width:360px;border-radius:12px;border:2px solid var(--border);margin-bottom:10vh;">
+    <div class="modal-header">
+      <div class="modal-title">🧾 帳目卡片</div>
+      <button class="modal-close" onclick="document.getElementById('expCardModal').classList.remove('show')">✕</button>
+    </div>
+    <div class="modal-body" id="expCardBody"></div>
   </div>
 </div>
 
@@ -976,7 +987,7 @@ function makeMarkerIcon(item, zoom, labeled) {
     }
     const dollarDot = `<span style="position:absolute;right:-7px;top:-3px;width:12px;height:12px;border-radius:50%;background:var(--gold);color:#332b10;font-family:var(--px);font-size:8px;line-height:12px;text-align:center;">$</span>`;
     const label = labeled
-      ? `<div style="font-family:var(--px);font-size:7px;color:#f0e2b0;background:rgba(50,42,16,.88);border:1px solid var(--gold);border-radius:3px;padding:1px 4px;white-space:nowrap;margin-top:1px;">${item.name} −${item.amount} ${item.currency}</div>`
+      ? `<div style="font-family:var(--px);font-size:7px;color:#f0e2b0;background:rgba(50,42,16,.88);border:1px solid var(--gold);border-radius:3px;padding:1px 4px;white-space:nowrap;margin-top:1px;">${truncName(item.name)} −${item.amount} ${item.currency}</div>`
       : '';
     // 有補畫塗鴉 → 顯示塗鴉磚（金框）
     if (item.svgData) {
@@ -1037,6 +1048,13 @@ function makeMarkerIcon(item, zoom, labeled) {
 // ══════════════════════════════════════════
 //  渲染 Markers
 // ══════════════════════════════════════════
+// 長文字截斷（地圖小標籤用，完整內容看 popup/卡片）
+function truncName(n, max) {
+  n = String(n||'');
+  max = max || 10;
+  return n.length > max ? n.slice(0, max) + '…' : n;
+}
+
 // 取打卡時間戳（排序與「最新」判斷用）
 function itemTs(it) {
   if (it.time) { const t = Date.parse(it.time); if (!isNaN(t)) return t; }
@@ -1150,7 +1168,7 @@ function buildPopupContent(item) {
     </div>
     ${itemImgHtml(item)}
     ${item.note?`<div class="popup-note">${item.note}</div>`:''}
-    ${isExp?`<div class="popup-note" style="color:var(--gold);cursor:pointer;" onclick="location.href='index.html'">🧾 ${item.name}　−${item.amount} ${item.currency}　›</div>`:''}
+    ${isExp?`<div class="popup-note" style="color:var(--gold);cursor:pointer;" onclick="openExpenseCard('${item.id}')">🧾 ${item.name}　−${item.amount} ${item.currency}　›</div>`:''}
     ${isExp&&item.locName?`<div class="popup-note" style="color:var(--muted);">📍 ${item.locName}</div>`:''}
     <div class="popup-actions">
       ${!isExp?`<button class="popup-action-btn" onclick="openComments('${item.id}')">💬 查看留言（${item.comments?.length||0}）</button>`:''}
@@ -1464,7 +1482,10 @@ function startEditCheckin(id) {
   document.getElementById('stepDate').style.display = isExp ? 'none' : '';
   const expRow = document.getElementById('expenseInfoRow');
   expRow.style.display = isExp ? '' : 'none';
-  if (isExp) expRow.innerHTML = `🧾 ${item.name}　−${item.amount} ${item.currency}　<span style="color:var(--muted)">金額品項到帳簿改 ›</span>`;
+  if (isExp) {
+    expRow.innerHTML = `🧾 ${item.name}　−${item.amount} ${item.currency}　<span style="color:var(--muted)">點看帳目卡片 ›</span>`;
+    expRow.onclick = () => openExpenseCard(item.id);
+  }
   document.getElementById('checkinSheet').classList.remove('tall');
   document.getElementById('checkinModalTitle').textContent = '編輯：' + (item.name||'');
   // 顯示原日期，可修改
@@ -1802,6 +1823,38 @@ function closeComments() {
 }
 
 // ══════════════════════════════════════════
+//  消費卡片彈窗（不跳頁，金額品項要改再去帳簿）
+// ══════════════════════════════════════════
+function openExpenseCard(id) {
+  const item = expenses.find(x => x.id === id);
+  if (!item) return;
+  const m = getMemberByName(item.who);
+  const row = (label, val) => val
+    ? `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:10px;">
+        <span style="color:var(--muted);flex:0 0 56px;">${label}</span>
+        <span style="flex:1;color:var(--text);word-break:break-all;">${val}</span>
+      </div>` : '';
+  document.getElementById('expCardBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:28px;height:46px;">${spriteSvg(m)}</div>
+      <div style="flex:1;">
+        <div style="font-size:11px;color:var(--text);">${item.name}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>
+        <div style="font-size:13px;color:var(--gold);margin-top:3px;">−${item.amount} ${item.currency}</div>
+      </div>
+    </div>
+    ${row('類別', item.category)}
+    ${row('日期', item.date)}
+    ${row('付款人', item.who)}
+    ${row('地點', item.locName)}
+    ${row('備註', item.note)}
+    <div style="text-align:center;margin-top:12px;">
+      <button class="popup-action-btn" style="display:inline-flex;padding:9px 18px;" onclick="location.href='index.html'">📒 改金額/品項請到帳簿 ›</button>
+    </div>
+  `;
+  document.getElementById('expCardModal').classList.add('show');
+}
+
+// ══════════════════════════════════════════
 //  導航
 // ══════════════════════════════════════════
 function navigateTo(lat, lng) {
@@ -1873,6 +1926,8 @@ async function loadExpenses() {
         lat:      e.lat,
         lng:      e.lng,
         name:     e.title || e.category || e.location || '消費',
+        category: e.category || '',
+        qty:      e.qty || '',
         locName:  e.location || '',
         date:     e.date,
         time:     e.date,            // itemTs 用 Date.parse 解析
