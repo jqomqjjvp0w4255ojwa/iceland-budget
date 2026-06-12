@@ -762,6 +762,15 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
   </div>
 </div>
 
+<!-- 帳簿編輯 iframe（疊在地圖上開原生編輯窗，不跳頁） -->
+<div class="modal-overlay" id="ledgerModal" style="align-items:stretch;">
+  <div style="position:relative;width:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;">
+    <button onclick="closeLedgerEdit()"
+      style="position:absolute;top:10px;right:10px;z-index:10;width:34px;height:34px;border-radius:50%;border:2px solid var(--border);background:var(--panel);color:var(--text);font-size:15px;cursor:pointer;">✕</button>
+    <iframe id="ledgerFrame" style="flex:1;width:100%;border:none;background:var(--bg);" src="about:blank"></iframe>
+  </div>
+</div>
+
 <!-- 畫板 Modal（共用 pixelpad.js） -->
 <div class="modal-overlay" id="drawModal">
   <div class="modal-box" style="max-height:95vh;">
@@ -1820,7 +1829,7 @@ function openExpenseCard(id) {
       <span style="position:absolute;top:50%;transform:translateY(-50%);right:8px;font-size:1.05rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;z-index:3;"
         onclick="const x=this.nextElementSibling;x.style.display=x.style.display==='flex'?'none':'flex';">⋮</span>
       <div style="display:none;position:absolute;right:8px;top:calc(50% + 18px);z-index:20;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.45);">
-        <button class="popup-action-btn" style="border:none;justify-content:flex-start;padding:10px 14px;min-width:96px;" onclick="location.href='index.html#editExp=${item._rowIndex}'">✏️ 修改</button>
+        <button class="popup-action-btn" style="border:none;justify-content:flex-start;padding:10px 14px;min-width:96px;" onclick="openLedgerEdit(${item._rowIndex})">✏️ 修改</button>
         <button class="popup-action-btn" style="border:none;border-top:1px solid var(--border);justify-content:flex-start;padding:10px 14px;color:#e08090;" onclick="document.getElementById('expCardModal').classList.remove('show');deleteCheckin('${item.id}')">🗑️ 刪除</button>
       </div>
       <!-- 第一行：[類別] ---- 金額 -->
@@ -1842,6 +1851,18 @@ function openExpenseCard(id) {
     </div>
   `;
   document.getElementById('expCardModal').classList.add('show');
+}
+
+// ── 帳簿編輯 iframe：召喚原生雜支編輯窗，關閉後重抓消費 ──
+function openLedgerEdit(rowIndex) {
+  document.getElementById('expCardModal').classList.remove('show');
+  document.getElementById('ledgerFrame').src = 'index.html#editExp=' + rowIndex;
+  document.getElementById('ledgerModal').classList.add('show');
+}
+function closeLedgerEdit() {
+  document.getElementById('ledgerModal').classList.remove('show');
+  document.getElementById('ledgerFrame').src = 'about:blank';
+  loadExpenses();   // 把剛改完的金額/品項抓回地圖
 }
 
 // ══════════════════════════════════════════
