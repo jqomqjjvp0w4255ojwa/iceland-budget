@@ -1706,7 +1706,7 @@ async function submitCheckin() {
     // POST 到 GAS
     const gasBase = TRIP_CONFIG.apiBase || '';
     if (gasBase) {
-      await fetch(gasBase, {
+      const resp = await fetch(gasBase, {
         method:'POST',
         body: JSON.stringify({
           action:   'addCheckin',
@@ -1722,6 +1722,11 @@ async function submitCheckin() {
           svgGrid:  item.svgGrid || 16,
         }),
       });
+      // 採用 GAS 回傳的正式 ID，重載時才認得是同一筆（避免本地+雲端雙重顯示）
+      try {
+        const r = await resp.json();
+        if (r?.ok && r.msg?.id) item.id = r.msg.id;
+      } catch(e) { /* 回應讀不到就留臨時 ID，5 分鐘保護仍適用 */ }
     }
 
     checkins.unshift(item);
@@ -1881,8 +1886,13 @@ function applyCheckins(cloud) {
     };
   });
   // 樂觀更新保護：剛送出、雲端尚未出現的本地項目（5 分鐘內）保留
+  // 雲端已有同人同座標的就視為同一筆，不重複顯示
+  const cloudKeys = new Set(cloud.map(c =>
+    `${c.who}|${(+c.lat).toFixed(5)}|${(+c.lng).toFixed(5)}`));
   checkins.forEach(c => {
-    if (!cloudIds.has(c.id) && Date.now() - itemTs(c) < 5*60*1000) merged.unshift(c);
+    const key = `${c.who}|${(+c.lat).toFixed(5)}|${(+c.lng).toFixed(5)}`;
+    if (!cloudIds.has(c.id) && !cloudKeys.has(key) &&
+        Date.now() - itemTs(c) < 5*60*1000) merged.unshift(c);
   });
   checkins = merged;
 }
