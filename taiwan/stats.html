@@ -177,6 +177,10 @@ if (!Array.isArray(CFG.members) || !CFG.members.length) CFG.members = CFG_DEFAUL
 function spriteSvg(m) {
   const frames = window.SPRITES?.[m.spriteKey];
   if (frames?.[0]) return `<svg viewBox="0 0 16 28" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;image-rendering:pixelated;display:block;">${frames[0]}</svg>`;
+  if (m.sprite?.rects) {
+    const g = m.sprite.grid || 16;
+    return `<svg viewBox="0 0 ${g} ${g}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;image-rendering:pixelated;display:block;">${m.sprite.rects}</svg>`;
+  }
   return `<span style="font-size:16px;">${m.icon||'📍'}</span>`;
 }
 
@@ -242,9 +246,14 @@ async function load() {
       if (Array.isArray(data.members)) {
         const known = new Set(CFG.members.map(m=>m.name));
         data.members.forEach(m => {
-          if (m.name && !known.has(m.name)) {
-            CFG.members.push({ name:m.name, icon:m.icon||'🍇', color:m.color||'#8a4fbb' });
+          if (!m.name) return;
+          if (!known.has(m.name)) {
+            CFG.members.push({ name:m.name, icon:m.icon||'🍇', color:m.color||'#8a4fbb', sprite:m.sprite||null });
             known.add(m.name);
+          } else {
+            // 同名雲端列＝覆寫 config 班底的色/emoji/像素圖
+            const t = CFG.members.find(x=>x.name===m.name);
+            if (t) { if (m.color) t.color = m.color; if (m.icon) t.icon = m.icon; if (m.sprite) t.sprite = m.sprite; }
           }
         });
       }
