@@ -267,6 +267,29 @@ body{
   min-width:90px;
 }
 .popup-action-btn:active{background:var(--border);}
+.popup-more{
+  flex-shrink:0;align-self:flex-start;
+  background:none;border:1px solid var(--border);border-radius:4px;
+  color:var(--muted);font-family:var(--px);font-size:12px;
+  padding:1px 8px;cursor:pointer;line-height:1.4;
+}
+.popup-more:active{color:var(--text);background:var(--panel2);}
+/* 「…」下拉選單（貼著按鈕展開，蓋在塗鴉之上） */
+.popup-header{position:relative;z-index:100;}
+.popup-img{position:relative;z-index:0;}
+.popup-extra{
+  display:none;
+  position:absolute;top:26px;right:0;
+  flex-direction:column;gap:4px;
+  background:#fffdf7;
+  border:1px solid var(--border2);
+  border-radius:6px;
+  padding:6px;
+  min-width:100px;
+  z-index:999;
+  box-shadow:2px 2px 0 rgba(180,130,60,0.3);
+}
+.popup-extra .popup-action-btn{background:transparent;border:none;justify-content:flex-start;padding:7px 10px;}
 .popup-action-btn.go{background:#e2f4e6;border-color:#a8dcb4;color:#3a8a4a;}
 
 /* ── Modal 共用 */
@@ -1123,7 +1146,7 @@ function renderMarkers() {
       svgGrid: item.svgGrid || 16,
       spriteHtml: item.type==='checkin' ? spriteSvg(m) : null,
       fallbackIcon: item.type==='wish' ? '💗' : m.icon,
-    }).bindPopup(() => buildPopupContent(item), { className:'px-popup', maxWidth:240 });
+    }).bindPopup(() => buildPopupContent(item), { className:'px-popup', maxWidth:240, closeButton:false });
     markers[item.id] = marker;
     clusterGroup.addLayer(marker);
   });
@@ -1143,7 +1166,7 @@ function renderMarkers() {
             className:'', iconSize:[40,30], iconAnchor:[20,15],
           }),
           fallbackIcon:'💰', memberColor:m.color, svgData:null,
-        }).bindPopup(() => buildExpensePopup(e), { className:'px-popup', maxWidth:240 });
+        }).bindPopup(() => buildExpensePopup(e), { className:'px-popup', maxWidth:240, closeButton:false });
         clusterGroup.addLayer(marker);
       });
   }
@@ -1160,7 +1183,7 @@ function renderMarkers() {
           className:'', iconSize:[34,34], iconAnchor:[17,17],
         }),
         fallbackIcon: c.icon, memberColor:'#e0b35e', svgData:null,
-      }).bindPopup(() => buildCardPopup(t, c), { className:'px-popup', maxWidth:240 });
+      }).bindPopup(() => buildCardPopup(t, c), { className:'px-popup', maxWidth:240, closeButton:false });
       clusterGroup.addLayer(marker);
     });
   });
@@ -1199,11 +1222,15 @@ function buildExpensePopup(e) {
           <span style="font-size:8px;color:var(--muted)">${e.date||''} · ${e.payer||''}</span>
         </div>
       </div>
+      <button class="popup-more" title="更多"
+        onclick="const x=this.closest('.popup-header').querySelector('.popup-extra');x.style.display=x.style.display==='flex'?'none':'flex';">…</button>
+      <div class="popup-extra">
+        <button class="popup-action-btn" style="color:#d84848;" onclick="removeExpense('${e.id}')">🗑 刪除</button>
+      </div>
     </div>
     ${e.note?`<div class="popup-note">${e.note}</div>`:''}
     <div class="popup-actions">
       <button class="popup-action-btn" onclick="navigateTo(${e.lat},${e.lng})">➤ 導航</button>
-      <button class="popup-action-btn" style="color:#d84848;" onclick="removeExpense('${e.id}')">🗑 刪除</button>
     </div>
   `;
   return el;
@@ -1232,11 +1259,15 @@ function buildCardPopup(t, c) {
           <span class="diary-tag tag-trip">🧳 ${t.name}</span>
         </div>
       </div>
+      <button class="popup-more" title="更多"
+        onclick="const x=this.closest('.popup-header').querySelector('.popup-extra');x.style.display=x.style.display==='flex'?'none':'flex';">…</button>
+      <div class="popup-extra">
+        <button class="popup-action-btn" onclick="map.closePopup();openTripDetail('${t.id}');openCardEdit('${c.id}')">✎ 編輯卡片</button>
+      </div>
     </div>
     ${c.text?`<div class="popup-note" style="white-space:pre-wrap;">${c.text}</div>`:''}
     <div class="popup-actions">
       <button class="popup-action-btn" onclick="navigateTo(${c.lat},${c.lng})">➤ 導航</button>
-      <button class="popup-action-btn" onclick="map.closePopup();openTripDetail('${t.id}');openCardEdit('${c.id}')">✎ 編輯卡片</button>
     </div>
   `;
   return el;
@@ -1278,6 +1309,12 @@ function buildPopupContent(item) {
           ${item.date?`<span style="font-size:8px;color:var(--muted)">${item.date}</span>`:''}
         </div>
       </div>
+      <button class="popup-more" title="更多"
+        onclick="const x=this.closest('.popup-header').querySelector('.popup-extra');x.style.display=x.style.display==='flex'?'none':'flex';">…</button>
+      <div class="popup-extra">
+        <button class="popup-action-btn" onclick="startEditCheckin('${item.id}')">✎ 編輯</button>
+        <button class="popup-action-btn" style="color:#d84848;" onclick="removeCheckin('${item.id}')">🗑 刪除</button>
+      </div>
     </div>
     ${itemImgHtml(item)}
     ${item.note?`<div class="popup-note">${item.note}</div>`:''}
@@ -1285,10 +1322,6 @@ function buildPopupContent(item) {
       ${item.type==='wish'?`<button class="popup-action-btn go" onclick="checkinFromWish('${item.id}')">🐾 去過了，打卡！</button>`:''}
       <button class="popup-action-btn" onclick="openComments('${item.id}')">💬 留言（${item.comments?.length||0}）</button>
       <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
-    </div>
-    <div class="popup-actions" style="border-top:none;padding-top:0;margin-top:6px;">
-      <button class="popup-action-btn" onclick="startEditCheckin('${item.id}')">✎ 編輯</button>
-      <button class="popup-action-btn" style="color:#d84848;" onclick="removeCheckin('${item.id}')">🗑 刪除</button>
     </div>
   `;
   return el;
