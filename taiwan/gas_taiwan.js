@@ -31,10 +31,10 @@ var TRIP_HEADER = [
   '旅程ID','名稱','開始日期','結束日期','成員','備忘','建立時間','卡片JSON'
 ];
 
-// 成員（旅程中臨時新增的成員；config.js 的固定班底不在這裡）：
-// A成員ID B名稱 C代表色 D Emoji E建立時間
+// 成員（角色庫；config.js 固定班底的「覆寫」也存這裡——同名即覆寫色/圖）：
+// A成員ID B名稱 C代表色 D Emoji E建立時間 F像素圖JSON({grid,rects})
 var MEMBER_HEADER = [
-  '成員ID','名稱','代表色','Emoji','建立時間'
+  '成員ID','名稱','代表色','Emoji','建立時間','像素圖JSON'
 ];
 
 // 帳目（第二階段帳簿用，結構先定好）：
@@ -173,11 +173,14 @@ function readMemberSheet(sheet) {
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
     if (!r[0]) continue;
+    var sprite = null;
+    try { sprite = r[5] ? JSON.parse(r[5]) : null; } catch (e) {}
     members.push({
-      id:    r[0],
-      name:  r[1] || '',
-      color: r[2] || '',
-      icon:  r[3] || '',
+      id:     r[0],
+      name:   r[1] || '',
+      color:  r[2] || '',
+      icon:   r[3] || '',
+      sprite: sprite,
       _rowIndex: i + 1,
     });
   }
@@ -350,9 +353,97 @@ function doPost(e) {
         payload.color || '',
         payload.icon  || '',
         new Date().toISOString(),
+        payload.sprite ? JSON.stringify(payload.sprite) : '',
       ];
       sheet.getRange(firstEmptyRow(sheet), 1, 1, row.length).setValues([row]);
       return ok({ msg: 'member saved', id: id });
+    }
+
+    // 編輯成員（色/emoji/像素圖；不含改名，改名走 renameMember）
+    if (action === 'editMember') {
+      var sheet = getOrCreateSheet(ss, SHEET_NAMES.member, MEMBER_HEADER);
+      var rowIdx = payload.rowIndex || findRowById(sheet, payload.id || '');
+      // 找不到 id 時用名稱找（config 固定班底第一次編輯會以覆寫列新建）
+      if (rowIdx < 2 && payload.name) {
+        var bVals = sheet.getRange('B:B').getValues();
+        for (var i = 1; i < bVals.length; i++) {
+          if (String(bVals[i][0]||'').trim() === payload.name) { rowIdx = i + 1; break; }
+        }
+      }
+      if (rowIdx < 2) {
+        if (!payload.name) throw new Error('缺少成員名稱');
+        var nid = 'mb_' + new Date().getTime();
+        var nrow = [
+          nid, payload.name,
+          payload.color || '', payload.icon || '',
+          new Date().toISOString(),
+          payload.sprite ? JSON.stringify(payload.sprite) : '',
+        ];
+        sheet.getRange(firstEmptyRow(sheet), 1, 1, nrow.length).setValues([nrow]);
+        return ok({ msg: 'member override created', id: nid });
+      }
+      if (payload.color  !== undefined) sheet.getRange(rowIdx, 3).setValue(payload.color);
+      if (payload.icon   !== undefined) sheet.getRange(rowIdx, 4).setValue(payload.icon);
+      if (payload.sprite !== undefined) sheet.getRange(rowIdx, 6).setValue(payload.sprite ? JSON.stringify(payload.sprite) : '');
+      return ok('member updated');
+    }
+
+    // 改名：連動所有歷史紀錄（腳印成員/留言、旅程成員、帳目付款人、成員表）
+    if (action === 'renameMember') {
+      var oldName = String(payload.oldName || '').trim();
+      var newName = String(payload.newName || '').trim();
+      if (!oldName || !newName) throw new Error('缺少 oldName/newName');
+      var changed = { checkins: 0, comments: 0, trips: 0, expenses: 0, member: 0 };
+
+      // 腳印：D 欄成員、J 欄留言JSON 的 who
+      var cs = getOrCreateSheet(ss, SHEET_NAMES.checkin, CHECKIN_HEADER);
+      var cRows = cs.getDataRange().getValues();
+      for (var i = 1; i < cRows.length; i++) {
+        if (String(cRows[i][3]||'').trim() === oldName) {
+          cs.getRange(i+1, 4).setValue(newName); changed.checkins++;
+        }
+        var cj = String(cRows[i][9]||'');
+        if (cj) {
+          try {
+            var cmts = JSON.parse(cj); var hit = false;
+            cmts.forEach(function(c){ if (c.who === oldName) { c.who = newName; hit = true; } });
+            if (hit) { cs.getRange(i+1, 10).setValue(JSON.stringify(cmts)); changed.comments++; }
+          } catch (e) {}
+        }
+      }
+
+      // 旅程：E 欄成員（逗號清單）
+      var tsh = getOrCreateSheet(ss, SHEET_NAMES.trip, TRIP_HEADER);
+      var tRows = tsh.getDataRange().getValues();
+      for (var i = 1; i < tRows.length; i++) {
+        var list = String(tRows[i][4]||'').split(',').map(function(s){return s.trim();}).filter(String);
+        var idx = list.indexOf(oldName);
+        if (idx >= 0) {
+          list[idx] = newName;
+          tsh.getRange(i+1, 5).setValue(list.join(','));
+          changed.trips++;
+        }
+      }
+
+      // 帳目：H 欄付款人
+      var es = getOrCreateSheet(ss, SHEET_NAMES.expense, EXPENSE_HEADER);
+      var eRows = es.getDataRange().getValues();
+      for (var i = 1; i < eRows.length; i++) {
+        if (String(eRows[i][7]||'').trim() === oldName) {
+          es.getRange(i+1, 8).setValue(newName); changed.expenses++;
+        }
+      }
+
+      // 成員表：B 欄名稱
+      var msh = getOrCreateSheet(ss, SHEET_NAMES.member, MEMBER_HEADER);
+      var mRows = msh.getDataRange().getValues();
+      for (var i = 1; i < mRows.length; i++) {
+        if (String(mRows[i][1]||'').trim() === oldName) {
+          msh.getRange(i+1, 2).setValue(newName); changed.member++;
+        }
+      }
+
+      return ok({ msg: 'renamed', changed: changed });
     }
 
     if (action === 'deleteMember') {

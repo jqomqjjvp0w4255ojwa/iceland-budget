@@ -411,6 +411,40 @@ body{
   font-family:var(--px);font-size:10px;border-radius:var(--radius);cursor:pointer;
 }
 
+/* ── 角色庫（通訊錄） */
+.roster-scene{
+  position:relative;height:96px;border-radius:var(--radius);
+  border:2px solid var(--border);overflow:hidden;margin-bottom:12px;
+  background:linear-gradient(to bottom,#aee3f7 0%,#cdeefb 52%,#7ec8e3 52%,#9ad6ec 70%,#ffe9b8 70%,#ffd98e 100%);
+}
+.roster-sun{position:absolute;top:8px;right:14px;width:22px;height:22px;background:#ffd23f;border-radius:50%;box-shadow:0 0 0 4px rgba(255,210,63,0.35);}
+.roster-cloud{position:absolute;font-size:14px;opacity:.8;animation:cloudmove 30s linear infinite;}
+@keyframes cloudmove{from{transform:translateX(-30px);}to{transform:translateX(360px);}}
+.roster-stage{position:absolute;left:0;right:0;bottom:4px;display:flex;justify-content:center;gap:14px;align-items:flex-end;}
+.roster-stage .stage-spr{width:26px;height:44px;image-rendering:pixelated;}
+.roster-stage .stage-spr svg{width:100%;height:100%;image-rendering:pixelated;}
+.roster-row{
+  display:flex;align-items:center;gap:10px;padding:10px;
+  background:#fffdf7;border:1.5px solid var(--border);
+  border-radius:var(--radius);margin-bottom:8px;
+}
+.roster-avatar{width:30px;height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:center;image-rendering:pixelated;}
+.roster-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
+.roster-info{flex:1;min-width:0;}
+.roster-name{font-size:10px;display:flex;align-items:center;gap:6px;}
+.roster-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+.roster-meta{font-size:8px;color:var(--muted);margin-top:3px;}
+.color-swatches{display:flex;gap:6px;flex-wrap:wrap;}
+.color-sw{width:26px;height:26px;border-radius:6px;cursor:pointer;border:2px solid transparent;}
+.color-sw.on{border-color:var(--text);}
+.mp-preview-row{display:flex;gap:10px;align-items:center;}
+.mp-thumb{
+  width:56px;height:72px;border:2px solid var(--border);border-radius:6px;
+  background:var(--panel2);display:flex;align-items:center;justify-content:center;
+  font-size:24px;image-rendering:pixelated;overflow:hidden;flex-shrink:0;
+}
+.mp-thumb svg{width:100%;height:100%;image-rendering:pixelated;}
+
 /* ── 快問快答 */
 .qa-q{font-size:10px;color:var(--text);margin:14px 0 8px;line-height:1.6;}
 .qa-q:first-child{margin-top:0;}
@@ -532,6 +566,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
   <div class="sidebar-title" id="sidebarTitle">台灣腳印日記</div>
   <a class="sidebar-link" href="index.html"><span class="ico">🐾</span>腳印地圖</a>
   <div class="sidebar-link" onclick="openTrips();closeSidebar();"><span class="ico">🧳</span>小旅程</div>
+  <div class="sidebar-link" onclick="openRoster();closeSidebar();"><span class="ico">👥</span>角色庫</div>
   <a class="sidebar-link" href="stats.html"><span class="ico">🍉</span>足跡回顧</a>
   <div class="sidebar-link" style="color:var(--muted);" title="第二階段"><span class="ico">📒</span>帳簿（即將推出）</div>
   <div class="sidebar-link" onclick="loadData();closeSidebar();"><span class="ico">↻</span>重新整理資料</div>
@@ -676,6 +711,53 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
   </div>
 </div>
 
+<!-- 角色庫 Modal -->
+<div class="modal-overlay" id="rosterModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">👥 角色庫</div>
+      <button class="modal-close" onclick="closeRoster()">✕</button>
+    </div>
+    <div class="modal-body" id="rosterBody"></div>
+  </div>
+</div>
+
+<!-- 成員編輯 Modal -->
+<div class="modal-overlay" id="memberEditModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="memberEditTitle">✎ 編輯角色</div>
+      <button class="modal-close" onclick="closeMemberEdit()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="step-row">
+        <div class="step-label">名字（改名會同步修改所有歷史紀錄）</div>
+        <input class="form-input" id="mpName" maxlength="12" style="margin-top:0;">
+      </div>
+      <div class="step-row">
+        <div class="step-label">代表色</div>
+        <div class="color-swatches" id="mpColors"></div>
+      </div>
+      <div class="step-row">
+        <div class="step-label">Emoji（沒有像素圖時的備援頭像）</div>
+        <input class="form-input" id="mpIcon" maxlength="4" style="margin-top:0;width:90px;">
+      </div>
+      <div class="step-row">
+        <div class="step-label">像素圖</div>
+        <div class="mp-preview-row">
+          <div class="mp-thumb" id="mpThumb">🙂</div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+            <button class="draw-edit-btn" onclick="openDrawPanel('member')">🎨 用畫板畫</button>
+            <button class="trip-btn" id="mpSpriteClear" style="display:none;padding:8px;" onclick="clearMemberSprite()">✕ 清除像素圖</button>
+          </div>
+        </div>
+        <div style="font-size:8px;color:var(--muted);margin-top:6px;">用 spritetool 綁定的固定班底像素圖由 config 控制，這裡畫的圖會優先顯示在沒綁定的成員上</div>
+      </div>
+      <button class="submit-btn" onclick="saveMemberEdit()">💾 儲存角色</button>
+    </div>
+  </div>
+</div>
+
 <!-- 行前快問快答 Modal -->
 <div class="modal-overlay" id="tripQAModal">
   <div class="modal-box">
@@ -792,10 +874,29 @@ if (!Array.isArray(CFG.mapCenter) || CFG.mapCenter.length !== 2) CFG.mapCenter =
 function spriteSvg(m) {
   const frames = window.SPRITES?.[m.spriteKey];
   if (frames?.[0]) {
-    return `<svg viewBox="0 0 16 28" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;image-rendering:pixelated;display:block;">${frames[0]}</svg>`;
+    // anim-spr：由動畫 ticker 換格（4 格待機動畫）
+    return `<svg viewBox="0 0 16 28" preserveAspectRatio="xMidYMid meet" class="anim-spr" data-key="${m.spriteKey}" style="width:100%;height:100%;image-rendering:pixelated;display:block;">${frames[0]}</svg>`;
+  }
+  if (m.sprite?.rects) {
+    const g = m.sprite.grid || 16;
+    return `<svg viewBox="0 0 ${g} ${g}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;image-rendering:pixelated;display:block;">${m.sprite.rects}</svg>`;
   }
   return `<span style="font-size:16px;">${m.icon||'📍'}</span>`;
 }
+
+// ── 待機動畫：8 FPS 換格（畫面上所有 .anim-spr）
+(function(){
+  let frame = 0;
+  setInterval(() => {
+    const els = document.querySelectorAll('svg.anim-spr');
+    if (!els.length) { frame++; return; }
+    els.forEach(el => {
+      const frames = window.SPRITES?.[el.dataset.key];
+      if (frames?.length > 1) el.innerHTML = frames[frame % frames.length];
+    });
+    frame++;
+  }, 1000/8);
+})();
 
 // ══════════════════════════════════════════
 //  狀態
@@ -1589,13 +1690,29 @@ const NEW_MEMBER_ICONS  = ['🍇','🍍','🥭','🍑','🍓','🥝','🍌','�
 const NEW_MEMBER_COLORS = ['#8a4fbb','#d9a514','#ff8c1a','#ff9e9e','#e0335c','#7aa844','#e8c531','#7ec8a0'];
 
 function applyMembers(cloud) {
-  const known = new Set(CFG.members.map(m=>m.name));
-  const extra = (cloud||[]).filter(m=>m.name && !known.has(m.name)).map((m,i)=>({
-    name:  m.name,
-    icon:  m.icon  || NEW_MEMBER_ICONS[i % NEW_MEMBER_ICONS.length],
-    color: m.color || NEW_MEMBER_COLORS[i % NEW_MEMBER_COLORS.length],
-  }));
-  members = [...CFG.members, ...extra];
+  const byName = {};
+  (cloud||[]).forEach(m => { if (m.name) byName[m.name] = m; });
+  // config 班底：同名雲端列視為覆寫（色/emoji/像素圖），config 的 sprite 綁定保留
+  const merged = CFG.members.map(m => {
+    const o = byName[m.name];
+    if (!o) return { ...m };
+    delete byName[m.name];
+    return { ...m, color: o.color || m.color, icon: o.icon || m.icon, sprite: o.sprite || null, cloudId: o.id };
+  });
+  // 其餘為臨時成員
+  let i = 0;
+  Object.keys(byName).forEach(name => {
+    const o = byName[name];
+    merged.push({
+      name,
+      icon:  o.icon  || NEW_MEMBER_ICONS[i % NEW_MEMBER_ICONS.length],
+      color: o.color || NEW_MEMBER_COLORS[i % NEW_MEMBER_COLORS.length],
+      sprite: o.sprite || null,
+      cloudId: o.id,
+    });
+    i++;
+  });
+  members = merged;
 }
 
 async function addNewMember() {
@@ -1621,6 +1738,135 @@ async function addNewMember() {
   }
   if (!tripFormMembers.includes(name)) tripFormMembers.push(name);
   buildTripMemberGrid();
+}
+
+// ══════════════════════════════════════════
+//  角色庫（通訊錄）：改名連動、改色、改 emoji、畫像素圖
+// ══════════════════════════════════════════
+const MP_COLORS = ['#ff5d5d','#ffb627','#ffd23f','#58b368','#2e7d44','#7ec8e3','#3a6ea5','#9b5de5','#f4538a','#f9a8c9','#8a5a3a','#5a4632'];
+let editingMember = null;
+let mpColor = '';
+let mpSprite = null;
+
+function memberStats(name) {
+  const tripCount = trips.filter(t => (t.members||[]).includes(name)).length;
+  const ckCount = checkins.filter(c => c.who === name && c.type === 'checkin').length;
+  return `${tripCount} 趟旅程 · ${ckCount} 次打卡`;
+}
+
+function openRoster() {
+  renderRoster();
+  document.getElementById('rosterModal').classList.add('show');
+}
+function closeRoster() {
+  document.getElementById('rosterModal').classList.remove('show');
+}
+
+function renderRoster() {
+  const el = document.getElementById('rosterBody');
+  el.innerHTML = `
+    <div class="roster-scene">
+      <div class="roster-sun"></div>
+      <div class="roster-cloud" style="top:10px;">☁️</div>
+      <div class="roster-cloud" style="top:26px;animation-delay:-14s;">☁️</div>
+      <div class="roster-stage">
+        ${members.map(m => `<div class="stage-spr" title="${m.name}">${spriteSvg(m)}</div>`).join('')}
+      </div>
+    </div>
+    ${members.map((m,i) => `
+      <div class="roster-row">
+        <div class="roster-avatar">${spriteSvg(m)}</div>
+        <div class="roster-info">
+          <div class="roster-name"><span class="roster-dot" style="background:${m.color}"></span>${m.name}${m.spriteKey&&window.SPRITES?.[m.spriteKey]?.length?'<span style="font-size:7px;color:var(--muted);">（spritetool）</span>':''}</div>
+          <div class="roster-meta">${memberStats(m.name)}</div>
+        </div>
+        <button class="trip-btn" style="flex:0 0 auto;padding:8px 12px;" onclick="openMemberEdit(${i})">✎ 編輯</button>
+      </div>`).join('')}
+    <button class="add-trip-btn" onclick="closeRoster();tripFormMembers=[];addNewMember();openRoster();">＋ 新增角色</button>
+  `;
+}
+
+function openMemberEdit(idx) {
+  editingMember = members[idx];
+  mpColor = editingMember.color || MP_COLORS[0];
+  mpSprite = editingMember.sprite || null;
+  document.getElementById('memberEditTitle').textContent = '✎ 編輯：' + editingMember.name;
+  document.getElementById('mpName').value = editingMember.name;
+  document.getElementById('mpIcon').value = editingMember.icon || '';
+  renderMpColors();
+  renderMpThumb();
+  closeRoster();
+  document.getElementById('memberEditModal').classList.add('show');
+}
+function closeMemberEdit() {
+  document.getElementById('memberEditModal').classList.remove('show');
+  editingMember = null;
+  openRoster();
+}
+
+function renderMpColors() {
+  document.getElementById('mpColors').innerHTML = MP_COLORS.map(c =>
+    `<div class="color-sw ${c===mpColor?'on':''}" style="background:${c}" onclick="mpColor='${c}';renderMpColors();"></div>`).join('');
+}
+
+function renderMpThumb() {
+  const el = document.getElementById('mpThumb');
+  const preview = { ...editingMember, sprite: mpSprite, icon: document.getElementById('mpIcon').value || editingMember.icon };
+  el.innerHTML = spriteSvg(preview);
+  document.getElementById('mpSpriteClear').style.display = mpSprite ? '' : 'none';
+}
+
+function clearMemberSprite() {
+  mpSprite = null;
+  renderMpThumb();
+}
+
+async function saveMemberEdit() {
+  if (!editingMember) return;
+  const m = editingMember;
+  const newName = document.getElementById('mpName').value.trim();
+  const newIcon = document.getElementById('mpIcon').value.trim();
+
+  // 改名 → 連動所有歷史紀錄
+  if (newName && newName !== m.name) {
+    if (members.some(x => x !== m && x.name === newName)) { alert('已經有同名角色'); return; }
+    if (!confirm(`把「${m.name}」改名為「${newName}」？\n所有歷史打卡、旅程、留言會一併更新`)) return;
+    const oldName = m.name;
+    // 本地連動
+    checkins.forEach(c => {
+      if (c.who === oldName) c.who = newName;
+      (c.comments||[]).forEach(cm => { if (cm.who === oldName) cm.who = newName; });
+    });
+    trips.forEach(t => {
+      const i = (t.members||[]).indexOf(oldName);
+      if (i >= 0) t.members[i] = newName;
+    });
+    m.name = newName;
+    const resp = await gasPost({ action:'renameMember', oldName, newName });
+    if (!resp?.ok) alert('⚠ 雲端改名失敗（GAS 可能還是舊版），本機已先改');
+    if (m.spriteKey) alert('提醒：這位是 config 固定班底，config.js 的 name 也要改成「' + newName + '」，否則重整後像素圖會對不上');
+  }
+
+  m.color = mpColor;
+  if (newIcon) m.icon = newIcon;
+  m.sprite = mpSprite;
+
+  const resp2 = await gasPost({
+    action:'editMember',
+    id: m.cloudId || '',
+    name: m.name,
+    color: m.color,
+    icon: m.icon,
+    sprite: m.sprite,
+  });
+  if (resp2?.msg?.id) m.cloudId = resp2.msg.id;
+  if (!resp2?.ok) alert('⚠ 雲端儲存失敗（GAS 可能還是舊版）');
+
+  document.getElementById('memberEditModal').classList.remove('show');
+  editingMember = null;
+  buildTopbarMembers();
+  renderMarkers();
+  openRoster();
 }
 
 // ══════════════════════════════════════════
@@ -2141,9 +2387,17 @@ function ensurePad() {
   }
 }
 
-function openDrawPanel() {
+let padTarget = 'checkin';   // 'checkin'（打卡塗鴉）或 'member'（角色像素圖）
+
+function openDrawPanel(target) {
+  padTarget = target || 'checkin';
   document.getElementById('drawModal').classList.add('show');
   ensurePad();
+  if (padTarget === 'member') {
+    if (mpSprite?.rects) PixelPad.loadRects(mpSprite.rects, mpSprite.grid || 16);
+    else PixelPad.reset();
+    return;
+  }
   // 有既有塗鴉（編輯中）就載入，否則開全新空白畫布
   if (pendingCheckin.svgData) {
     PixelPad.loadRects(pendingCheckin.svgData, pendingCheckin.svgGrid || 16);
@@ -2154,6 +2408,11 @@ function openDrawPanel() {
 
 function onPadDone(res) {
   document.getElementById('drawModal').classList.remove('show');
+  if (padTarget === 'member') {
+    mpSprite = res.svgData ? { grid: res.grid, rects: res.svgData } : null;
+    renderMpThumb();
+    return;
+  }
   pendingCheckin.svgData = res.svgData;
   pendingCheckin.svgGrid = res.grid;
   if (res.svgData) {
