@@ -37,12 +37,12 @@ var MEMBER_HEADER = [
   '成員ID','名稱','代表色','Emoji','建立時間','像素圖JSON'
 ];
 
-// 帳目（第二階段帳簿用，結構先定好）：
+// 帳目（記帳打卡：帳可帶座標顯示在地圖上）：
 // A帳目ID B旅程ID C日期 D類別 E項目 F金額 G幣別 H付款人
-// I分帳方式 J每人負擔JSON K備註 L建立時間
+// I分帳方式 J每人負擔JSON K備註 L建立時間 M緯度 N經度
 var EXPENSE_HEADER = [
   '帳目ID','旅程ID','日期','類別','項目','金額','幣別','付款人',
-  '分帳方式','每人負擔JSON','備註','建立時間'
+  '分帳方式','每人負擔JSON','備註','建立時間','緯度','經度'
 ];
 
 // ── 取得工作表；不存在就自動建立並寫入標題列 ─────────────
@@ -160,6 +160,8 @@ function readExpenseSheet(sheet) {
       split:     split,
       note:      r[10] || '',
       createdAt: r[11] || '',
+      lat:       parseFloat(r[12]) || 0,
+      lng:       parseFloat(r[13]) || 0,
       _rowIndex: i + 1,
     });
   }
@@ -472,6 +474,8 @@ function doPost(e) {
         JSON.stringify(payload.split || {}),
         payload.note      || '',
         now,
+        payload.lat       || '',
+        payload.lng       || '',
       ];
       sheet.getRange(firstEmptyRow(sheet), 1, 1, row.length).setValues([row]);
       return ok({ msg: 'expense saved', id: id });
@@ -491,6 +495,8 @@ function doPost(e) {
       if (payload.splitMode !== undefined) sheet.getRange(rowIdx, 9).setValue(payload.splitMode);
       if (payload.split     !== undefined) sheet.getRange(rowIdx, 10).setValue(JSON.stringify(payload.split));
       if (payload.note      !== undefined) sheet.getRange(rowIdx, 11).setValue(payload.note);
+      if (payload.lat       !== undefined) sheet.getRange(rowIdx, 13).setValue(payload.lat);
+      if (payload.lng       !== undefined) sheet.getRange(rowIdx, 14).setValue(payload.lng);
       return ok('expense updated');
     }
 
