@@ -177,6 +177,38 @@
         tags:       String(row['標籤'] ?? '').trim(),
       }));
 
+    const activityRows = cellsToRows(activity);
+    const activityData = activityRows
+      .filter(row => String(row['活動地點'] ?? '').trim() !== '')
+      .map(row => ({
+        name:       pick(row, ['活動地點'], ''),
+        url:        pick(row, ['網址'], ''),
+        date:       pick(row, ['日期'], ''),
+        meetTime:   pick(row, ['集合時間'], ''),
+        meetLoc:    pick(row, ['集合地點'], ''),
+        cur:        String(pick(row, ['幣別'], 'NT')).replace(/\.$/, '').replace(/^EU$/, 'EUR').replace(/^ISK$/, 'ISK').replace(/^NT$/, 'NT'),
+        orig:       num(pick(row, ['價格'])),
+        twd:        num(pick(row, ['換算台幣'])),
+        cancel:     yes(pick(row, ['可取消?'])),
+        payDate:    pick(row, ['付款期限/時間'], ''),
+        payer:      pick(row, ['付款人'], ''),
+        paid:       yes(pick(row, ['已付款?'])),
+        foreignFee: num(pick(row, ['海外手續費'])),
+        perPerson:  num(pick(row, ['每人負擔'])),
+        note:       pick(row, ['備註'], ''),
+        advance:    Object.fromEntries((window.TRIP_MEMBERS||['猴','花','寧']).map(m=>[m, num(row[m+'代墊'])])),
+        lat:        num(pick(row, ['lat'])),
+        lng:        num(pick(row, ['lng'])),
+        content:    pick(row, ['活動內容'], ''),
+        location:   pick(row, ['地點'], ''),
+        included:   pick(row, ['提供'], ''),
+        excluded:   pick(row, ['不提供'], ''),
+        difficulty: pick(row, ['難度'], ''),
+        bring:      pick(row, ['自備項目'], ''),
+        duration:   pick(row, ['時間長度'], ''),
+        returnLoc:  pick(row, ['回程地'], ''),
+      }));
+
     const flightRows = cellsToRows(flight);
     const flightByTicket = {};
     flightRows.forEach(row => {
@@ -230,7 +262,7 @@
       exchangeISK, exchangeEUR, exchangeUSD, expenseCategories, budgetPerPerson, tagLibrary,
       car: carData,
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
-      activity: cellsToRows(activity),
+      activity: activityData,
       expenses, split: splitData, dialogLines, flights, totalFlightTWD, repayHistory,
     };
   }
