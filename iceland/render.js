@@ -297,7 +297,7 @@ function renderAll(){
           <div id="accomContent">${renderAccom(d.accommodation)}</div>
         </div>
         <div id="car" class="section"><div id="carContent">${renderTransport(d)}</div></div>
-        <div id="activity" class="section"><div class="empty">🚧 施工中，敬請期待</div></div>
+        <div id="activity" class="section"><div id="activityContent">${renderActivity(d.activity)}</div></div>
         <div id="daily" class="section"><div id="dailyContent">${renderDaily(d.expenses||[])}</div></div>
         <div id="insurance" class="section"><div id="insuranceContent"><div class="empty">🛡 保險資訊填入後顯示</div></div></div>
         <div id="repay" class="section"><div id="repayContent">${renderRepay(d.repayHistory||[], d.split||{})}</div></div>

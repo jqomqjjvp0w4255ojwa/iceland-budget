@@ -77,6 +77,87 @@ function setFilter(f){
   document.getElementById('accomContent').innerHTML=renderAccom(APP_DATA.accommodation);
 }
 
+// ── 活動卡片渲染
+function renderActivity(items){
+  items = items || [];
+  if(!items.length) return `<div class="empty">🎯 活動資料填入後顯示在這裡</div>`;
+
+  const filter = window._activityFilter || 'all';
+  const show = filter==='all'?items:filter==='paid'?items.filter(a=>a.paid):items.filter(a=>!a.paid);
+  const total = items.reduce((s,a)=>s+(a.twd||0),0);
+  const paidTotal = items.filter(a=>a.paid).reduce((s,a)=>s+(a.twd||0),0);
+  const pct = total?Math.round(paidTotal/total*100):0;
+
+  return `
+    <div class="progress-wrap">
+      <div class="progress-label"><span>已付款進度 ${pct}%</span><span>${fmt(paidTotal)} / ${fmt(total)}</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div class="filter-row">
+      <button class="filter-btn ${filter==='all'?'active':''}" onclick="setActivityFilter('all')">全部 ${items.length}</button>
+      <button class="filter-btn ${filter==='paid'?'active':''}" onclick="setActivityFilter('paid')">✓ 已付 ${items.filter(a=>a.paid).length}</button>
+      <button class="filter-btn ${filter==='unpaid'?'active':''}" onclick="setActivityFilter('unpaid')">未付 ${items.filter(a=>!a.paid).length}</button>
+    </div>
+    ${show.map(a=>{
+      let payTag='';
+      if(a.paid && a.payDate) payTag=`<span class="tag tag-paid">${a.payDate} 付款</span>`;
+      else if(a.paid) payTag=`<span class="tag tag-paid">已付款</span>`;
+      else if(a.payDate) payTag=`<span class="tag tag-unpaid">${a.payDate} 前付款</span>`;
+      else payTag=`<span class="tag tag-unpaid">未付款</span>`;
+
+      const feeTag  = a.foreignFee ? `<span class="tag tag-fee">手續費 NT$${a.foreignFee}</span>` : '';
+      const diffTag = a.difficulty ? `<span class="tag tag-person">難度 ${a.difficulty}</span>` : '';
+      const meetInfo = [a.meetTime, a.meetLoc].filter(Boolean).join(' · ');
+      const nameHtml = a.url
+        ? `<a href="${a.url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${a.name}</a>`
+        : a.name;
+      const detailNote = [
+        a.included ? `✅ ${a.included}` : '',
+        a.excluded ? `❌ ${a.excluded}` : '',
+        a.bring    ? `🎒 ${a.bring}`    : '',
+      ].filter(Boolean).join('<br>');
+
+      return `
+      <div class="card ${a.paid?'paid-card':'unpaid-card'}">
+        <div class="card-header">
+          <div class="card-left">
+            <div class="card-date">${a.date}${a.duration?`<span class="card-nights"> · ${a.duration}</span>`:''}</div>
+            <div class="card-name-row">
+              <span class="place-type-icon">🎯</span>
+              <span class="card-name">${nameHtml}</span>
+            </div>
+            ${meetInfo?`<div style="font-size:.68rem;color:var(--muted);margin-top:3px">📍 ${meetInfo}</div>`:''}
+          </div>
+          <div class="card-price">
+            ${a.twd ? `
+              <div class="price-per-label">&nbsp;</div>
+              <div class="price-per">${fmtPer(a.twd)}</div>
+              <div class="price-total">${fmt(a.twd)} 合計</div>
+              ${a.orig && a.cur !== 'NT' ? `<div class="price-orig">${fmtOrig(a.orig,a.cur)}</div>` : ''}
+            ` : `<div class="price-per" style="color:var(--muted);font-size:.85rem">現場付</div>`}
+          </div>
+        </div>
+        <div class="card-body">
+          ${payTag}
+          <span class="tag ${a.cancel?'tag-cancel':'tag-nocancel'}">${a.cancel?'可取消':'不可退'}</span>
+          <span style="display:inline-flex;align-items:center;">${avatarSvg(a.payer)}</span>
+          ${diffTag}
+          ${feeTag}
+        </div>
+        ${a.content?`<div class="card-note">📝 ${a.content}</div>`:''}
+        ${detailNote?`<div class="card-note">${detailNote}</div>`:''}
+        ${a.note?`<div class="card-note">📌 ${a.note}</div>`:''}
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function setActivityFilter(f){
+  window._activityFilter = f;
+  const el = document.getElementById('activityContent');
+  if(el) el.innerHTML = renderActivity(window.APP_DATA.activity);
+}
+
 // ── 租車
 // ── 類別中文對應
 const CAT_LABEL = {
