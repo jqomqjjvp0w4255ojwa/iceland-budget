@@ -726,6 +726,31 @@ function buildScheduleDays(d) {
     items.push(node);
   });
 
+  // 活動表 → 自動變成活動節點（日程表已手動排同一天同名活動的就跳過）
+  (d.activity || []).forEach((a, ai) => {
+    if (!a.date || !a.name) return;
+    const dd = schDate(a.date, year);
+    if (!dd) return;
+    const dup = items.some(x =>
+      x.category === '活動' && x._d && schIsSameDay(x._d, dd) &&
+      findSchActivity(x.title, [a]) === 0);
+    if (dup) return;
+    const tm = String(a.meetTime || '').match(/(\d{1,2}[:：]\d{2})/);
+    const meetExtra = String(a.meetTime || '').replace(tm ? tm[1] : '', '').trim();
+    items.push({
+      date: a.date,
+      time: tm ? tm[1] : '',
+      category: '活動',
+      _actIndex: ai,
+      title: a.name,
+      place: a.meetLoc || a.location || '',
+      note: meetExtra ? `集合 ${a.meetTime}` : '',
+      lat: a.lat || 0, lng: a.lng || 0,
+      order: 5000 + ai,   // 排在手動節點後、住宿前
+      _d: dd,
+    });
+  });
+
   // 依日期分組
   const byDate = new Map();
   items.filter(x => x._d).forEach(x => {
@@ -859,8 +884,9 @@ function renderSchDay(day, today, d, dayNum) {
 function renderSchNode(x, d) {
   const isStay = x.category === '住宿';
   const stay = isStay && x._stayIndex != null ? (d.accommodation || [])[x._stayIndex] : null;
-  // 活動節點：用標題比對活動表，找得到就能點開詳情
-  const actIndex = x.category === '活動' ? findSchActivity(x.title, d.activity) : -1;
+  // 活動節點：自動併入的直接帶 index；手動排的用標題比對活動表
+  const actIndex = x._actIndex != null ? x._actIndex
+    : x.category === '活動' ? findSchActivity(x.title, d.activity) : -1;
   const act = actIndex >= 0 ? d.activity[actIndex] : null;
 
   // 住宿：沿用帳簿住宿卡的類型判斷（sheet 有填類型就優先用）
