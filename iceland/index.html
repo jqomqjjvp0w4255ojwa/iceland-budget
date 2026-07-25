@@ -474,6 +474,32 @@
     .sch-nav:active{background:rgba(79,195,247,.12);}
     .sch-node-actions{display:flex;margin-top:6px;}
 
+    /* 點不開的節點：不做卡片，一行字＋空心圓點 */
+    .sch-node.plain .sch-node-body{
+      background:transparent;border:none;border-left:none;
+      padding:6px 0 6px 4px;
+    }
+    .sch-node-dot.ring{
+      width:11px;height:11px;background:var(--card);
+      border:2px solid var(--border);margin-top:9px;margin-left:3px;
+    }
+    .sch-node.plain.big .sch-node-dot.ring{border-color:rgba(78,195,121,.75);width:13px;height:13px;margin-left:2px;}
+    .sch-node-line{display:flex;align-items:baseline;gap:5px;min-width:0;}
+    .sch-line-icon{font-size:.7rem;flex-shrink:0;}
+    .sch-line-title{font-size:.72rem;color:var(--muted);}
+    .sch-line-place{font-size:.63rem;color:var(--muted);opacity:.75;min-width:0;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    /* 景點：整條時間軸上最大的字 */
+    .sch-node.plain.big .sch-line-title{font-size:.95rem;color:var(--text);font-weight:600;letter-spacing:.02em;}
+    .sch-node.plain.big .sch-line-icon{font-size:.85rem;}
+    .sch-node.plain.big .sch-node-body{padding-top:4px;}
+
+    /* 沒有行程的日子：虛線帶過 */
+    .sch-gap{display:flex;align-items:center;gap:9px;margin:0 0 6px 14px;padding:2px 0;}
+    .sch-gap-dots{width:2px;height:26px;margin-left:-1px;flex-shrink:0;
+      background:repeating-linear-gradient(var(--border) 0 3px,transparent 3px 7px);}
+    .sch-gap-text{font-size:.62rem;color:var(--muted);opacity:.65;}
+
     .sch-stay-tags{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:5px;}
     .sch-payer{display:inline-flex;align-items:center;height:20px;}
     .sch-payer svg{height:20px;width:auto;image-rendering:pixelated;}

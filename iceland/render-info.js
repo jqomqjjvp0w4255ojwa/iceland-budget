@@ -946,7 +946,18 @@ function renderSchedule(d) {
         onclick="setSchFilter('${c.key}')">${c.label}</button>`).join('')}
     </div>`;
 
-  const body = days.map((day, i) => renderSchDay(day, today, d, i + 1)).join('');
+  // 有內容的日子之間若隔了空白天，插一段「空 N 天」的虛線軸
+  let body = '', prevDay = null;
+  days.forEach((day, i) => {
+    const html = renderSchDay(day, today, d, i + 1);
+    if (!html) return;
+    if (prevDay) {
+      const gap = Math.round((day.d - prevDay.d) / 86400000) - 1;
+      if (gap > 0) body += `<div class="sch-gap"><span class="sch-gap-dots"></span><span class="sch-gap-text">空 ${gap} 天</span></div>`;
+    }
+    body += html;
+    prevDay = day;
+  });
 
   return jumper + filters + `
     <div class="sch-scroll" id="schScroll">${body}</div>
@@ -1070,12 +1081,31 @@ function renderSchNode(x, d) {
   const clickable = stay ? `onclick="openSchStay(${x._stayIndex})"`
                   : act  ? `onclick="openSchAct(${actIndex})"` : '';
 
+  const time = `<div class="sch-node-time">${esc(x.time || '')}</div>`;
+  const cls = `cat-${esc(x.category)}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}`;
+
+  // 點不開的節點不做卡片：空心圓點＋一行字（景點放大、車程等縮成一行）
+  if (!clickable) {
+    const big = x.category === '景點';
+    return `
+      <div class="sch-node plain ${cls}${big ? ' big' : ''}">
+        ${time}
+        <div class="sch-node-dot ring"></div>
+        <div class="sch-node-body">
+          <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${
+            x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
+          ${x.note ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
+          ${navBtn ? `<div class="sch-node-actions">${navBtn}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
   return `
-    <div class="sch-node cat-${esc(x.category)}${clickable ? ' expandable' : ''}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}" ${clickable}>
-      <div class="sch-node-time">${esc(x.time || '')}</div>
+    <div class="sch-node expandable ${cls}" ${clickable}>
+      ${time}
       <div class="sch-node-dot">${icon}</div>
       <div class="sch-node-body">
-        <div class="sch-node-title">${esc(x.title)}${clickable ? '<span class="sch-expand">›</span>' : ''}</div>
+        <div class="sch-node-title">${esc(x.title)}<span class="sch-expand">›</span></div>
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
         ${stayTags}
