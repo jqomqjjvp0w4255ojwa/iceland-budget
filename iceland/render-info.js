@@ -933,6 +933,12 @@ function buildScheduleDays(d) {
       if (ta !== tb) return ta - tb;
       return (a.order || 0) - (b.order || 0);
     });
+    // 「參考」是掛在前一個節點底下的附註，篩選時跟著上面那個節點一起出現
+    let parentCat = '';
+    day.items.forEach(x => {
+      if (x.category === '參考') x._parentCat = parentCat;
+      else if (x.category !== '交通') parentCat = x.category;
+    });
   });
   return days;
 }
@@ -1047,8 +1053,9 @@ function renderSchDay(day, today, d, dayNum) {
   const isToday = schIsSameDay(day.d, today);
   const isPast  = !isToday && day.d < today;
   // 交通是節點之間的連接線，篩選特定分類時沒有意義，只在「全部」顯示
-  const shown = day.items.filter(x => _schFilter === 'all' ? true : x.category === _schFilter);
-  if (!shown.length || shown.every(x => x.category === '交通')) return '';
+  const shown = day.items.filter(x => _schFilter === 'all' ? true
+    : (x.category === _schFilter || x._parentCat === _schFilter));
+  if (!shown.length || shown.every(x => x.category === '交通' || x.category === '參考')) return '';
 
   return `
     <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}" data-key="${esc(day.key)}">
@@ -1082,6 +1089,23 @@ function renderSchNode(x, d, sameTime) {
           <span class="sch-conn-text">${esc(text || '移動')}</span>
           ${x.note ? `<span class="sch-conn-note">${esc(x.note)}</span>` : ''}
         </div>
+      </div>`;
+  }
+
+  // 參考：不是獨立節點，是掛在前一個節點底下的小字附註（縮排、無圓點）
+  if (x.category === '參考') {
+    const ref = (x.lat && x.lng)
+      ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
+      : '';
+    return `
+      <div class="sch-ref">
+        <span class="sch-ref-mark">└</span>
+        <div class="sch-ref-body">
+          <span class="sch-ref-title">${esc(x.title)}</span>
+          ${x.place ? `<span class="sch-ref-place">${esc(x.place)}</span>` : ''}
+          ${x.note ? `<div class="sch-ref-note">${esc(x.note)}</div>` : ''}
+        </div>
+        ${ref}
       </div>`;
   }
 
