@@ -302,7 +302,7 @@ function renderInfo(d) {
       ${renderCarDetail(d.car)}
     </div>
     <div id="infoTab-schedule" class="section">
-      <div class="empty">📅 日程 sheet 填入後顯示</div>
+      <div id="scheduleContent">${renderSchedule(d)}</div>
     </div>
     <div id="infoTab-insurance" class="section">
       <div class="empty">🛡 保險資訊填入後顯示</div>
@@ -636,6 +636,254 @@ window.togglePrep = function(taskId, member, btn) {
   if (bars) bars.outerHTML = renderPrepProgress(window.APP_DATA?.tasks || []);
 };
 
+
+// ══════════════════════════════════════════════════════════
+//  日程時間軸：日期跳轉 + 分類篩選 + 住宿展開 + 回到今日
+// ══════════════════════════════════════════════════════════
+const SCH_CATS = [
+  { key:'all',  label:'全部' },
+  { key:'景點', label:'景點' },
+  { key:'住宿', label:'住宿' },
+  { key:'活動', label:'活動' },
+  { key:'其他', label:'其他' },
+];
+const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '其他':'🚗' };
+let _schFilter = 'all';
+
+// 「9/17」→ 當年的 Date（行程都在同一年）
+function schDate(dateStr, year) {
+  const m = String(dateStr || '').match(/(\d{1,2})\s*[\/月-]\s*(\d{1,2})/);
+  if (!m) return null;
+  return new Date(year, +m[1] - 1, +m[2]);
+}
+function schWeekday(d) {
+  return d ? ['日','一','二','三','四','五','六'][d.getDay()] : '';
+}
+function schIsSameDay(a, b) {
+  return a && b && a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+// 把日程 + 住宿合併成節點，依日期分組
+function buildScheduleDays(d) {
+  const year = new Date(window.TRIP_CONFIG?.dates?.depart || Date.now()).getFullYear();
+  // 日期欄留空＝沿用上一列（GAS 已處理，這裡再保險一次，避免節點憑空消失）
+  let lastD = null;
+  const items = (d.schedule || []).map(x => {
+    const parsed = schDate(x.date, year) || lastD;
+    if (parsed) lastD = parsed;
+    return { ...x, _d: parsed };
+  });
+
+  // 住宿表的每一晚 → 自動變成住宿節點（日期欄可能是「9/15 9/16」這種多晚）
+  (d.accommodation || []).forEach((a, ai) => {
+    String(a.date || '').split(/[\s,、]+/).filter(Boolean).forEach(one => {
+      const dd = schDate(one, year);
+      if (!dd) return;
+      items.push({
+        date: one, time: '', category: '住宿',
+        title: a.name, note: '', place: a.address || '',
+        lat: a.lat, lng: a.lng, order: 9999,   // 住宿排當天最後
+        _d: dd, _stayIndex: ai,
+      });
+    });
+  });
+
+  // 依日期分組
+  const byDate = new Map();
+  items.filter(x => x._d).forEach(x => {
+    const key = `${x._d.getMonth()+1}/${x._d.getDate()}`;
+    if (!byDate.has(key)) byDate.set(key, { key, d: x._d, items: [] });
+    byDate.get(key).items.push(x);
+  });
+
+  // 日期排序；同一天內：有時間的排前面（依時間），沒時間的照 sheet 順序
+  const days = [...byDate.values()].sort((a, b) => a.d - b.d);
+  days.forEach(day => {
+    day.items.sort((a, b) => {
+      const ta = parseSchTime(a.time), tb = parseSchTime(b.time);
+      if (ta !== tb) return ta - tb;
+      return (a.order || 0) - (b.order || 0);
+    });
+  });
+  return days;
+}
+
+// 時間排序用：「09:00」→540、「上午」→ 早、「下午」→ 晚、空白→ 依原順序（回傳 大數 讓它落到後面但仍受 order 影響）
+function parseSchTime(t) {
+  const s = String(t || '').trim();
+  if (!s) return 100000;
+  const hm = s.match(/(\d{1,2})\s*[:：]\s*(\d{2})/);
+  if (hm) return +hm[1] * 60 + +hm[2];
+  if (/上午|早/.test(s)) return 8 * 60;
+  if (/中午/.test(s))    return 12 * 60;
+  if (/下午/.test(s))    return 14 * 60;
+  if (/傍晚|黃昏/.test(s)) return 17 * 60;
+  if (/晚/.test(s))      return 19 * 60;
+  const h = s.match(/^(\d{1,2})$/);
+  if (h) return +h[1] * 60;
+  return 100000;
+}
+
+function renderSchedule(d) {
+  const days = buildScheduleDays(d);
+  if (!days.length) {
+    return `<div class="empty">📅 在「日程」表填入行程後顯示<br>
+      <span style="font-size:.7rem;color:var(--muted)">欄位：日期／時間／分類／標題／說明／地點</span></div>`;
+  }
+  const today = new Date();
+
+  // 日期跳轉列：[9/15 ‹ 16 › 17]
+  const jumper = `
+    <div class="sch-jumper">
+      <button class="sch-jump-arrow" onclick="schJumpStep(-1)" title="前一天">‹</button>
+      <div class="sch-jump-scroll" id="schJumpScroll">
+        ${days.map(day => {
+          const isToday = schIsSameDay(day.d, today);
+          return `<button class="sch-jump-day${isToday ? ' today' : ''}" data-key="${esc(day.key)}"
+            onclick="schJumpTo('${esc(day.key)}')">${esc(day.key)}</button>`;
+        }).join('')}
+      </div>
+      <button class="sch-jump-arrow" onclick="schJumpStep(1)" title="後一天">›</button>
+    </div>`;
+
+  const filters = `
+    <div class="sch-filters">
+      ${SCH_CATS.map(c => `<button class="sch-filter${_schFilter===c.key?' on':''}"
+        onclick="setSchFilter('${c.key}')">${c.label}</button>`).join('')}
+    </div>`;
+
+  const body = days.map(day => renderSchDay(day, today, d)).join('');
+
+  return jumper + filters + `
+    <div class="sch-scroll" id="schScroll">${body}</div>
+    <button class="sch-back-today" id="schBackToday" onclick="schScrollToToday()" style="display:none;">
+      <span id="schBackArrow">↑</span> 回到今日
+    </button>`;
+}
+
+function renderSchDay(day, today, d) {
+  const isToday = schIsSameDay(day.d, today);
+  const isPast  = !isToday && day.d < today;
+  const shown = day.items.filter(x => _schFilter === 'all' || x.category === _schFilter);
+  if (!shown.length) return '';
+
+  return `
+    <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}" data-key="${esc(day.key)}">
+      <div class="sch-day-head">
+        <span class="sch-day-date">${esc(day.key)}</span>
+        <span class="sch-day-week">${schWeekday(day.d)}</span>
+        ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
+      </div>
+      <div class="sch-nodes">
+        ${shown.map(x => renderSchNode(x, d)).join('')}
+      </div>
+    </div>`;
+}
+
+function renderSchNode(x, d) {
+  const icon = SCH_ICONS[x.category] || '•';
+  const isStay = x.category === '住宿';
+  const stay = isStay && x._stayIndex != null ? (d.accommodation || [])[x._stayIndex] : null;
+
+  const navBtn = (x.lat && x.lng)
+    ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
+    : '';
+
+  // 住宿：可展開詳細
+  const detail = stay ? `
+    <div class="sch-stay-detail" style="display:none;">
+      ${stay.address    ? `<div class="sch-kv"><span>地址</span><div>${esc(stay.address)}</div></div>` : ''}
+      ${stay.stayType   ? `<div class="sch-kv"><span>類型</span><div>${esc(stay.stayType)}</div></div>` : ''}
+      ${stay.facilities ? `<div class="sch-kv"><span>設備</span><div>${esc(stay.facilities)}</div></div>` : ''}
+      ${stay.extraFee   ? `<div class="sch-kv"><span>自費</span><div>${esc(stay.extraFee)}</div></div>` : ''}
+      ${stay.bring      ? `<div class="sch-kv"><span>自備</span><div>${esc(stay.bring)}</div></div>` : ''}
+      ${stay.nearby     ? `<div class="sch-kv"><span>周邊</span><div>${esc(stay.nearby)}</div></div>` : ''}
+      ${stay.note       ? `<div class="sch-kv"><span>備註</span><div>${esc(stay.note)}</div></div>` : ''}
+      <div class="sch-kv"><span>費用</span><div>${fmt(stay.twd)}${stay.paid ? ' · 已付' : ' · 未付'}${stay.payer ? ' · ' + esc(stay.payer) : ''}</div></div>
+    </div>` : '';
+
+  return `
+    <div class="sch-node cat-${esc(x.category)}${stay ? ' expandable' : ''}"
+      ${stay ? `onclick="this.classList.toggle('open');const el=this.querySelector('.sch-stay-detail');if(el)el.style.display=el.style.display==='none'?'block':'none';"` : ''}>
+      <div class="sch-node-time">${esc(x.time || '')}</div>
+      <div class="sch-node-dot">${icon}</div>
+      <div class="sch-node-body">
+        <div class="sch-node-title">${esc(x.title)}${stay ? '<span class="sch-expand">⌄</span>' : ''}</div>
+        ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
+        ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
+        ${detail}
+      </div>
+      ${navBtn}
+    </div>`;
+}
+
+window.setSchFilter = function(key) {
+  _schFilter = key;
+  const el = document.getElementById('scheduleContent');
+  if (el) el.innerHTML = renderSchedule(window.APP_DATA || window.STATIC);
+  schBindScroll();
+};
+
+// 日期跳轉：捲到該天
+window.schJumpTo = function(key) {
+  const target = document.querySelector(`.sch-day[data-key="${key}"]`);
+  const scroller = document.getElementById('schScroll');
+  if (!target || !scroller) return;
+  scroller.scrollTo({ top: target.offsetTop - scroller.offsetTop - 4, behavior: 'smooth' });
+  // 跳轉列也把該日按鈕捲到看得見
+  document.querySelector(`.sch-jump-day[data-key="${key}"]`)
+    ?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
+};
+
+// ‹ › 前後一天
+window.schJumpStep = function(dir) {
+  const days = [...document.querySelectorAll('.sch-day')];
+  if (!days.length) return;
+  const scroller = document.getElementById('schScroll');
+  const cur = days.findIndex(el => el.offsetTop - scroller.offsetTop >= scroller.scrollTop - 8);
+  const next = Math.max(0, Math.min(days.length - 1, (cur < 0 ? 0 : cur) + dir));
+  schJumpTo(days[next].dataset.key);
+};
+
+window.schScrollToToday = function() {
+  const today = document.querySelector('.sch-day.today');
+  if (today) schJumpTo(today.dataset.key);
+};
+
+// 捲動時決定「回到今日」要不要出現、箭頭朝哪
+function schBindScroll() {
+  const scroller = document.getElementById('schScroll');
+  const btn = document.getElementById('schBackToday');
+  const arrow = document.getElementById('schBackArrow');
+  if (!scroller || !btn) return;
+  const todayEl = scroller.querySelector('.sch-day.today');
+  if (!todayEl) { btn.style.display = 'none'; return; }
+
+  function update() {
+    const todayTop = todayEl.offsetTop - scroller.offsetTop;
+    const view = scroller.scrollTop;
+    const diff = todayTop - view;
+    if (Math.abs(diff) < scroller.clientHeight * 0.5) {
+      btn.style.display = 'none';   // 今日就在視野內
+      return;
+    }
+    btn.style.display = 'flex';
+    // 今日在下方 → 按鈕貼底、箭頭朝下；今日在上方 → 貼頂、箭頭朝上
+    const below = diff > 0;
+    arrow.textContent = below ? '↓' : '↑';
+    btn.classList.toggle('at-bottom', below);
+    btn.classList.toggle('at-top', !below);
+  }
+  scroller.removeEventListener('scroll', scroller._schHandler || (()=>{}));
+  scroller._schHandler = update;
+  scroller.addEventListener('scroll', update, { passive:true });
+  update();
+  // 一進來就對準今日
+  if (todayEl) scroller.scrollTop = todayEl.offsetTop - scroller.offsetTop - 4;
+}
+window.schBindScroll = schBindScroll;
+
 function renderCarDetail(car) {
   return `
     <div class="car-card">
@@ -687,4 +935,5 @@ window.showInfoTab = function(id, btn) {
   document.querySelectorAll('#mainSection-info .tab').forEach(t => t.classList.remove('active'));
   document.getElementById('infoTab-'+id)?.classList.add('active');
   btn.classList.add('active');
+  if (id === 'schedule') setTimeout(() => window.schBindScroll?.(), 0);
 };

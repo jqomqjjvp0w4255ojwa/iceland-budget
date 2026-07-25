@@ -3,7 +3,7 @@
     "https://script.google.com/macros/s/AKfycbxv7Z69Jer0CL03X51DkmAbflI8D8kFDKVKngxBehU2_IDW8R-TftT0kdzs4u4QIf7r/exec";
   const CACHE_KEY = (window.TRIP_CONFIG && window.TRIP_CONFIG.cacheKey) || 'cached_iceland_budget';
   window._GAS_BASE = API_BASE;
-  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷", task: "寫入_任務" };
+  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷", task: "寫入_任務", schedule: "日程" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
@@ -41,7 +41,7 @@
     return fallback;
   }
 
-  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task }) {
+  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task, schedule }) {
 
     const oCells = overview?.cells ?? [];
     const iskRow = oCells.find(r => r.includes('ISK')) || [];
@@ -77,6 +77,14 @@
         deductDate: pick(row, ['扣款日', '扣款日期'], ''),
         foreignFee: num(pick(row, ['海外手續費', '手續費'])),
         note:       pick(row, ['備註'], ''),
+        lat:        num(pick(row, ['lat', '緯度'])),
+        lng:        num(pick(row, ['lng', ' lng', '經度'])),
+        address:    pick(row, ['地址'], ''),
+        stayType:   pick(row, ['類型', '住宿類型'], ''),
+        facilities: pick(row, ['提供設備', '設備'], ''),
+        extraFee:   pick(row, ['自費項目'], ''),
+        bring:      pick(row, ['需自備', '自備與注意', '注意事項'], ''),
+        nearby:     pick(row, ['周邊景點'], ''),
       }))
       .filter(item => item.name);
 
@@ -271,6 +279,29 @@
         }));
     }
 
+    // ── 日程時間軸（GAS 回傳已是物件陣列）
+    let scheduleData = Array.isArray(schedule?.schedule) ? schedule.schedule : [];
+    if (!scheduleData.length && schedule?.cells) {
+      // 相容：GAS 還沒更新時用通用轉換讀
+      let lastDate = '';
+      scheduleData = cellsToRows(schedule, true)
+        .map((row, i) => {
+          const d = String(row['日期'] ?? '').trim();
+          if (d) lastDate = d;
+          return {
+            date: d || lastDate,
+            time: row['時間'] || '',
+            category: row['分類'] || '其他',
+            title: String(row['標題'] ?? '').trim(),
+            note: row['說明'] || '',
+            place: row['地點'] || '',
+            lat: num(row['緯度']), lng: num(row['經度']),
+            order: i, _rowIndex: row._rowIndex,
+          };
+        })
+        .filter(x => x.title && x.date);
+    }
+
     const totalFlightTWD = flights.reduce((s, f) => s + (f.totalTWD || 0), 0);
     const tagLibrary = (expense?.tagLibrary || []).filter(Boolean);
 
@@ -280,7 +311,7 @@
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
       activity: activityData,
       expenses, split: splitData, dialogLines, flights, totalFlightTWD, repayHistory,
-      tasks,
+      tasks, schedule: scheduleData,
     };
   }
 
@@ -334,9 +365,9 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const all = await res.json();
       if (all.error) throw new Error(all.error);
-      const { overview, accommodation, car, activity, split, lines, flight, expense, task } = all;
+      const { overview, accommodation, car, activity, split, lines, flight, expense, task, schedule } = all;
 
-      const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task });
+      const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task, schedule });
       window.APP_DATA = newData;
       localStorage.setItem(CACHE_KEY, JSON.stringify(window.APP_DATA));
       window.renderAll?.();
