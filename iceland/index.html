@@ -380,19 +380,32 @@
     .sch-day.today .sch-day-line:last-child{background:linear-gradient(90deg,var(--accent),transparent);}
 
     .sch-nodes{border-left:2px solid var(--border);margin-left:14px;padding-left:0;padding-top:2px;}
-    .sch-node{position:relative;display:flex;align-items:flex-start;gap:8px;padding:7px 8px 7px 0;margin-left:-9px;}
+    .sch-node{position:relative;display:flex;align-items:flex-start;gap:8px;padding:4px 8px 4px 0;margin-left:-9px;}
     .sch-node.expandable{cursor:pointer;}
-    .sch-node-time{flex-shrink:0;width:42px;text-align:right;font-size:.63rem;color:var(--muted);padding-top:3px;}
-    .sch-node-dot{flex-shrink:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--card);border:1px solid var(--border);border-radius:50%;z-index:1;}
+    .sch-node-time{flex-shrink:0;width:42px;text-align:right;font-size:.63rem;color:var(--muted);padding-top:9px;}
+    .sch-node-dot{flex-shrink:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--card);border:1px solid var(--border);border-radius:50%;z-index:1;margin-top:5px;}
     .sch-node.cat-住宿 .sch-node-dot{border-color:rgba(79,195,247,.6);}
     .sch-node.cat-活動 .sch-node-dot{border-color:rgba(255,167,38,.6);}
     .sch-node.cat-景點 .sch-node-dot{border-color:rgba(78,195,121,.6);}
-    .sch-node-body{flex:1;min-width:0;}
+    /* 內容框起來：卡片＋分類色左邊條，與圓點同色系 */
+    .sch-node-body{
+      flex:1;min-width:0;
+      background:var(--bg3);
+      border:1px solid var(--border);
+      border-left:3px solid var(--border);
+      border-radius:8px;
+      padding:7px 10px 8px;
+    }
+    .sch-node.cat-景點 .sch-node-body{border-left-color:rgba(78,195,121,.55);}
+    .sch-node.cat-住宿 .sch-node-body{border-left-color:rgba(79,195,247,.55);}
+    .sch-node.cat-活動 .sch-node-body{border-left-color:rgba(255,167,38,.55);}
+    .sch-node.cat-其他 .sch-node-body{border-left-color:rgba(158,166,182,.45);}
+    .sch-node.expandable .sch-node-body:active{background:var(--card);border-color:var(--muted);}
     .sch-node-title{font-size:.8rem;color:var(--text);display:flex;align-items:center;gap:5px;}
     .sch-node-place{font-size:.66rem;color:var(--muted);margin-top:2px;}
     .sch-node-note{font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.7;white-space:pre-wrap;}
     .sch-expand{font-size:.8rem;color:var(--muted);margin-left:auto;padding-left:6px;}
-    .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 7px;cursor:pointer;font-size:.7rem;}
+    .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 7px;cursor:pointer;font-size:.7rem;margin-top:7px;}
 
     .sch-stay-tags{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:5px;}
     .sch-payer{display:inline-flex;align-items:center;height:20px;}
