@@ -781,6 +781,12 @@ const R2_WORKER = TRIP_CONFIG.r2Worker || 'https://worker-little-field-805c.xfis
 // ══════════════════════════════════════════
 //  成員 sprite（從 sprites.js 讀，第 1 格靜態）
 // ══════════════════════════════════════════
+// ── 文字跳脫（Sheet／使用者輸入進 innerHTML 前用）
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function spriteSvg(m, attrs) {
   const frames = window.SPRITES?.[m.spriteKey];
   if (frames?.[0]) {
@@ -992,7 +998,7 @@ function makeMarkerIcon(item, zoom, labeled) {
     }
     const dollarDot = `<span style="position:absolute;right:-7px;top:-3px;width:12px;height:12px;border-radius:50%;background:var(--gold);color:#332b10;font-family:var(--px);font-size:8px;line-height:12px;text-align:center;">$</span>`;
     const label = labeled
-      ? `<div style="font-family:var(--px);font-size:7px;color:#f0e2b0;background:rgba(50,42,16,.88);border:1px solid var(--gold);border-radius:3px;padding:1px 4px;white-space:nowrap;margin-top:1px;">${truncName(item.name)} −${item.amount} ${item.currency}</div>`
+      ? `<div style="font-family:var(--px);font-size:7px;color:#f0e2b0;background:rgba(50,42,16,.88);border:1px solid var(--gold);border-radius:3px;padding:1px 4px;white-space:nowrap;margin-top:1px;">${esc(truncName(item.name))} −${esc(item.amount)} ${esc(item.currency)}</div>`
       : '';
     // 有補畫塗鴉 → 顯示塗鴉磚（金框）
     if (item.svgData) {
@@ -1097,7 +1103,7 @@ function renderMarkers() {
           className:'', iconSize:[26,26], iconAnchor:[13,13],
         }),
         fallbackIcon:'🏠', memberColor:'#6a8aa8', svgData:null,
-      }).bindPopup(`<div class="popup-inner"><div class="popup-header"><div class="popup-icon">🏠</div><div class="popup-title">${s.name}</div></div><div class="popup-note">${s.date}</div></div>`, {className:'px-popup', maxWidth:240, closeButton:false});
+      }).bindPopup(`<div class="popup-inner"><div class="popup-header"><div class="popup-icon">🏠</div><div class="popup-title">${esc(s.name)}</div></div><div class="popup-note">${esc(s.date)}</div></div>`, {className:'px-popup', maxWidth:240, closeButton:false});
       markers[s.id] = m;
       clusterGroup.addLayer(m);
     });
@@ -1159,7 +1165,7 @@ function buildPopupContent(item) {
     <div class="popup-header">
       <div class="popup-icon">${headIcon}</div>
       <div style="flex:1;">
-        <div class="popup-title">${item.name}</div>
+        <div class="popup-title">${esc(item.name)}</div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:3px;">
           <span class="diary-tag ${t.tag}">${t.label}</span>
           ${item.date?`<span style="font-size:8px;color:var(--muted)">${item.date}</span>`:''}
@@ -1174,9 +1180,9 @@ function buildPopupContent(item) {
       </div>
     </div>
     ${itemImgHtml(item)}
-    ${item.note?`<div class="popup-note">${item.note}</div>`:''}
-    ${isExp?`<div class="popup-note" style="color:var(--gold);cursor:pointer;" onclick="openExpenseCard('${item.id}')">🧾 ${item.name}　−${item.amount} ${item.currency}　›</div>`:''}
-    ${isExp&&item.locName?`<div class="popup-note" style="color:var(--muted);">📍 ${item.locName}</div>`:''}
+    ${item.note?`<div class="popup-note">${esc(item.note)}</div>`:''}
+    ${isExp?`<div class="popup-note" style="color:var(--gold);cursor:pointer;" onclick="openExpenseCard('${item.id}')">🧾 ${esc(item.name)}　−${esc(item.amount)} ${esc(item.currency)}　›</div>`:''}
+    ${isExp&&item.locName?`<div class="popup-note" style="color:var(--muted);">📍 ${esc(item.locName)}</div>`:''}
     <div class="popup-actions">
       <button class="popup-action-btn" onclick="openComments('${item.id}')">💬 查看留言（${item.comments?.length||0}）</button>
       <button class="popup-action-btn" onclick="navigateTo(${item.lat},${item.lng})">➤ 導航</button>
@@ -1310,15 +1316,15 @@ function renderCards() {
     return `<div class="diary-card" onclick="flyTo(${item.lat},${item.lng},'${item.id}')">
       <div class="diary-thumb">${thumb}</div>
       <div class="diary-info">
-        <div class="diary-name">${item.name}</div>
+        <div class="diary-name">${esc(item.name)}</div>
         <div class="diary-meta">
           <span class="diary-tag ${t.tag}">${t.label}</span>
           ${item.date?`<span class="diary-date">${item.date}</span>`:''}
         </div>
         ${(() => {
           const n = item.type==='expense'
-            ? `−${item.amount} ${item.currency}${item.note?' · '+item.note:''}`
-            : item.note;
+            ? `−${esc(item.amount)} ${esc(item.currency)}${item.note?' · '+esc(item.note):''}`
+            : esc(item.note);
           return n ? `<div class="diary-note">${n}</div>` : '';
         })()}
         <div class="diary-footer">
@@ -1473,7 +1479,7 @@ function startEditCheckin(id) {
   const expRow = document.getElementById('expenseInfoRow');
   expRow.style.display = isExp ? '' : 'none';
   if (isExp) {
-    expRow.innerHTML = `🧾 ${item.name}　−${item.amount} ${item.currency}`;
+    expRow.innerHTML = `🧾 ${esc(item.name)}　−${esc(item.amount)} ${esc(item.currency)}`;
     expRow.onclick = () => openExpenseCard(item.id);
   }
   document.getElementById('checkinSheet').classList.remove('tall');
@@ -1771,8 +1777,8 @@ function renderComments(item) {
     return `<div class="comment-item">
       <div class="comment-avatar">${spriteSvg(m)}</div>
       <div class="comment-body">
-        <div class="comment-name" style="color:${m.color}">${c.who}</div>
-        <div class="comment-text">${c.text}</div>
+        <div class="comment-name" style="color:${m.color}">${esc(c.who)}</div>
+        <div class="comment-text">${esc(c.text)}</div>
         <div class="comment-time">${c.time||''}</div>
       </div>
     </div>`;
@@ -1833,7 +1839,7 @@ function openExpenseCard(id) {
     </span>`;
   }).join('');
   const tagChips = (item.tags||'').split(',').filter(Boolean).map(t =>
-    `<span style="background:rgba(42,74,26,.35);border:1px solid rgba(42,74,26,.6);color:#c8d8a8;font-size:8px;padding:2px 8px;border-radius:999px;">${t.trim()}</span>`
+    `<span style="background:rgba(42,74,26,.35);border:1px solid rgba(42,74,26,.6);color:#c8d8a8;font-size:8px;padding:2px 8px;border-radius:999px;">${esc(t.trim())}</span>`
   ).join('');
   const ntAmount = Math.round(item.total || item.twd || 0);
 
@@ -1847,25 +1853,25 @@ function openExpenseCard(id) {
       </div>
       <!-- 第一行：[類別][共同/個人] ---- NT$ 金額 -->
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;padding-right:26px;">
-        <span style="font-size:8px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${item.category||'雜支'}</span>
+        <span style="font-size:8px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap;">${esc(item.category||'雜支')}</span>
         <span style="font-size:8px;padding:1px 6px;border-radius:4px;white-space:nowrap;${item.isShared?'background:rgba(78,195,121,.18);color:#7ec885;border:1px solid rgba(78,195,121,.4);':'background:var(--bg);color:var(--muted);border:1px solid var(--border);'}">${item.isShared?'共同':'個人'}</span>
         <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
         <span style="font-size:13px;color:var(--gold);white-space:nowrap;">NT$ ${ntAmount.toLocaleString()}</span>
       </div>
-      ${item.currency&&item.currency!=='NT'?`<div style="font-size:8px;color:var(--muted);text-align:right;margin-bottom:4px;">${item.amount} ${item.currency}</div>`:''}
+      ${item.currency&&item.currency!=='NT'?`<div style="font-size:8px;color:var(--muted);text-align:right;margin-bottom:4px;">${esc(item.amount)} ${esc(item.currency)}</div>`:''}
       <!-- 品項 -->
-      ${item.name?`<div style="font-size:11px;color:var(--text);margin-bottom:5px;">${item.name}${item.qty&&item.qty>1?` × ${item.qty}`:''}</div>`:''}
+      ${item.name?`<div style="font-size:11px;color:var(--text);margin-bottom:5px;">${esc(item.name)}${item.qty&&item.qty>1?` × ${esc(item.qty)}`:''}</div>`:''}
       <!-- 標籤 -->
       ${tagChips?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">${tagChips}</div>`:''}
       <!-- 備註 -->
-      ${item.note?`<div style="font-size:9px;color:var(--muted);line-height:1.6;margin-bottom:6px;">📌 ${item.note}</div>`:''}
+      ${item.note?`<div style="font-size:9px;color:var(--muted);line-height:1.6;margin-bottom:6px;">📌 ${esc(item.note)}</div>`:''}
       <!-- 底部：付款人 + 各人負擔 + 日期 -->
       <div style="display:flex;align-items:center;gap:6px;font-size:8px;color:var(--muted);flex-wrap:wrap;">
         <div style="width:14px;height:23px;" title="付款人 ${item.who}">${spriteSvg(getMemberByName(item.who))}</div>
         ${burdenChips}
-        <span style="margin-left:auto;">${item.date||''}</span>
+        <span style="margin-left:auto;">${esc(item.date||'')}</span>
       </div>
-      ${item.locName?`<div style="font-size:8px;color:var(--muted);margin-top:5px;">📍 ${item.locName}</div>`:''}
+      ${item.locName?`<div style="font-size:8px;color:var(--muted);margin-top:5px;">📍 ${esc(item.locName)}</div>`:''}
     </div>
   `;
   document.getElementById('expCardModal').classList.add('show');

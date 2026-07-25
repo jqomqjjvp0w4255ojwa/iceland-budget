@@ -194,10 +194,24 @@ function readMemberSheet(sheet) {
 //  ?sheet=checkin  → { checkins }
 //  ?sheet=trips    → { trips }
 //  ?sheet=expenses → { expenses }
+// 寫入後清掉讀取快取（doPost 各 action 結束前呼叫）
+function clearTwCache() {
+  CacheService.getScriptCache().remove('tw_all_v1');
+}
+
 function doGet(e) {
   var param = (e && e.parameter && e.parameter.sheet) || 'all';
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   try {
+    // 整包讀取加 30 秒快取：連續開頁不必每次重讀四張表
+    var cache = CacheService.getScriptCache();
+    if (param === 'all') {
+      var cached = cache.get('tw_all_v1');
+      if (cached) {
+        return ContentService.createTextOutput(cached)
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
     var result = {};
     if (param === 'all' || param === 'checkin') {
       var cs = getOrCreateSheet(ss, SHEET_NAMES.checkin, CHECKIN_HEADER);
@@ -216,7 +230,9 @@ function doGet(e) {
       result.expenses = readExpenseSheet(es).expenses;
     }
     result.updatedAt = new Date().toISOString();
-    return ContentService.createTextOutput(JSON.stringify(result))
+    var json = JSON.stringify(result);
+    if (param === 'all') cache.put('tw_all_v1', json, 30);
+    return ContentService.createTextOutput(json)
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err2) {
     return ContentService.createTextOutput(JSON.stringify({ error: err2.toString() }))
@@ -516,6 +532,8 @@ function doPost(e) {
 }
 
 function ok(msg) {
+  clearTwCache();   // 任何成功寫入都讓讀取快取失效
+
   return ContentService.createTextOutput(JSON.stringify({ ok: true, msg: msg }))
     .setMimeType(ContentService.MimeType.JSON);
 }

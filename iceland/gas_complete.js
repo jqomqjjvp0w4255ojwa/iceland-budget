@@ -204,6 +204,12 @@ function doGet(e) {
 
     // 地圖一次載入：?sheet=mapdata（打卡＋消費＋住宿）
     if (param === 'mapdata') {
+      var mapCache  = CacheService.getScriptCache();
+      var mapCached = mapCache.get('mapdata_v1');
+      if (mapCached) {
+        return ContentService.createTextOutput(mapCached)
+          .setMimeType(ContentService.MimeType.JSON);
+      }
       var ckSheet  = ss.getSheetByName(SHEET_NAMES.checkin);
       var expSheet = ss.getSheetByName(SHEET_NAMES.expense);
       var stSheet  = ss.getSheetByName(SHEET_NAMES.accommodation);
@@ -212,7 +218,9 @@ function doGet(e) {
         expenses: expSheet ? readExpenseMap(expSheet).expenses  : [],
         stays:    stSheet  ? readStayMap(stSheet).stays         : [],
       };
-      return ContentService.createTextOutput(JSON.stringify(bundle))
+      var mapJson = JSON.stringify(bundle);
+      mapCache.put('mapdata_v1', mapJson, 30);   // 30 秒，寫入時會清掉
+      return ContentService.createTextOutput(mapJson)
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -270,7 +278,7 @@ function doPost(e) {
     var ss      = SpreadsheetApp.getActiveSpreadsheet();
 
     function clearCache() {
-      CacheService.getScriptCache().remove('all_sheets_v1');
+      CacheService.getScriptCache().removeAll(['all_sheets_v1', 'mapdata_v1']);
     }
 
     // ── 新增／修改一般開銷 ────────────────────────────────
