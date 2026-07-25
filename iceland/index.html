@@ -436,10 +436,6 @@
     .sch-node.stay-paid .sch-node-dot{border-color:rgba(78,195,121,.75);}
     .sch-node.stay-unpaid .sch-node-dot{border-color:rgba(255,167,38,.65);}
 
-    .sch-stay-price{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding-bottom:6px;margin-bottom:5px;border-bottom:1px solid var(--border);}
-    .sch-price-per{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);}
-    .sch-price-total{font-size:.68rem;color:var(--muted);}
-    .sch-price-orig{font-size:.63rem;color:var(--muted);}
 
     .sch-stay-detail{margin-top:7px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;}
     .sch-kv{display:flex;gap:8px;font-size:.68rem;padding:3px 0;line-height:1.6;}
@@ -456,11 +452,39 @@
     .sch-modal-box{position:relative;background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:400px;max-height:80vh;overflow-y:auto;padding:16px 16px 14px;scrollbar-width:none;}
     .sch-modal-box::-webkit-scrollbar{display:none;}
     .sch-modal-close{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px 8px;}
-    .sch-modal-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;padding-right:26px;}
-    .sch-modal-icon{font-size:1.5rem;line-height:1.2;}
-    .sch-modal-title{font-size:.95rem;color:var(--text);line-height:1.4;}
-    .sch-modal-sub{font-size:.68rem;color:var(--muted);margin-top:2px;}
-    .sch-modal-nav{width:100%;margin-top:12px;padding:10px;background:transparent;border:1px solid var(--accent2);color:var(--accent2);border-radius:8px;cursor:pointer;font-size:.75rem;font-family:'Lato',sans-serif;}
+    .sch-modal-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;padding-right:26px;}
+    .sch-modal-icon{font-size:1.6rem;line-height:1.15;flex-shrink:0;}
+    .sch-modal-title{font-size:1rem;color:var(--text);line-height:1.45;font-weight:600;}
+    .sch-modal-title a{color:inherit;text-decoration:underline;text-decoration-color:var(--border);text-underline-offset:3px;}
+    .sch-modal-sub{font-size:.68rem;color:var(--muted);margin-top:3px;}
+
+    /* 價格＝視覺重心 */
+    .sch-price{padding:10px 0 11px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:11px;}
+    .sch-price-main{font-family:'Cinzel',serif;font-size:1.4rem;color:var(--gold);line-height:1.15;}
+    .sch-price-sub{font-size:.66rem;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+    .sch-fee{background:var(--bg3);border:1px solid var(--border);border-radius:999px;padding:1px 8px;color:var(--gold);}
+
+    .sch-tagrow{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:13px;}
+
+    /* 集合資訊：行程當天最關鍵，獨立highlight */
+    .sch-meet{display:flex;align-items:baseline;gap:9px;background:rgba(79,195,247,.08);border-left:3px solid var(--accent);
+      border-radius:0 7px 7px 0;padding:9px 12px;margin-bottom:13px;font-size:.8rem;color:var(--text);}
+    .sch-meet-label{font-size:.63rem;color:var(--accent);letter-spacing:.1em;flex-shrink:0;}
+
+    /* 資訊區塊：標籤在上、內容佔滿寬度 */
+    .sch-block{margin-bottom:13px;}
+    .sch-block-label{font-size:.63rem;color:var(--muted);letter-spacing:.12em;margin-bottom:5px;}
+    .sch-block-body{font-size:.78rem;color:var(--text);line-height:1.85;word-break:break-word;}
+    .sch-block.warn{background:rgba(240,192,64,.07);border-left:3px solid var(--gold);border-radius:0 7px 7px 0;padding:9px 12px;}
+    .sch-block.warn .sch-block-label{color:var(--gold);}
+    .sch-block.warn .sch-block-body{font-size:.74rem;}
+
+    /* 清單型內容 → chips，掃視比長句快 */
+    .sch-chips{display:flex;flex-wrap:wrap;gap:5px;}
+    .sch-chip{font-size:.7rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);
+      border-radius:999px;padding:3px 10px;line-height:1.5;}
+
+    .sch-modal-nav{width:100%;margin-top:14px;padding:11px;background:transparent;border:1px solid var(--accent2);color:var(--accent2);border-radius:8px;cursor:pointer;font-size:.75rem;font-family:'Lato',sans-serif;}
     .sch-modal-nav:active{background:rgba(79,195,247,.1);}
     .prep-more:active{color:var(--text);}
     .px-btn-submit:hover{background:#3a6a2a;}

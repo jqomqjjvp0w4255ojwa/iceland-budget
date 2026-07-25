@@ -954,8 +954,40 @@ function findSchActivity(title, activities) {
 }
 
 // ── 節點詳情彈窗 ──────────────────────────────
-function schKv(label, val) {
-  return val ? `<div class="sch-kv"><span>${label}</span><div>${esc(val)}</div></div>` : '';
+// ── 資訊區塊：標籤在上、內容佔滿寬度（取代左右對照式排版）
+function schBlock(icon, label, val, opts) {
+  if (!val) return '';
+  opts = opts || {};
+  const body = opts.chips
+    ? `<div class="sch-chips">${splitToChips(val).map(c => `<span class="sch-chip">${esc(c)}</span>`).join('')}</div>`
+    : `<div class="sch-block-body">${esc(val)}</div>`;
+  return `
+    <div class="sch-block${opts.warn ? ' warn' : ''}">
+      <div class="sch-block-label">${icon} ${label}</div>
+      ${body}
+    </div>`;
+}
+
+// 逗號/頓號/斜線分隔的清單 → chips（過長的段落不拆，避免切出破碎片段）
+function splitToChips(text) {
+  const t = String(text || '').trim();
+  const parts = t.split(/[、,，/／]+/).map(x => x.trim()).filter(Boolean);
+  // 每項都夠短才適合做 chips，否則整段當一塊
+  return (parts.length > 1 && parts.every(x => x.length <= 12)) ? parts : [t];
+}
+
+// 價格區：每人價當視覺重心，其餘降階
+function schPriceBar(o) {
+  if (!o.twd) return o.emptyText
+    ? `<div class="sch-price"><span class="sch-price-main" style="font-size:.9rem;color:var(--muted);">${esc(o.emptyText)}</span></div>` : '';
+  return `
+    <div class="sch-price">
+      <div class="sch-price-main">${fmtPer(o.twd)}</div>
+      <div class="sch-price-sub">
+        ${fmt(o.twd)} 合計${o.orig && o.cur !== 'NT' ? ` · ${fmtOrig(o.orig, o.cur)}` : ''}${o.nights ? ` · ${o.nights} 晚` : ''}
+        ${o.foreignFee ? `<span class="sch-fee">手續費 NT$${o.foreignFee}</span>` : ''}
+      </div>
+    </div>`;
 }
 
 window.openSchStay = function(i) {
@@ -976,26 +1008,24 @@ window.openSchStay = function(i) {
         <div class="sch-modal-sub">${esc(stay.date || '')}${stay.nights ? ` · ${stay.nights} 晚` : ''}</div>
       </div>
     </div>
-    <div class="sch-stay-price">
-      ${stay.twd ? `
-        <span class="sch-price-per">${fmtPer(stay.twd)}</span>
-        <span class="sch-price-total">${fmt(stay.twd)} 合計</span>
-        ${stay.orig && stay.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(stay.orig, stay.cur)}</span>` : ''}
-      ` : `<span class="sch-price-per" style="color:var(--muted);font-size:.8rem;">現場付</span>`}
-      ${stay.foreignFee ? `<span class="tag tag-fee">手續費 NT$${stay.foreignFee}</span>` : ''}
-    </div>
-    <div class="sch-stay-tags" style="margin:0 0 8px;">
+
+    ${schPriceBar({ twd: stay.twd, orig: stay.orig, cur: stay.cur, nights: stay.nights,
+                    foreignFee: stay.foreignFee, emptyText: '現場付' })}
+
+    <div class="sch-tagrow">
       <span class="tag tag-person">${esc(pt.label)}</span>
       ${payTag}
       <span class="tag ${stay.cancel ? 'tag-cancel' : 'tag-nocancel'}">${stay.cancel ? '可取消' : '不可退'}</span>
-      ${stay.payer ? `<span class="sch-payer">${avatarSvg(stay.payer)}</span>` : ''}
+      ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
     </div>
-    ${schKv('地址', stay.address)}
-    ${schKv('設備', stay.facilities)}
-    ${schKv('自費', stay.extraFee)}
-    ${schKv('自備', stay.bring)}
-    ${schKv('周邊', stay.nearby)}
-    ${schKv('備註', stay.note)}
+
+    ${schBlock('📍', '地址', stay.address)}
+    ${schBlock('🛏', '設備', stay.facilities, { chips: true })}
+    ${schBlock('💰', '自費', stay.extraFee)}
+    ${schBlock('🎒', '需自備', stay.bring, { chips: true })}
+    ${schBlock('🌄', '周邊', stay.nearby)}
+    ${schBlock('📌', '備註', stay.note, { warn: isWarnText(stay.note) })}
+
     ${(stay.lat && stay.lng) ? `
       <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${stay.lat},${stay.lng}','_blank')">➤ 導航到這裡</button>` : ''}
   `);
@@ -1007,39 +1037,44 @@ window.openSchAct = function(i) {
   let payTag = a.paid ? `<span class="tag tag-paid">已付款</span>`
              : a.payDate ? `<span class="tag tag-unpaid">${esc(a.payDate)} 前付款</span>`
              : `<span class="tag tag-unpaid">未付款</span>`;
+  const meet = [a.meetTime, a.meetLoc].filter(Boolean).join(' · ');
+
   openSchModal(`
     <div class="sch-modal-head">
       <span class="sch-modal-icon">🎯</span>
       <div style="flex:1;min-width:0;">
-        <div class="sch-modal-title">${a.url ? `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">${esc(a.name)}</a>` : esc(a.name)}</div>
+        <div class="sch-modal-title">${a.url ? `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener">${esc(a.name)}</a>` : esc(a.name)}</div>
         <div class="sch-modal-sub">${esc(a.date || '')}${a.duration ? ` · ${esc(a.duration)}` : ''}</div>
       </div>
     </div>
-    <div class="sch-stay-price">
-      ${a.twd ? `
-        <span class="sch-price-per">${fmtPer(a.twd)}</span>
-        <span class="sch-price-total">${fmt(a.twd)} 合計</span>
-        ${a.orig && a.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(a.orig, a.cur)}</span>` : ''}
-      ` : ''}
-      ${a.foreignFee ? `<span class="tag tag-fee">手續費 NT$${a.foreignFee}</span>` : ''}
-    </div>
-    <div class="sch-stay-tags" style="margin:0 0 8px;">
+
+    ${schPriceBar({ twd: a.twd, orig: a.orig, cur: a.cur, foreignFee: a.foreignFee })}
+
+    <div class="sch-tagrow">
       ${payTag}
       <span class="tag ${a.cancel ? 'tag-cancel' : 'tag-nocancel'}">${a.cancel ? '可取消' : '不可退'}</span>
       ${a.difficulty ? `<span class="tag tag-person">難度 ${esc(a.difficulty)}</span>` : ''}
       ${a.payer ? `<span class="sch-payer">${avatarSvg(a.payer)}</span>` : ''}
     </div>
-    ${schKv('集合', [a.meetTime, a.meetLoc].filter(Boolean).join(' · '))}
-    ${schKv('內容', a.content)}
-    ${schKv('提供', a.included)}
-    ${schKv('不提供', a.excluded)}
-    ${schKv('自備', a.bring)}
-    ${schKv('回程地', a.returnLoc)}
-    ${schKv('備註', a.note)}
+
+    ${meet ? `<div class="sch-meet"><span class="sch-meet-label">集合</span><span>${esc(meet)}</span></div>` : ''}
+
+    ${schBlock('📝', '內容', a.content)}
+    ${schBlock('✅', '提供', a.included, { chips: true })}
+    ${schBlock('❌', '不提供', a.excluded, { chips: true })}
+    ${schBlock('🎒', '自備', a.bring, { chips: true })}
+    ${schBlock('🚩', '回程地', a.returnLoc)}
+    ${schBlock('⚠️', '注意', a.note, { warn: true })}
+
     ${(a.lat && a.lng) ? `
       <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${a.lat},${a.lng}','_blank')">➤ 導航到集合點</button>` : ''}
   `);
 };
+
+// 含這些字樣的備註視為警示，用有色區塊突顯
+function isWarnText(t) {
+  return /無網路|沒有網路|不提供網路|需自備|只收現金|不收現金|4x4|F 級|F級|碎石|注意|警|限制|不適合|禁止/.test(String(t || ''));
+}
 
 function openSchModal(html) {
   const box = document.getElementById('schModalBody');
