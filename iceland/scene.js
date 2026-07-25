@@ -353,7 +353,7 @@
       windEl.style.borderTopColor = windColor(wind);
       windEl.title = wind >= 20 ? '暴風：不建議開車' : wind >= 15 ? '強風：開車門小心' : '';
     }
-    if(sunEl && sun?.set) sunEl.textContent = '🌅 '+(sun.rise||'--:--')+' 🌇 '+sun.set;
+    if(sunEl && sun?.set) sunEl.textContent = '☀ '+(sun.rise||'--:--')+'  🌙 '+sun.set;
     if(boxEl) boxEl.style.borderColor = '#ffcc00';
     initGpsCoord();
   }

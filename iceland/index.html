@@ -584,13 +584,14 @@
         <div id="pxWeatherWind" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.75);border:2px solid #ffcc00;font-family:'Silkscreen',monospace;font-size:8px;color:#ffcc00;padding:3px 7px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
           <span id="pxWeather">⏳ 連線中</span>
           <span id="pxWind" style="color:#7eb3d4;border-top:1px solid #444;padding-top:2px;width:100%;text-align:right;">💨 —</span>
+          <span id="pxSun" style="color:#ffe066;border-top:1px solid #444;padding-top:2px;width:100%;text-align:right;"></span>
         </div>
-        <div id="pxTimes" style="position:absolute;bottom:20%;left:6px;right:6px;display:flex;justify-content:space-between;font-family:'Silkscreen',monospace;font-size:11px;color:#fff;z-index:20;text-shadow:1px 1px 0 #000;pointer-events:none">
+        <!-- 國際時間：左側直排 -->
+        <div id="pxTimes" style="position:absolute;bottom:20%;left:6px;display:flex;flex-direction:column;gap:2px;background:rgba(0,0,0,.75);border:2px solid #7eb3d4;border-radius:2px;padding:3px 7px;font-family:'Silkscreen',monospace;font-size:9px;color:#fff;z-index:20;pointer-events:none">
           <span id="pxTimeTW">🇹🇼 --:--</span>
-          <span id="pxTimeIS">🇮🇸 --:--</span>
-          <span id="pxSun"></span>
-          <span id="pxGps" style="display:none;"></span>
+          <span id="pxTimeIS" style="border-top:1px solid #444;padding-top:2px;">🇮🇸 --:--</span>
         </div>
+        <span id="pxGps" style="display:none;position:absolute;bottom:20%;right:6px;background:rgba(0,0,0,.75);border:2px solid #7eb3d4;border-radius:2px;padding:3px 7px;font-family:'Silkscreen',monospace;font-size:9px;color:#fff;z-index:20;"></span>
         <div id="pxCountdown" style="position:absolute;top:10%;left:0;right:0;text-align:center;font-family:'Silkscreen',monospace;font-size:10px;color:#fff;z-index:20;text-shadow:1px 1px 0 #000,0 0 8px rgba(255,255,255,0.5);pointer-events:none;line-height:2;"></div>
 
         <div id="pxCarEl" style="position:absolute;bottom:14%;left:2%;transform:translateX(-50%);z-index:9;image-rendering:pixelated;transition:left .8s steps(12);">
@@ -810,49 +811,6 @@
           </div>
         </div>
 
-<!-- 行前準備：新增項目彈窗 -->
-<div class="px-modal-overlay" id="pxModalPrep" onclick="closePxModalOutside(event,'pxModalPrep')">
-  <div class="px-modal-box">
-    <div class="px-modal-header">
-      <span id="pxModalPrepTitle">▶ 新增準備項目</span>
-      <button onclick="cancelPxModal('pxModalPrep')">✕ 取消</button>
-    </div>
-    <div class="px-form">
-      <div class="px-field">
-        <label class="px-label">▸ 項目名稱 *</label>
-        <input class="px-input" type="text" id="prepName" placeholder="例如：換冰島克朗" style="font-size:16px;" autocomplete="off" oninput="pxCheckPrepSubmit()">
-      </div>
-      <div class="px-field">
-        <label class="px-label">▸ 分類</label>
-        <div class="px-chip-row" id="prepCatBtns"></div>
-      </div>
-      <div class="px-field" id="prepOwnerField" style="display:none;">
-        <label class="px-label">▸ 負責人（誰帶？可不選）</label>
-        <div class="px-chip-row" id="prepOwnerBtns"></div>
-      </div>
-      <div class="px-field">
-        <label class="px-label">▸ 重要度</label>
-        <div class="px-chip-row" id="prepPriorityBtns"></div>
-      </div>
-      <div class="px-field">
-        <label class="px-label">▸ 說明（可不填）</label>
-        <input class="px-input" type="text" id="prepNote" placeholder="補充備註…" style="font-size:16px;" autocomplete="off">
-      </div>
-      <div style="display:flex;gap:8px;padding:4px 0 8px;">
-        <button id="pxBtnPrepDelete" onclick="deletePrepModal()" style="display:none;background:#5a1a1a;border:none;padding:12px 14px;font-family:'Silkscreen',monospace;font-size:8px;color:#e8c8c8;cursor:pointer;letter-spacing:1px;">🗑 刪除</button>
-        <button class="px-btn-submit" id="pxBtnPrep" onclick="submitPrepModal()" disabled style="flex:1;">[ 加入清單 ]</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- 日程節點詳情彈窗（住宿／活動） -->
-<div class="sch-modal-overlay" id="schModal" onclick="if(event.target===this)this.classList.remove('show')">
-  <div class="sch-modal-box">
-    <button class="sch-modal-close" onclick="document.getElementById('schModal').classList.remove('show')">✕</button>
-    <div id="schModalBody"></div>
-  </div>
-</div>
       </div>
       <div class="px-field">
         <label class="px-label">▸ 金額（NT$）*</label>
@@ -1206,6 +1164,43 @@ window.pxResetQty = function() {
 })();
 </script>
 
+
+
+<!-- 行前準備：新增項目彈窗 -->
+<div class="px-modal-overlay" id="pxModalPrep" onclick="closePxModalOutside(event,'pxModalPrep')">
+  <div class="px-modal-box">
+    <div class="px-modal-header">
+      <span id="pxModalPrepTitle">▶ 新增準備項目</span>
+      <button onclick="cancelPxModal('pxModalPrep')">✕ 取消</button>
+    </div>
+    <div class="px-form">
+      <div class="px-field">
+        <label class="px-label">▸ 項目名稱 *</label>
+        <input class="px-input" type="text" id="prepName" placeholder="例如：換冰島克朗" style="font-size:16px;" autocomplete="off" oninput="pxCheckPrepSubmit()">
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 分類</label>
+        <div class="px-chip-row" id="prepCatBtns"></div>
+      </div>
+      <div class="px-field" id="prepOwnerField" style="display:none;">
+        <label class="px-label">▸ 負責人（誰帶？可不選）</label>
+        <div class="px-chip-row" id="prepOwnerBtns"></div>
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 重要度</label>
+        <div class="px-chip-row" id="prepPriorityBtns"></div>
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 說明（可不填）</label>
+        <input class="px-input" type="text" id="prepNote" placeholder="補充備註…" style="font-size:16px;" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:8px;padding:4px 0 8px;">
+        <button id="pxBtnPrepDelete" onclick="deletePrepModal()" style="display:none;background:#5a1a1a;border:none;padding:12px 14px;font-family:'Silkscreen',monospace;font-size:8px;color:#e8c8c8;cursor:pointer;letter-spacing:1px;">🗑 刪除</button>
+        <button class="px-btn-submit" id="pxBtnPrep" onclick="submitPrepModal()" disabled style="flex:1;">[ 加入清單 ]</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- 日程節點詳情彈窗（住宿／活動） -->
 <div class="sch-modal-overlay" id="schModal" onclick="if(event.target===this)this.classList.remove('show')">
