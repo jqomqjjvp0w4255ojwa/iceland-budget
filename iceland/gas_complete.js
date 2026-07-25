@@ -534,6 +534,25 @@ function doGet(e) {
   }
 }
 
+// ── 找第一個「指定欄位是空的」的列 ────────────────────────
+// 不能直接用 getLastRow()：表格下方常有公式或殘留格式，會把新資料寫到很下面，
+// 所以改用一個「一定會有值」的欄位（例如類別、項目名稱）來判斷哪裡才是真正的空行。
+// col 傳欄位字母（'A'／'C'…），startRow 是資料起始列（標題列的下一列）。
+function findFirstEmptyRow(sheet, col, startRow) {
+  var colIdx = 0;
+  var s = String(col).toUpperCase();
+  for (var i = 0; i < s.length; i++) {
+    colIdx = colIdx * 26 + (s.charCodeAt(i) - 64);
+  }
+  var last = sheet.getLastRow();
+  if (last < startRow) return startRow;
+  var values = sheet.getRange(startRow, colIdx, last - startRow + 1, 1).getValues();
+  for (var r = 0; r < values.length; r++) {
+    if (String(values[r][0]).trim() === '') return startRow + r;
+  }
+  return last + 1;
+}
+
 // ── doPost ───────────────────────────────────────────────
 function doPost(e) {
   try {
