@@ -323,9 +323,9 @@ const PREP_CATS = [
 // 一個成員的小人：未完成灰階半透明，完成後彩色站好
 function prepAvatar(task, member, dim) {
   const done = !!task.done?.[member];
-  const disabled = dim && !done;      // 共用裝備：非負責人不需要勾
+  const disabled = dim && !done;      // 不適用於這個人，不列入進度
   const title = disabled
-    ? `${member}（由 ${task.owner} 負責）`
+    ? `${member}：不需要（此項為 ${esc(task.owner)}）`
     : `${member}${done ? '：已準備好' : '：還沒'}`;
   return `<button class="prep-avatar${done ? ' done' : ''}${disabled ? ' dim' : ''}"
     title="${esc(title)}"
@@ -334,15 +334,21 @@ function prepAvatar(task, member, dim) {
   </button>`;
 }
 
+// 這個項目適不適用於某成員：負責人欄留空＝全員；填了（可逗號分隔多人）＝只有那些人
+function taskAppliesTo(task, member) {
+  const owner = String(task.owner || '').trim();
+  if (!owner) return true;
+  return owner.split(/[,，、\s]+/).filter(Boolean).includes(member);
+}
+
 function renderPrepItem(task) {
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
   const isShared = task.category === '共用';
-  // 共用裝備：有指定負責人時，其他人的小人淡出（仍可點，只是視覺提示）
-  const avatars = members.map(m => prepAvatar(task, m, isShared && task.owner && task.owner !== m)).join('');
-  const doneCount = members.filter(m => task.done?.[m]).length;
-  const allDone = isShared
-    ? (task.owner ? !!task.done?.[task.owner] : doneCount > 0)
-    : doneCount === members.length;
+  // 指定了對象時，其他人的小人淡出（仍可點，方便代辦/代帶）
+  const avatars = members.map(m => prepAvatar(task, m, !taskAppliesTo(task, m))).join('');
+  // 只看「適用的人」有沒有完成
+  const need = members.filter(m => taskAppliesTo(task, m));
+  const allDone = need.length ? need.every(m => task.done?.[m]) : false;
   const stars = task.priority > 0
     ? `<span class="prep-stars" title="重要度 ${task.priority}">${'★'.repeat(Math.min(5, task.priority))}</span>` : '';
 
@@ -361,7 +367,7 @@ function renderPrepItem(task) {
 function renderPrepProgress(tasks) {
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
   const perMember = members.map(m => {
-    const mine = (tasks || []).filter(t => t.category !== '共用' || !t.owner || t.owner === m);
+    const mine = (tasks || []).filter(t => taskAppliesTo(t, m));
     const done = mine.filter(t => t.done?.[m]).length;
     return { m, done, total: mine.length, pct: mine.length ? Math.round(done / mine.length * 100) : 0 };
   });
@@ -369,10 +375,8 @@ function renderPrepProgress(tasks) {
     ${perMember.map(p => `
       <div class="prep-progress-item">
         <div class="prep-progress-avatar${p.pct === 100 ? ' done' : ''}">${avatarSvg(p.m)}</div>
-        <div style="flex:1;min-width:0;">
-          <div class="prep-progress-label"><span>${esc(p.m)}</span><span>${p.done}/${p.total}</span></div>
-          <div class="progress-bar"><div class="progress-fill" style="width:${p.pct}%"></div></div>
-        </div>
+        <div class="prep-progress-label"><span>${esc(p.m)}</span><span>${p.done}/${p.total}</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${p.pct}%"></div></div>
       </div>`).join('')}
   </div>`;
 }
@@ -473,11 +477,14 @@ function renderPrepCatBtns() {
   el.innerHTML = PREP_CAT_OPTS.map(c =>
     `<button type="button" class="px-chip${_prepCat===c.key?' on':''}" onclick="selectPrepCat('${c.key}')">${c.label}</button>`
   ).join('');
-  document.getElementById('prepOwnerField').style.display = _prepCat === '共用' ? '' : 'none';
+  // 對象欄任何分類都能用：共用＝誰負責帶，其他＝誰需要
+  const lbl = document.querySelector('#prepOwnerField .px-label');
+  if (lbl) lbl.textContent = _prepCat === '共用'
+    ? '▸ 誰負責帶（不選＝大家都要帶）'
+    : '▸ 誰需要（不選＝全員都要）';
 }
 window.selectPrepCat = function(key) {
   _prepCat = key;
-  if (key !== '共用') _prepOwner = '';
   renderPrepCatBtns();
   renderPrepOwnerBtns();
 };
@@ -485,12 +492,17 @@ window.selectPrepCat = function(key) {
 function renderPrepOwnerBtns() {
   const el = document.getElementById('prepOwnerBtns');
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const sel = String(_prepOwner || '').split(/[,，、\s]+/).filter(Boolean);
   el.innerHTML = members.map(m =>
-    `<button type="button" class="px-chip${_prepOwner===m?' on':''}" onclick="selectPrepOwner('${esc(m)}')">${esc(m)}</button>`
+    `<button type="button" class="px-chip${sel.includes(m)?' on':''}" onclick="selectPrepOwner('${esc(m)}')">${esc(m)}</button>`
   ).join('');
 }
+// 可複選：點一下加入、再點一次移除；全不選＝全員適用
 window.selectPrepOwner = function(m) {
-  _prepOwner = _prepOwner === m ? '' : m;   // 再點一次取消選取
+  const sel = String(_prepOwner || '').split(/[,，、\s]+/).filter(Boolean);
+  const i = sel.indexOf(m);
+  if (i >= 0) sel.splice(i, 1); else sel.push(m);
+  _prepOwner = sel.join(',');
   renderPrepOwnerBtns();
 };
 

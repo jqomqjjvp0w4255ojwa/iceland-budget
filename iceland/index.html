@@ -177,12 +177,13 @@
     .section-title{font-family:'Cinzel',serif;font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:18px 0 9px;display:flex;align-items:center;gap:10px;}
 
     /* ══ 行前準備清單：小人勾選 ══ */
-    .prep-progress{display:flex;flex-direction:column;gap:9px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:6px;}
-    .prep-progress-item{display:flex;align-items:center;gap:10px;}
-    .prep-progress-avatar{width:16px;height:28px;flex-shrink:0;filter:grayscale(1);opacity:.4;transition:filter .3s,opacity .3s;}
+    .prep-progress{display:flex;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:6px;}
+    .prep-progress-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;}
+    .prep-progress-avatar{width:18px;height:31px;flex-shrink:0;filter:grayscale(1);opacity:.4;transition:filter .3s,opacity .3s;}
     .prep-progress-avatar.done{filter:none;opacity:1;}
     .prep-progress-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
-    .prep-progress-label{display:flex;justify-content:space-between;font-size:.68rem;color:var(--muted);margin-bottom:3px;}
+    .prep-progress-label{display:flex;gap:5px;align-items:baseline;font-size:.66rem;color:var(--muted);}
+    .prep-progress-item .progress-bar{width:100%;}
 
     .prep-group{margin-bottom:4px;}
     .prep-item{
@@ -631,7 +632,7 @@
           <span id="pxSun" style="color:#ffe066;border-top:1px solid #444;padding-top:2px;width:100%;text-align:right;"></span>
         </div>
         <!-- 國際時間／座標：貼在馬路上，無外框，避開車與角色 -->
-        <div id="pxTimes" style="position:absolute;bottom:3%;left:8px;display:flex;gap:10px;font-family:'Silkscreen',monospace;font-size:9px;color:#fff;z-index:20;pointer-events:none;text-shadow:1px 1px 0 #000,-1px 1px 0 #000,1px -1px 0 #000,-1px -1px 0 #000;">
+        <div id="pxTimes" style="position:absolute;bottom:3%;left:8px;display:flex;flex-direction:column;gap:1px;font-family:'Silkscreen',monospace;font-size:9px;color:#fff;z-index:20;pointer-events:none;text-shadow:1px 1px 0 #000,-1px 1px 0 #000,1px -1px 0 #000,-1px -1px 0 #000;">
           <span id="pxTimeTW">🇹🇼 --:--</span>
           <span id="pxTimeIS">🇮🇸 --:--</span>
         </div>
@@ -1226,8 +1227,8 @@ window.pxResetQty = function() {
         <label class="px-label">▸ 分類</label>
         <div class="px-chip-row" id="prepCatBtns"></div>
       </div>
-      <div class="px-field" id="prepOwnerField" style="display:none;">
-        <label class="px-label">▸ 負責人（誰帶？可不選）</label>
+      <div class="px-field" id="prepOwnerField">
+        <label class="px-label">▸ 誰需要（不選＝全員都要）</label>
         <div class="px-chip-row" id="prepOwnerBtns"></div>
       </div>
       <div class="px-field">
