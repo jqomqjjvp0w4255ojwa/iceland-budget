@@ -817,6 +817,11 @@ function renderSchJumper(days, today) {
     </div>`;
 }
 
+// 元素相對捲動容器的實際位置（offsetTop 會受 offsetParent 影響，改用幾何計算）
+function schRelTop(el, scroller) {
+  return scroller.scrollTop + el.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+}
+
 // 只重畫跳轉列（不動時間軸，避免捲動位置跳掉）
 function refreshSchJumper() {
   const el = document.getElementById('schJumper');
@@ -1018,7 +1023,7 @@ window.schJumpTo = function(key) {
   const target = document.querySelector(`.sch-day[data-key="${key}"]`);
   const scroller = document.getElementById('schScroll');
   if (!target || !scroller) return;
-  scroller.scrollTo({ top: target.offsetTop - scroller.offsetTop - 4, behavior: 'smooth' });
+  scroller.scrollTo({ top: schRelTop(target, scroller) - 4, behavior: 'smooth' });
 };
 
 // ‹ › 前後一天（移動選中的那天）
@@ -1047,14 +1052,14 @@ function schBindScroll() {
   function update() {
     // 捲到哪天，跳轉列就跟著選到哪天
     const dayEls = [...scroller.querySelectorAll('.sch-day')];
-    const cur = dayEls.filter(el => el.offsetTop - scroller.offsetTop <= scroller.scrollTop + 40).pop()
+    const cur = dayEls.filter(el => schRelTop(el, scroller) <= scroller.scrollTop + 40).pop()
              || dayEls[0];
     if (cur && cur.dataset.key !== _schActiveKey) {
       _schActiveKey = cur.dataset.key;
       refreshSchJumper();
     }
 
-    const todayTop = todayEl.offsetTop - scroller.offsetTop;
+    const todayTop = schRelTop(todayEl, scroller);
     const view = scroller.scrollTop;
     const diff = todayTop - view;
     if (Math.abs(diff) < scroller.clientHeight * 0.5) {
@@ -1073,7 +1078,7 @@ function schBindScroll() {
   scroller.addEventListener('scroll', update, { passive:true });
   update();
   // 一進來就對準今日
-  if (todayEl) scroller.scrollTop = todayEl.offsetTop - scroller.offsetTop - 4;
+  if (todayEl) scroller.scrollTop = schRelTop(todayEl, scroller) - 4;
 }
 window.schBindScroll = schBindScroll;
 
