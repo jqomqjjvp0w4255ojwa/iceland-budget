@@ -323,9 +323,9 @@ const PREP_CATS = [
 // 一個成員的小人：未完成灰階半透明，完成後彩色站好
 function prepAvatar(task, member, dim) {
   const done = !!task.done?.[member];
-  const disabled = dim && !done;      // 共用裝備：非負責人不需要勾
+  const disabled = dim && !done;      // 不適用於這個人，不列入進度
   const title = disabled
-    ? `${member}（由 ${task.owner} 負責）`
+    ? `${member}：不需要（此項為 ${esc(task.owner)}）`
     : `${member}${done ? '：已準備好' : '：還沒'}`;
   return `<button class="prep-avatar${done ? ' done' : ''}${disabled ? ' dim' : ''}"
     title="${esc(title)}"
@@ -334,15 +334,21 @@ function prepAvatar(task, member, dim) {
   </button>`;
 }
 
+// 這個項目適不適用於某成員：負責人欄留空＝全員；填了（可逗號分隔多人）＝只有那些人
+function taskAppliesTo(task, member) {
+  const owner = String(task.owner || '').trim();
+  if (!owner) return true;
+  return owner.split(/[,，、\s]+/).filter(Boolean).includes(member);
+}
+
 function renderPrepItem(task) {
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
   const isShared = task.category === '共用';
-  // 共用裝備：有指定負責人時，其他人的小人淡出（仍可點，只是視覺提示）
-  const avatars = members.map(m => prepAvatar(task, m, isShared && task.owner && task.owner !== m)).join('');
-  const doneCount = members.filter(m => task.done?.[m]).length;
-  const allDone = isShared
-    ? (task.owner ? !!task.done?.[task.owner] : doneCount > 0)
-    : doneCount === members.length;
+  // 指定了對象時，其他人的小人淡出（仍可點，方便代辦/代帶）
+  const avatars = members.map(m => prepAvatar(task, m, !taskAppliesTo(task, m))).join('');
+  // 只看「適用的人」有沒有完成
+  const need = members.filter(m => taskAppliesTo(task, m));
+  const allDone = need.length ? need.every(m => task.done?.[m]) : false;
   const stars = task.priority > 0
     ? `<span class="prep-stars" title="重要度 ${task.priority}">${'★'.repeat(Math.min(5, task.priority))}</span>` : '';
 
@@ -357,11 +363,70 @@ function renderPrepItem(task) {
   </div>`;
 }
 
+// 這筆項目在目前檢視下算不算「已完成」
+function prepIsDone(task) {
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  if (_prepWho) return !!task.done?.[_prepWho];          // 只看某人時＝那人勾了沒
+  const need = members.filter(m => taskAppliesTo(task, m));
+  return need.length ? need.every(m => task.done?.[m]) : false;
+}
+
+function prepPassFilter(task) {
+  if (_prepWho && !taskAppliesTo(task, _prepWho)) return false;  // 不干他的事就不顯示
+  if (_prepView === 'todo' && prepIsDone(task)) return false;
+  return true;
+}
+
+// 未完成優先，其次重要度高的在前
+function prepSort(a, b) {
+  const da = prepIsDone(a) ? 1 : 0, db = prepIsDone(b) ? 1 : 0;
+  if (da !== db) return da - db;
+  return (b.priority || 0) - (a.priority || 0);
+}
+
+function renderPrepFilters(tasks) {
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const all = tasks || [];
+  const saveWho = _prepWho, saveView = _prepView;
+
+  // 計數用目前的人物篩選、但不受完成狀態影響
+  _prepView = 'all';
+  const scoped = all.filter(prepPassFilter);
+  const todoCount = scoped.filter(t => !prepIsDone(t)).length;
+  _prepView = saveView;
+
+  return `
+    <div class="prep-filters">
+      <div class="prep-filter-group">
+        <button class="prep-filter${_prepView==='todo'?' on':''}" onclick="setPrepView('todo')">未完成 ${todoCount}</button>
+        <button class="prep-filter${_prepView==='all'?' on':''}" onclick="setPrepView('all')">全部 ${scoped.length}</button>
+      </div>
+      <div class="prep-filter-group">
+        <button class="prep-who${!_prepWho?' on':''}" onclick="setPrepWho('')">全員</button>
+        ${members.map(m => `
+          <button class="prep-who${_prepWho===m?' on':''}" onclick="setPrepWho('${esc(m)}')" title="只看 ${esc(m)} 要準備的">
+            <span class="prep-who-avatar">${avatarSvg(m)}</span>
+          </button>`).join('')}
+      </div>
+    </div>`;
+}
+
+window.setPrepView = function(v) {
+  _prepView = v;
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(window.APP_DATA?.tasks || []);
+};
+window.setPrepWho = function(m) {
+  _prepWho = m;
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(window.APP_DATA?.tasks || []);
+};
+
 // 每人各自的準備進度（共用裝備只算負責人那份）
 function renderPrepProgress(tasks) {
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
   const perMember = members.map(m => {
-    const mine = (tasks || []).filter(t => t.category !== '共用' || !t.owner || t.owner === m);
+    const mine = (tasks || []).filter(t => taskAppliesTo(t, m));
     const done = mine.filter(t => t.done?.[m]).length;
     return { m, done, total: mine.length, pct: mine.length ? Math.round(done / mine.length * 100) : 0 };
   });
@@ -369,10 +434,8 @@ function renderPrepProgress(tasks) {
     ${perMember.map(p => `
       <div class="prep-progress-item">
         <div class="prep-progress-avatar${p.pct === 100 ? ' done' : ''}">${avatarSvg(p.m)}</div>
-        <div style="flex:1;min-width:0;">
-          <div class="prep-progress-label"><span>${esc(p.m)}</span><span>${p.done}/${p.total}</span></div>
-          <div class="progress-bar"><div class="progress-fill" style="width:${p.pct}%"></div></div>
-        </div>
+        <div class="prep-progress-label"><span>${esc(p.m)}</span><span>${p.done}/${p.total}</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${p.pct}%"></div></div>
       </div>`).join('')}
   </div>`;
 }
@@ -383,11 +446,12 @@ function renderPrep(tasks) {
     return `<div class="empty">🧳 在「寫入_任務」表填入項目後顯示<br>
       <span style="font-size:.7rem;color:var(--muted)">分類填 待辦／行李／共用</span></div>`;
   }
-  const progress = renderPrepProgress(tasks);
+  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks);
 
   const groups = PREP_CATS.map(cat => {
     const list = tasks.filter(t => (t.category || '待辦') === cat.key)
-      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+      .filter(prepPassFilter)
+      .sort(prepSort);
     if (!list.length) return '';
     return `
       <div class="prep-group">
@@ -400,7 +464,8 @@ function renderPrep(tasks) {
 
   // 沒被分類到的（分類欄填了別的字）
   const known = PREP_CATS.map(c => c.key);
-  const others = tasks.filter(t => !known.includes(t.category || '待辦'));
+  const others = tasks.filter(t => !known.includes(t.category || '待辦'))
+    .filter(prepPassFilter).sort(prepSort);
   const otherHtml = others.length ? `
     <div class="prep-group">
       <div class="section-title">📌 其他<span style="font-size:.65rem;color:var(--muted);font-weight:400;">（${others.length}）</span></div>
@@ -415,7 +480,13 @@ function renderPrep(tasks) {
         font-family:'Lato',sans-serif;">＋ 新增準備項目</button>
     </div>`;
 
-  return progress + groups + otherHtml + addBtn;
+  const empty = (!groups.trim() && !otherHtml.trim())
+    ? `<div class="empty" style="padding:26px 16px;">${_prepView === 'todo'
+        ? (_prepWho ? `🎉 ${esc(_prepWho)} 的項目都準備好了！` : '🎉 全部都準備好了！')
+        : '沒有符合的項目'}</div>`
+    : '';
+
+  return progress + groups + otherHtml + empty + addBtn;
 }
 
 // ── 新增項目：彈窗（同記帳表單風格），直接寫回 sheet
@@ -428,6 +499,8 @@ let _prepCat = '待辦';
 let _prepOwner = '';
 let _prepPriority = 3;
 let _prepEditId = null;   // null＝新增模式，否則是正在編輯的 task.id
+let _prepView = 'todo';   // 檢視：all／todo（未完成）
+let _prepWho  = '';       // 只看某人（空＝全員）
 
 window.openAddPrep = function() {
   _prepEditId = null;
@@ -473,11 +546,14 @@ function renderPrepCatBtns() {
   el.innerHTML = PREP_CAT_OPTS.map(c =>
     `<button type="button" class="px-chip${_prepCat===c.key?' on':''}" onclick="selectPrepCat('${c.key}')">${c.label}</button>`
   ).join('');
-  document.getElementById('prepOwnerField').style.display = _prepCat === '共用' ? '' : 'none';
+  // 對象欄任何分類都能用：共用＝誰負責帶，其他＝誰需要
+  const lbl = document.querySelector('#prepOwnerField .px-label');
+  if (lbl) lbl.textContent = _prepCat === '共用'
+    ? '▸ 誰負責帶（不選＝大家都要帶）'
+    : '▸ 誰需要（不選＝全員都要）';
 }
 window.selectPrepCat = function(key) {
   _prepCat = key;
-  if (key !== '共用') _prepOwner = '';
   renderPrepCatBtns();
   renderPrepOwnerBtns();
 };
@@ -485,12 +561,17 @@ window.selectPrepCat = function(key) {
 function renderPrepOwnerBtns() {
   const el = document.getElementById('prepOwnerBtns');
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const sel = String(_prepOwner || '').split(/[,，、\s]+/).filter(Boolean);
   el.innerHTML = members.map(m =>
-    `<button type="button" class="px-chip${_prepOwner===m?' on':''}" onclick="selectPrepOwner('${esc(m)}')">${esc(m)}</button>`
+    `<button type="button" class="px-chip${sel.includes(m)?' on':''}" onclick="selectPrepOwner('${esc(m)}')">${esc(m)}</button>`
   ).join('');
 }
+// 可複選：點一下加入、再點一次移除；全不選＝全員適用
 window.selectPrepOwner = function(m) {
-  _prepOwner = _prepOwner === m ? '' : m;   // 再點一次取消選取
+  const sel = String(_prepOwner || '').split(/[,，、\s]+/).filter(Boolean);
+  const i = sel.indexOf(m);
+  if (i >= 0) sel.splice(i, 1); else sel.push(m);
+  _prepOwner = sel.join(',');
   renderPrepOwnerBtns();
 };
 
@@ -942,8 +1023,40 @@ function findSchActivity(title, activities) {
 }
 
 // ── 節點詳情彈窗 ──────────────────────────────
-function schKv(label, val) {
-  return val ? `<div class="sch-kv"><span>${label}</span><div>${esc(val)}</div></div>` : '';
+// ── 資訊區塊：標籤在上、內容佔滿寬度（取代左右對照式排版）
+function schBlock(icon, label, val, opts) {
+  if (!val) return '';
+  opts = opts || {};
+  const body = opts.chips
+    ? `<div class="sch-chips">${splitToChips(val).map(c => `<span class="sch-chip">${esc(c)}</span>`).join('')}</div>`
+    : `<div class="sch-block-body">${esc(val)}</div>`;
+  return `
+    <div class="sch-block${opts.warn ? ' warn' : ''}">
+      <div class="sch-block-label">${icon} ${label}</div>
+      ${body}
+    </div>`;
+}
+
+// 逗號/頓號/斜線分隔的清單 → chips（過長的段落不拆，避免切出破碎片段）
+function splitToChips(text) {
+  const t = String(text || '').trim();
+  const parts = t.split(/[、,，/／]+/).map(x => x.trim()).filter(Boolean);
+  // 每項都夠短才適合做 chips，否則整段當一塊
+  return (parts.length > 1 && parts.every(x => x.length <= 12)) ? parts : [t];
+}
+
+// 價格區：每人價當視覺重心，其餘降階
+function schPriceBar(o) {
+  if (!o.twd) return o.emptyText
+    ? `<div class="sch-price"><span class="sch-price-main" style="font-size:.9rem;color:var(--muted);">${esc(o.emptyText)}</span></div>` : '';
+  return `
+    <div class="sch-price">
+      <div class="sch-price-main">${fmtPer(o.twd)}</div>
+      <div class="sch-price-sub">
+        ${fmt(o.twd)} 合計${o.orig && o.cur !== 'NT' ? ` · ${fmtOrig(o.orig, o.cur)}` : ''}${o.nights ? ` · ${o.nights} 晚` : ''}
+        ${o.foreignFee ? `<span class="sch-fee">手續費 NT$${o.foreignFee}</span>` : ''}
+      </div>
+    </div>`;
 }
 
 window.openSchStay = function(i) {
@@ -964,26 +1077,24 @@ window.openSchStay = function(i) {
         <div class="sch-modal-sub">${esc(stay.date || '')}${stay.nights ? ` · ${stay.nights} 晚` : ''}</div>
       </div>
     </div>
-    <div class="sch-stay-price">
-      ${stay.twd ? `
-        <span class="sch-price-per">${fmtPer(stay.twd)}</span>
-        <span class="sch-price-total">${fmt(stay.twd)} 合計</span>
-        ${stay.orig && stay.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(stay.orig, stay.cur)}</span>` : ''}
-      ` : `<span class="sch-price-per" style="color:var(--muted);font-size:.8rem;">現場付</span>`}
-      ${stay.foreignFee ? `<span class="tag tag-fee">手續費 NT$${stay.foreignFee}</span>` : ''}
-    </div>
-    <div class="sch-stay-tags" style="margin:0 0 8px;">
+
+    ${schPriceBar({ twd: stay.twd, orig: stay.orig, cur: stay.cur, nights: stay.nights,
+                    foreignFee: stay.foreignFee, emptyText: '現場付' })}
+
+    <div class="sch-tagrow">
       <span class="tag tag-person">${esc(pt.label)}</span>
       ${payTag}
       <span class="tag ${stay.cancel ? 'tag-cancel' : 'tag-nocancel'}">${stay.cancel ? '可取消' : '不可退'}</span>
-      ${stay.payer ? `<span class="sch-payer">${avatarSvg(stay.payer)}</span>` : ''}
+      ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
     </div>
-    ${schKv('地址', stay.address)}
-    ${schKv('設備', stay.facilities)}
-    ${schKv('自費', stay.extraFee)}
-    ${schKv('自備', stay.bring)}
-    ${schKv('周邊', stay.nearby)}
-    ${schKv('備註', stay.note)}
+
+    ${schBlock('📍', '地址', stay.address)}
+    ${schBlock('🛏', '設備', stay.facilities, { chips: true })}
+    ${schBlock('💰', '自費', stay.extraFee)}
+    ${schBlock('🎒', '需自備', stay.bring, { chips: true })}
+    ${schBlock('🌄', '周邊', stay.nearby)}
+    ${schBlock('📌', '備註', stay.note, { warn: isWarnText(stay.note) })}
+
     ${(stay.lat && stay.lng) ? `
       <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${stay.lat},${stay.lng}','_blank')">➤ 導航到這裡</button>` : ''}
   `);
@@ -995,39 +1106,44 @@ window.openSchAct = function(i) {
   let payTag = a.paid ? `<span class="tag tag-paid">已付款</span>`
              : a.payDate ? `<span class="tag tag-unpaid">${esc(a.payDate)} 前付款</span>`
              : `<span class="tag tag-unpaid">未付款</span>`;
+  const meet = [a.meetTime, a.meetLoc].filter(Boolean).join(' · ');
+
   openSchModal(`
     <div class="sch-modal-head">
       <span class="sch-modal-icon">🎯</span>
       <div style="flex:1;min-width:0;">
-        <div class="sch-modal-title">${a.url ? `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">${esc(a.name)}</a>` : esc(a.name)}</div>
+        <div class="sch-modal-title">${a.url ? `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener">${esc(a.name)}</a>` : esc(a.name)}</div>
         <div class="sch-modal-sub">${esc(a.date || '')}${a.duration ? ` · ${esc(a.duration)}` : ''}</div>
       </div>
     </div>
-    <div class="sch-stay-price">
-      ${a.twd ? `
-        <span class="sch-price-per">${fmtPer(a.twd)}</span>
-        <span class="sch-price-total">${fmt(a.twd)} 合計</span>
-        ${a.orig && a.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(a.orig, a.cur)}</span>` : ''}
-      ` : ''}
-      ${a.foreignFee ? `<span class="tag tag-fee">手續費 NT$${a.foreignFee}</span>` : ''}
-    </div>
-    <div class="sch-stay-tags" style="margin:0 0 8px;">
+
+    ${schPriceBar({ twd: a.twd, orig: a.orig, cur: a.cur, foreignFee: a.foreignFee })}
+
+    <div class="sch-tagrow">
       ${payTag}
       <span class="tag ${a.cancel ? 'tag-cancel' : 'tag-nocancel'}">${a.cancel ? '可取消' : '不可退'}</span>
       ${a.difficulty ? `<span class="tag tag-person">難度 ${esc(a.difficulty)}</span>` : ''}
       ${a.payer ? `<span class="sch-payer">${avatarSvg(a.payer)}</span>` : ''}
     </div>
-    ${schKv('集合', [a.meetTime, a.meetLoc].filter(Boolean).join(' · '))}
-    ${schKv('內容', a.content)}
-    ${schKv('提供', a.included)}
-    ${schKv('不提供', a.excluded)}
-    ${schKv('自備', a.bring)}
-    ${schKv('回程地', a.returnLoc)}
-    ${schKv('備註', a.note)}
+
+    ${meet ? `<div class="sch-meet"><span class="sch-meet-label">集合</span><span>${esc(meet)}</span></div>` : ''}
+
+    ${schBlock('📝', '內容', a.content)}
+    ${schBlock('✅', '提供', a.included, { chips: true })}
+    ${schBlock('❌', '不提供', a.excluded, { chips: true })}
+    ${schBlock('🎒', '自備', a.bring, { chips: true })}
+    ${schBlock('🚩', '回程地', a.returnLoc)}
+    ${schBlock('⚠️', '注意', a.note, { warn: true })}
+
     ${(a.lat && a.lng) ? `
       <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${a.lat},${a.lng}','_blank')">➤ 導航到集合點</button>` : ''}
   `);
 };
+
+// 含這些字樣的備註視為警示，用有色區塊突顯
+function isWarnText(t) {
+  return /無網路|沒有網路|不提供網路|需自備|只收現金|不收現金|4x4|F 級|F級|碎石|注意|警|限制|不適合|禁止/.test(String(t || ''));
+}
 
 function openSchModal(html) {
   const box = document.getElementById('schModalBody');

@@ -111,12 +111,14 @@ function applyScheduleValidation_(sheet) {
 }
 
 // ── 行前準備清單欄位 ─────────────────────────────────────
-// A項目ID B分類 C項目名稱 D重要度 E說明 F負責人
+// A項目ID B分類 C項目名稱 D重要度 E說明 F對象
 // G猴狀態 H花狀態 I寧狀態 J最後更新
 //   分類：待辦／行李／共用
-//   負責人：只有「共用」分類要填（誰負責帶），其餘留空＝各自準備
+//   對象：留空＝全員都要；填成員名（可逗號分隔多人）＝只有那些人要，
+//         其他人不列入進度計算。例：國際駕照只有駕駛需要 → 填「猴,花」
+//         共用分類則代表「誰負責帶」
 var TASK_HEADER = [
-  '項目ID','分類','項目名稱','重要度','說明','負責人',
+  '項目ID','分類','項目名稱','重要度','說明','對象',
   '猴狀態','花狀態','寧狀態','最後更新'
 ];
 
@@ -194,11 +196,7 @@ function applyTaskValidation_(sheet) {
       .requireValueInList(['0', '1', '2', '3', '4', '5'], true)
       .setAllowInvalid(false).build());
 
-  // F 負責人：成員（共用裝備才填，可留空）
-  sheet.getRange(2, 6, last - 1, 1).setDataValidation(
-    SpreadsheetApp.newDataValidation()
-      .requireValueInList(TASK_MEMBERS, true)
-      .setAllowInvalid(true).build());
+  // F 對象：留空＝全員；可填單人或多人（逗號分隔），故不設下拉限制
 
   // G/H/I 三人狀態：核取方塊
   sheet.getRange(2, 7, last - 1, 3).insertCheckboxes();
