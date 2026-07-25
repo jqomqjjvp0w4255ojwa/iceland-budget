@@ -3,7 +3,7 @@
     "https://script.google.com/macros/s/AKfycbxv7Z69Jer0CL03X51DkmAbflI8D8kFDKVKngxBehU2_IDW8R-TftT0kdzs4u4QIf7r/exec";
   const CACHE_KEY = (window.TRIP_CONFIG && window.TRIP_CONFIG.cacheKey) || 'cached_iceland_budget';
   window._GAS_BASE = API_BASE;
-  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷", task: "寫入_任務", schedule: "日程" };
+  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷", task: "寫入_任務", schedule: "日程", insurance: "保險", manual: "手冊" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
@@ -41,7 +41,7 @@
     return fallback;
   }
 
-  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task, schedule }) {
+  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task, schedule, insurance, manual }) {
 
     const oCells = overview?.cells ?? [];
     const iskRow = oCells.find(r => r.includes('ISK')) || [];
@@ -302,6 +302,28 @@
         .filter(x => x.title && x.date);
     }
 
+    // ── 保險（一列＝一個理賠項目）
+    const insuranceData = cellsToRows(insurance)
+      .filter(row => String(row['保險公司'] ?? row['理賠項目'] ?? '').trim() !== '')
+      .map(row => ({
+        company: pick(row, ['保險公司'], ''),
+        plan:    pick(row, ['方案'], ''),
+        item:    pick(row, ['理賠項目'], ''),
+        amount:  pick(row, ['理賠金額'], ''),
+        method:  pick(row, ['理賠方法'], ''),
+        note:    pick(row, ['備註'], ''),
+      }));
+
+    // ── 手冊資訊
+    const manualData = cellsToRows(manual)
+      .filter(row => String(row['標題'] ?? '').trim() !== '')
+      .map(row => ({
+        category: pick(row, ['分類'], '其他'),
+        title:    pick(row, ['標題'], ''),
+        content:  pick(row, ['內容'], ''),
+        url:      pick(row, ['連結'], ''),
+      }));
+
     const totalFlightTWD = flights.reduce((s, f) => s + (f.totalTWD || 0), 0);
     const tagLibrary = (expense?.tagLibrary || []).filter(Boolean);
 
@@ -312,6 +334,7 @@
       activity: activityData,
       expenses, split: splitData, dialogLines, flights, totalFlightTWD, repayHistory,
       tasks, schedule: scheduleData,
+      insurance: insuranceData, manualInfo: manualData,
     };
   }
 
@@ -365,9 +388,9 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const all = await res.json();
       if (all.error) throw new Error(all.error);
-      const { overview, accommodation, car, activity, split, lines, flight, expense, task, schedule } = all;
+      const { overview, accommodation, car, activity, split, lines, flight, expense, task, schedule, insurance, manual } = all;
 
-      const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task, schedule });
+      const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task, schedule, insurance, manual });
       window.APP_DATA = newData;
       localStorage.setItem(CACHE_KEY, JSON.stringify(window.APP_DATA));
       window.renderAll?.();

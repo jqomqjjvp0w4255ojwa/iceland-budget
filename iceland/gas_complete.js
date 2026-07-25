@@ -16,7 +16,59 @@ const SHEET_NAMES = {
   checkin:       '寫入_腳印',
   task:          '寫入_任務',
   schedule:      '日程',
+  insurance:     '保險',
+  manual:        '手冊',
 };
+
+// ── 保險表欄位 ───────────────────────────────────────────
+// 一列＝一個理賠項目；同公司/方案多列即可
+var INSURANCE_HEADER = [
+  '保險公司','方案','理賠項目','理賠金額','理賠方法','備註'
+];
+
+// ── 手冊資訊表欄位 ───────────────────────────────────────
+// 分類例：實用資訊／緊急聯絡／購物補給／交通…（自由填）
+var MANUAL_HEADER = [
+  '分類','標題','內容','連結'
+];
+
+// ── 一次性：建立保險表（在編輯器選這個函式按執行）──
+function setupInsuranceSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAMES.insurance);
+  if (!sheet) sheet = ss.insertSheet(SHEET_NAMES.insurance);
+  var first = String(sheet.getRange(1, 1).getValue() || '').trim();
+  if (first === '保險公司') return '已是新結構，未變更';
+  sheet.getRange(1, 1, 1, INSURANCE_HEADER.length).setValues([INSURANCE_HEADER]);
+  sheet.setFrozenRows(1);
+  var widths = [110, 130, 180, 110, 260, 200];
+  for (var c = 0; c < widths.length; c++) sheet.setColumnWidth(c + 1, widths[c]);
+  return '保險表已建立';
+}
+
+// ── 一次性：建立手冊資訊表 ──
+function setupManualSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAMES.manual);
+  if (!sheet) sheet = ss.insertSheet(SHEET_NAMES.manual);
+  var first = String(sheet.getRange(1, 1).getValue() || '').trim();
+  if (first === '分類') return '已是新結構，未變更';
+  sheet.getRange(1, 1, 1, MANUAL_HEADER.length).setValues([MANUAL_HEADER]);
+  sheet.setFrozenRows(1);
+  var widths = [90, 160, 420, 240];
+  for (var c = 0; c < widths.length; c++) sheet.setColumnWidth(c + 1, widths[c]);
+  // 先塞幾筆你們「雜」分頁整理出來的情報當種子
+  var seed = [
+    ['實用資訊', '刷卡', '冰島消費全面無紙化，上廁所都能刷卡；店家收歐元找克朗，想留紀念幣可帶點歐元。匯率約 1000 ISK ≈ 300 台幣', ''],
+    ['實用資訊', '時差', '冰島比台灣慢 8 小時（台灣 10:00＝冰島凌晨 02:00）', ''],
+    ['實用資訊', '電壓', '220V 歐規雙圓孔，飯店沒有萬國插頭，要自備', ''],
+    ['緊急聯絡', '緊急電話', '冰島報警／救護／消防統一：112', ''],
+    ['實用資訊', '網路', '歐洲 eSIM', 'https://esim.djbcard.com/product-category/esim/europe/?aid=16'],
+    ['購物補給', '便宜超市', 'Bónus（小豬超市，最便宜）、Krónan、Nettó；N1 加油站可補給', ''],
+  ];
+  sheet.getRange(2, 1, seed.length, MANUAL_HEADER.length).setValues(seed);
+  return '手冊表已建立（含 ' + seed.length + ' 筆種子資料）';
+}
 
 // ── 日程表欄位 ───────────────────────────────────────────
 // A日期(9/17) B時間(可空/可寫「上午」) C分類 D標題 E說明 F地點 G緯度 H經度

@@ -305,7 +305,7 @@ function renderInfo(d) {
       <div id="scheduleContent">${renderSchedule(d)}</div>
     </div>
     <div id="infoTab-insurance" class="section">
-      <div class="empty">🛡 保險資訊填入後顯示</div>
+      ${renderInsurance(d.insurance)}
     </div>
 
   `;
@@ -1107,6 +1107,49 @@ function schBindScroll() {
   if (todayEl) scroller.scrollTop = schRelTop(todayEl, scroller) - 4;
 }
 window.schBindScroll = schBindScroll;
+
+// ══════════════════════════════════════════════════════════
+//  保險：依 公司＋方案 分組成卡片，一列＝一個理賠項目
+// ══════════════════════════════════════════════════════════
+function renderInsurance(items) {
+  items = items || [];
+  if (!items.length) {
+    return `<div class="empty">🛡 在「保險」表填入後顯示<br>
+      <span style="font-size:.7rem;color:var(--muted)">欄位：保險公司／方案／理賠項目／理賠金額／理賠方法／備註</span></div>`;
+  }
+  // 沿用上一列的公司/方案（同一張保單多列時可留空）
+  let lastCompany = '', lastPlan = '';
+  const filled = items.map(x => {
+    if (x.company) lastCompany = x.company; 
+    if (x.plan) lastPlan = x.plan;
+    return { ...x, company: x.company || lastCompany, plan: x.plan || lastPlan };
+  });
+  const groups = new Map();
+  filled.forEach(x => {
+    const key = `${x.company}｜${x.plan}`;
+    if (!groups.has(key)) groups.set(key, { company: x.company, plan: x.plan, rows: [] });
+    groups.get(key).rows.push(x);
+  });
+
+  return [...groups.values()].map(g => `
+    <div class="car-card" style="margin-bottom:12px;">
+      <div class="car-header">
+        <div class="car-title">🛡 ${esc(g.company)}</div>
+        ${g.plan ? `<div class="car-model">${esc(g.plan)}</div>` : ''}
+      </div>
+      <div style="padding:4px 16px 12px;">
+        ${g.rows.map(r => `
+          <div style="padding:9px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span style="flex:1;font-size:.82rem;color:var(--text);">${esc(r.item)}</span>
+              ${r.amount ? `<span style="font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);white-space:nowrap;">${esc(r.amount)}</span>` : ''}
+            </div>
+            ${r.method ? `<div style="font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.7;">📋 ${esc(r.method)}</div>` : ''}
+            ${r.note ? `<div style="font-size:.66rem;color:var(--muted);margin-top:2px;">📌 ${esc(r.note)}</div>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
 
 function renderCarDetail(car) {
   return `
