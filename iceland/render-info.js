@@ -1082,13 +1082,16 @@ function renderSchNode(x, d, sameTime) {
   // 交通：不是節點而是節點之間的區間
   if (x.category === '交通') {
     const { dur, text } = schSplitDuration(x.title);
+    // 方向寫在說明欄；標題只寫時長時，就把說明升為主要文字，不再顯示「移動」
+    const main = text || x.note || '移動';
+    const sub  = text ? x.note : '';
     return `
       <div class="sch-conn">
         <div class="sch-conn-dot"><span class="sch-conn-line"></span></div>
         <div class="sch-node-time sch-conn-dur">${esc(dur || x.time || '')}</div>
         <div class="sch-conn-body">
-          <span class="sch-conn-text">${esc(text || '移動')}</span>
-          ${x.note ? `<span class="sch-conn-note">${esc(x.note)}</span>` : ''}
+          <span class="sch-conn-text">${esc(main)}</span>
+          ${sub ? `<span class="sch-conn-note">${esc(sub)}</span>` : ''}
         </div>
       </div>`;
   }
