@@ -690,6 +690,67 @@ function buildScheduleDays(d) {
     });
   });
 
+  // 航班 → 自動變成航段節點（三人相同航段合併成一筆，不同的標註是誰的）
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const segMap = new Map();
+  (d.flights || []).forEach(f => {
+    (f.segments || []).forEach(seg => {
+      // depTime 格式「2026/9/14 7:00」
+      const dm = String(seg.depTime || '').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+      if (!dm) return;
+      const tm = String(seg.depTime || '').match(/(\d{1,2}:\d{2})/);
+      const am = String(seg.arrTime || '').match(/(\d{1,2}:\d{2})/);
+      const key = `${seg.flightNo || ''}|${seg.depTime}`;
+      if (!segMap.has(key)) {
+        segMap.set(key, {
+          date: `${+dm[2]}/${+dm[3]}`,
+          time: tm ? tm[1] : '',
+          category: '其他',
+          _flight: true,
+          title: `${seg.from} → ${seg.to}`,
+          place: [seg.flightNo, seg.operatedBy || seg.airline].filter(Boolean).join(' · '),
+          note: am ? `抵達 ${am[1]}${seg.flightTime ? `（飛 ${seg.flightTime}）` : ''}` : '',
+          lat: 0, lng: 0, order: 0,
+          _d: new Date(+dm[1], +dm[2] - 1, +dm[3]),
+          _who: new Set(),
+        });
+      }
+      segMap.get(key)._who.add(f.person);
+    });
+  });
+  segMap.forEach(node => {
+    // 不是全員同班機才標名字（例如寧的回程不同路線）
+    if (node._who.size && node._who.size < members.length) {
+      node.title += `（${[...node._who].join('、')}）`;
+    }
+    items.push(node);
+  });
+
+  // 活動表 → 自動變成活動節點（日程表已手動排同一天同名活動的就跳過）
+  (d.activity || []).forEach((a, ai) => {
+    if (!a.date || !a.name) return;
+    const dd = schDate(a.date, year);
+    if (!dd) return;
+    const dup = items.some(x =>
+      x.category === '活動' && x._d && schIsSameDay(x._d, dd) &&
+      findSchActivity(x.title, [a]) === 0);
+    if (dup) return;
+    const tm = String(a.meetTime || '').match(/(\d{1,2}[:：]\d{2})/);
+    const meetExtra = String(a.meetTime || '').replace(tm ? tm[1] : '', '').trim();
+    items.push({
+      date: a.date,
+      time: tm ? tm[1] : '',
+      category: '活動',
+      _actIndex: ai,
+      title: a.name,
+      place: a.meetLoc || a.location || '',
+      note: meetExtra ? `集合 ${a.meetTime}` : '',
+      lat: a.lat || 0, lng: a.lng || 0,
+      order: 5000 + ai,   // 排在手動節點後、住宿前
+      _d: dd,
+    });
+  });
+
   // 依日期分組
   const byDate = new Map();
   items.filter(x => x._d).forEach(x => {
@@ -781,6 +842,11 @@ function renderSchJumper(days, today) {
     </div>`;
 }
 
+// 元素相對捲動容器的實際位置（offsetTop 會受 offsetParent 影響，改用幾何計算）
+function schRelTop(el, scroller) {
+  return scroller.scrollTop + el.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+}
+
 // 只重畫跳轉列（不動時間軸，避免捲動位置跳掉）
 function refreshSchJumper() {
   const el = document.getElementById('schJumper');
@@ -818,65 +884,155 @@ function renderSchDay(day, today, d, dayNum) {
 function renderSchNode(x, d) {
   const isStay = x.category === '住宿';
   const stay = isStay && x._stayIndex != null ? (d.accommodation || [])[x._stayIndex] : null;
+  // 活動節點：自動併入的直接帶 index；手動排的用標題比對活動表
+  const actIndex = x._actIndex != null ? x._actIndex
+    : x.category === '活動' ? findSchActivity(x.title, d.activity) : -1;
+  const act = actIndex >= 0 ? d.activity[actIndex] : null;
+
   // 住宿：沿用帳簿住宿卡的類型判斷（sheet 有填類型就優先用）
   const pt = isStay ? placeTypeIcon(stay?.stayType || x.title || '') : null;
-  const icon = isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
+  const icon = x._flight ? '✈️' : isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
 
   const navBtn = (x.lat && x.lng)
     ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
     : '';
 
-  // 住宿：標籤列（付款狀態／可否取消／付款人像素頭像）＋可展開詳細
-  let stayTags = '', detail = '';
+  // 住宿：一眼標籤列（詳情進彈窗）
+  let stayTags = '';
   if (stay) {
     let payTag;
     if (stay.paid && stay.payDate)   payTag = `<span class="tag tag-paid">${esc(stay.payDate)} 付款</span>`;
     else if (stay.paid)              payTag = `<span class="tag tag-paid">已付款</span>`;
     else if (stay.deductDate)        payTag = `<span class="tag tag-unpaid">${esc(stay.deductDate)} 扣款</span>`;
     else                             payTag = `<span class="tag tag-unpaid">未付款</span>`;
-
     stayTags = `
       <div class="sch-stay-tags">
         <span class="tag tag-person">${esc(pt.label)}</span>
         ${payTag}
-        <span class="tag ${stay.cancel ? 'tag-cancel' : 'tag-nocancel'}">${stay.cancel ? '可取消' : '不可退'}</span>
         ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
-      </div>`;
-
-    detail = `
-      <div class="sch-stay-detail" style="display:none;">
-        <div class="sch-stay-price">
-          ${stay.twd ? `
-            <span class="sch-price-per">${fmtPer(stay.twd)}</span>
-            <span class="sch-price-total">${fmt(stay.twd)} 合計</span>
-            ${stay.orig && stay.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(stay.orig, stay.cur)}</span>` : ''}
-          ` : `<span class="sch-price-per" style="color:var(--muted);font-size:.8rem;">現場付</span>`}
-          ${stay.nights ? `<span class="sch-price-orig">${stay.nights} 晚</span>` : ''}
-          ${stay.foreignFee ? `<span class="tag tag-fee">手續費 NT$${stay.foreignFee}</span>` : ''}
-        </div>
-        ${stay.address    ? `<div class="sch-kv"><span>地址</span><div>${esc(stay.address)}</div></div>` : ''}
-        ${stay.facilities ? `<div class="sch-kv"><span>設備</span><div>${esc(stay.facilities)}</div></div>` : ''}
-        ${stay.extraFee   ? `<div class="sch-kv"><span>自費</span><div>${esc(stay.extraFee)}</div></div>` : ''}
-        ${stay.bring      ? `<div class="sch-kv"><span>自備</span><div>${esc(stay.bring)}</div></div>` : ''}
-        ${stay.nearby     ? `<div class="sch-kv"><span>周邊</span><div>${esc(stay.nearby)}</div></div>` : ''}
-        ${stay.note       ? `<div class="sch-kv"><span>備註</span><div>📌 ${esc(stay.note)}</div></div>` : ''}
       </div>`;
   }
 
+  const clickable = stay ? `onclick="openSchStay(${x._stayIndex})"`
+                  : act  ? `onclick="openSchAct(${actIndex})"` : '';
+
   return `
-    <div class="sch-node cat-${esc(x.category)}${stay ? ' expandable' : ''}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}"
-      ${stay ? `onclick="this.classList.toggle('open');const el=this.querySelector('.sch-stay-detail');if(el)el.style.display=el.style.display==='none'?'block':'none';"` : ''}>
+    <div class="sch-node cat-${esc(x.category)}${clickable ? ' expandable' : ''}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}" ${clickable}>
       <div class="sch-node-time">${esc(x.time || '')}</div>
       <div class="sch-node-dot">${icon}</div>
       <div class="sch-node-body">
-        <div class="sch-node-title">${esc(x.title)}${stay ? '<span class="sch-expand">⌄</span>' : ''}</div>
+        <div class="sch-node-title">${esc(x.title)}${clickable ? '<span class="sch-expand">›</span>' : ''}</div>
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
         ${stayTags}
-        ${detail}
       </div>
       ${navBtn}
     </div>`;
+}
+
+// 標題比對活動表（完全相同或互相包含就算同一筆）
+function findSchActivity(title, activities) {
+  const t = String(title || '').trim();
+  if (!t) return -1;
+  return (activities || []).findIndex(a => {
+    const n = String(a.name || '').trim();
+    return n && (n === t || n.includes(t) || t.includes(n));
+  });
+}
+
+// ── 節點詳情彈窗 ──────────────────────────────
+function schKv(label, val) {
+  return val ? `<div class="sch-kv"><span>${label}</span><div>${esc(val)}</div></div>` : '';
+}
+
+window.openSchStay = function(i) {
+  const stay = (window.APP_DATA?.accommodation || [])[i];
+  if (!stay) return;
+  const pt = placeTypeIcon(stay.stayType || stay.name || '');
+  let payTag;
+  if (stay.paid && stay.payDate)   payTag = `<span class="tag tag-paid">${esc(stay.payDate)} 付款</span>`;
+  else if (stay.paid)              payTag = `<span class="tag tag-paid">已付款</span>`;
+  else if (stay.deductDate)        payTag = `<span class="tag tag-unpaid">${esc(stay.deductDate)} 扣款</span>`;
+  else                             payTag = `<span class="tag tag-unpaid">未付款</span>`;
+
+  openSchModal(`
+    <div class="sch-modal-head">
+      <span class="sch-modal-icon">${pt.icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="sch-modal-title">${esc(stay.name)}</div>
+        <div class="sch-modal-sub">${esc(stay.date || '')}${stay.nights ? ` · ${stay.nights} 晚` : ''}</div>
+      </div>
+    </div>
+    <div class="sch-stay-price">
+      ${stay.twd ? `
+        <span class="sch-price-per">${fmtPer(stay.twd)}</span>
+        <span class="sch-price-total">${fmt(stay.twd)} 合計</span>
+        ${stay.orig && stay.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(stay.orig, stay.cur)}</span>` : ''}
+      ` : `<span class="sch-price-per" style="color:var(--muted);font-size:.8rem;">現場付</span>`}
+      ${stay.foreignFee ? `<span class="tag tag-fee">手續費 NT$${stay.foreignFee}</span>` : ''}
+    </div>
+    <div class="sch-stay-tags" style="margin:0 0 8px;">
+      <span class="tag tag-person">${esc(pt.label)}</span>
+      ${payTag}
+      <span class="tag ${stay.cancel ? 'tag-cancel' : 'tag-nocancel'}">${stay.cancel ? '可取消' : '不可退'}</span>
+      ${stay.payer ? `<span class="sch-payer">${avatarSvg(stay.payer)}</span>` : ''}
+    </div>
+    ${schKv('地址', stay.address)}
+    ${schKv('設備', stay.facilities)}
+    ${schKv('自費', stay.extraFee)}
+    ${schKv('自備', stay.bring)}
+    ${schKv('周邊', stay.nearby)}
+    ${schKv('備註', stay.note)}
+    ${(stay.lat && stay.lng) ? `
+      <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${stay.lat},${stay.lng}','_blank')">➤ 導航到這裡</button>` : ''}
+  `);
+};
+
+window.openSchAct = function(i) {
+  const a = (window.APP_DATA?.activity || [])[i];
+  if (!a) return;
+  let payTag = a.paid ? `<span class="tag tag-paid">已付款</span>`
+             : a.payDate ? `<span class="tag tag-unpaid">${esc(a.payDate)} 前付款</span>`
+             : `<span class="tag tag-unpaid">未付款</span>`;
+  openSchModal(`
+    <div class="sch-modal-head">
+      <span class="sch-modal-icon">🎯</span>
+      <div style="flex:1;min-width:0;">
+        <div class="sch-modal-title">${a.url ? `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">${esc(a.name)}</a>` : esc(a.name)}</div>
+        <div class="sch-modal-sub">${esc(a.date || '')}${a.duration ? ` · ${esc(a.duration)}` : ''}</div>
+      </div>
+    </div>
+    <div class="sch-stay-price">
+      ${a.twd ? `
+        <span class="sch-price-per">${fmtPer(a.twd)}</span>
+        <span class="sch-price-total">${fmt(a.twd)} 合計</span>
+        ${a.orig && a.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(a.orig, a.cur)}</span>` : ''}
+      ` : ''}
+      ${a.foreignFee ? `<span class="tag tag-fee">手續費 NT$${a.foreignFee}</span>` : ''}
+    </div>
+    <div class="sch-stay-tags" style="margin:0 0 8px;">
+      ${payTag}
+      <span class="tag ${a.cancel ? 'tag-cancel' : 'tag-nocancel'}">${a.cancel ? '可取消' : '不可退'}</span>
+      ${a.difficulty ? `<span class="tag tag-person">難度 ${esc(a.difficulty)}</span>` : ''}
+      ${a.payer ? `<span class="sch-payer">${avatarSvg(a.payer)}</span>` : ''}
+    </div>
+    ${schKv('集合', [a.meetTime, a.meetLoc].filter(Boolean).join(' · '))}
+    ${schKv('內容', a.content)}
+    ${schKv('提供', a.included)}
+    ${schKv('不提供', a.excluded)}
+    ${schKv('自備', a.bring)}
+    ${schKv('回程地', a.returnLoc)}
+    ${schKv('備註', a.note)}
+    ${(a.lat && a.lng) ? `
+      <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${a.lat},${a.lng}','_blank')">➤ 導航到集合點</button>` : ''}
+  `);
+};
+
+function openSchModal(html) {
+  const box = document.getElementById('schModalBody');
+  if (!box) return;
+  box.innerHTML = html;
+  document.getElementById('schModal').classList.add('show');
 }
 
 window.setSchFilter = function(key) {
@@ -893,7 +1049,7 @@ window.schJumpTo = function(key) {
   const target = document.querySelector(`.sch-day[data-key="${key}"]`);
   const scroller = document.getElementById('schScroll');
   if (!target || !scroller) return;
-  scroller.scrollTo({ top: target.offsetTop - scroller.offsetTop - 4, behavior: 'smooth' });
+  scroller.scrollTo({ top: schRelTop(target, scroller) - 4, behavior: 'smooth' });
 };
 
 // ‹ › 前後一天（移動選中的那天）
@@ -922,14 +1078,14 @@ function schBindScroll() {
   function update() {
     // 捲到哪天，跳轉列就跟著選到哪天
     const dayEls = [...scroller.querySelectorAll('.sch-day')];
-    const cur = dayEls.filter(el => el.offsetTop - scroller.offsetTop <= scroller.scrollTop + 40).pop()
+    const cur = dayEls.filter(el => schRelTop(el, scroller) <= scroller.scrollTop + 40).pop()
              || dayEls[0];
     if (cur && cur.dataset.key !== _schActiveKey) {
       _schActiveKey = cur.dataset.key;
       refreshSchJumper();
     }
 
-    const todayTop = todayEl.offsetTop - scroller.offsetTop;
+    const todayTop = schRelTop(todayEl, scroller);
     const view = scroller.scrollTop;
     const diff = todayTop - view;
     if (Math.abs(diff) < scroller.clientHeight * 0.5) {
@@ -948,7 +1104,7 @@ function schBindScroll() {
   scroller.addEventListener('scroll', update, { passive:true });
   update();
   // 一進來就對準今日
-  if (todayEl) scroller.scrollTop = todayEl.offsetTop - scroller.offsetTop - 4;
+  if (todayEl) scroller.scrollTop = schRelTop(todayEl, scroller) - 4;
 }
 window.schBindScroll = schBindScroll;
 
