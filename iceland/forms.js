@@ -39,6 +39,14 @@ function queuePayload(payload) {
 }
 window.getPendingCount = () => getPendingQueue().length;
 
+// 重試多次仍被伺服器拒絕的項目：不刪掉，另存一份供人工檢查
+const FAILED_KEY = 'failed_iceland_ops';
+function getFailedOps() {
+  try { return JSON.parse(localStorage.getItem(FAILED_KEY)) || []; }
+  catch (e) { return []; }
+}
+window.getFailedOps = getFailedOps;
+
 // 判斷錯誤是否為「離線/網路無法連線」造成（GAS 請求被 Service Worker 攔截後會回 503）
 function isNetworkError(e) {
   return !navigator.onLine
@@ -48,6 +56,8 @@ function isNetworkError(e) {
 
 // 送出 GAS 請求；離線或網路錯誤時改放入待同步佇列，稍後自動重送
 // 排進佇列的項目卡片上會顯示「⏳ 未上傳」標記（_rowIndex 為 -1）
+// 任何失敗都進佇列：分不出是網路還是伺服器問題時，寧可之後重送，也不能把
+// 使用者已經填好的記帳弄丟（丟掉的話重新整理拉雲端資料就永遠找不回來了）
 async function sendOrQueue(payload) {
   if (!navigator.onLine) {
     queuePayload(payload);
@@ -56,11 +66,9 @@ async function sendOrQueue(payload) {
   try {
     return await postToGAS(payload);
   } catch (e) {
-    if (isNetworkError(e)) {
-      queuePayload(payload);
-      return { ok: true, queued: true };
-    }
-    throw e;
+    console.error('送出失敗，已排入待同步佇列', e);
+    queuePayload(payload);
+    return { ok: true, queued: true };
   }
 }
 
@@ -73,16 +81,28 @@ window.__flushPendingQueue = async function() {
   if (!queue.length) return true;
 
   _flushing = true;
+  let parked = 0;
   try {
     setSyncState?.('syncing', `📤 同步離線記帳中…（剩 ${queue.length} 筆）`);
     while (queue.length) {
+      const item = queue[0];
       try {
-        await postToGAS(queue[0]);
+        await postToGAS(item);
       } catch (e) {
         // 剛恢復連線時網路常常還沒就緒，等 2 秒重試一次
-        if (!isNetworkError(e)) throw e;
-        await new Promise(r => setTimeout(r, 2000));
-        await postToGAS(queue[0]);
+        if (isNetworkError(e)) {
+          await new Promise(r => setTimeout(r, 2000));
+          await postToGAS(item);
+        } else {
+          // 伺服器明確拒絕（資料有問題）：重試幾次仍失敗就移到「送不出去」清單，
+          // 讓佇列能繼續往下跑，不會一筆卡住全部同步。資料保留不刪。
+          item._tries = (item._tries || 0) + 1;
+          if (item._tries < 5) throw e;
+          const failed = getFailedOps();
+          failed.push(item);
+          localStorage.setItem(FAILED_KEY, JSON.stringify(failed));
+          parked++;
+        }
       }
       queue = queue.slice(1);
       setPendingQueue(queue);
@@ -90,8 +110,10 @@ window.__flushPendingQueue = async function() {
     }
     // 等 GAS 端快取更新，避免緊接著的重拉拿到舊資料
     await new Promise(r => setTimeout(r, 1000));
+    if (parked) setSyncState?.('local', `⚠ 有 ${parked} 筆送不出去，資料已留存但需手動處理`);
     return true;
   } catch (e) {
+    setPendingQueue(queue);   // 保住重試次數
     setSyncState?.('local', `⚠ 還有 ${getPendingQueue().length} 筆未上傳，點同步鈕重試`);
     return false;
   } finally {
@@ -208,12 +230,16 @@ async function postToGAS(payload) {
   const base = window._GAS_BASE;
   if (!base) throw new Error('找不到 GAS URL，請確認 app.js 已載入');
   // GAS doPost 需用 text/plain 避免 CORS preflight 被 redirect 擋住
+  // 25 秒沒回應就當失敗丟出去，否則請求會一直吊著，資料既沒送出也沒進佇列
+  const ac = new AbortController();
+  const killer = setTimeout(() => ac.abort(), 25000);
   const res = await fetch(base, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload),
     redirect: 'follow',
-  });
+    signal: ac.signal,
+  }).finally(() => clearTimeout(killer));
   if (!res.ok) throw new Error('GAS 回應錯誤：' + res.status);
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || '寫入失敗');
