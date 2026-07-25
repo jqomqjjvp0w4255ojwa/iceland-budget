@@ -108,9 +108,10 @@ function renderActivity(items){
       const feeTag  = a.foreignFee ? `<span class="tag tag-fee">手續費 NT$${a.foreignFee}</span>` : '';
       const diffTag = a.difficulty ? `<span class="tag tag-person">難度 ${a.difficulty}</span>` : '';
       const meetInfo = [a.meetTime, a.meetLoc].filter(Boolean).join(' · ');
-      const nameHtml = a.url
-        ? `<a href="${a.url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${a.name}</a>`
-        : a.name;
+      const safeHref = safeUrl(a.url);
+      const nameHtml = safeHref
+        ? `<a href="${safeHref}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${esc(a.name)}</a>`
+        : esc(a.name);
       const detailNote = [
         a.included ? `✅ ${a.included}` : '',
         a.excluded ? `❌ ${a.excluded}` : '',

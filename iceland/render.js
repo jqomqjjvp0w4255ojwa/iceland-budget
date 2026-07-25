@@ -54,6 +54,19 @@ let dataSource='local'; // 'local'|'cloud'|'syncing'|'offline'
 // ── 格式化
 function fmt(n){if(!n||isNaN(n))return'—';return'NT$ '+Math.round(n).toLocaleString('zh-TW');}
 
+// ── 文字跳脫（Sheet 內容進 innerHTML 前用）
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// 只允許 http/https 連結，擋掉 javascript: 之類的協定
+function safeUrl(u){
+  const s = String(u ?? '').trim();
+  return /^https?:\/\//i.test(s) ? esc(s) : '';
+}
+window.esc = esc;
+window.safeUrl = safeUrl;
+
 // ── 角色頭像（靜態第1格，從 window.SPRITES 讀取）
 const _avatarCache = {};
 function avatarSvg(name) {

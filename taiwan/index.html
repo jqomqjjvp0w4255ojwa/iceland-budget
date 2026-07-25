@@ -939,6 +939,12 @@ if (!Array.isArray(CFG.mapCenter) || CFG.mapCenter.length !== 2) CFG.mapCenter =
 // ══════════════════════════════════════════
 //  成員 sprite（沒綁定 FRAMES 就退回 emoji，不會壞版）
 // ══════════════════════════════════════════
+// ── 文字跳脫（Sheet／使用者輸入進 innerHTML 前用）
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function spriteSvg(m) {
   const frames = window.SPRITES?.[m.spriteKey];
   if (frames?.[0]) {
@@ -1218,10 +1224,10 @@ function buildExpensePopup(e) {
     <div class="popup-header">
       <div class="popup-icon" style="font-size:22px;">💰</div>
       <div style="flex:1;">
-        <div class="popup-title">${e.title}　<span style="color:var(--accent);">NT$ ${e.amount}</span></div>
+        <div class="popup-title">${esc(e.title)}　<span style="color:var(--accent);">NT$ ${esc(e.amount)}</span></div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-          <span class="diary-tag tag-expense">${e.category||'記帳'}</span>
-          ${t?`<span class="diary-tag tag-trip">🧳 ${t.name}</span>`:''}
+          <span class="diary-tag tag-expense">${esc(e.category||'記帳')}</span>
+          ${t?`<span class="diary-tag tag-trip">🧳 ${esc(t.name)}</span>`:''}
           <span style="font-size:8px;color:var(--muted)">${e.date||''} · ${e.payer||''}</span>
         </div>
       </div>
@@ -1231,7 +1237,7 @@ function buildExpensePopup(e) {
         <button class="popup-action-btn" style="color:#d84848;" onclick="removeExpense('${e.id}')">🗑 刪除</button>
       </div>
     </div>
-    ${e.note?`<div class="popup-note">${e.note}</div>`:''}
+    ${e.note?`<div class="popup-note">${esc(e.note)}</div>`:''}
     <div class="popup-actions">
       <button class="popup-action-btn" onclick="navigateTo(${e.lat},${e.lng})">➤ 導航</button>
     </div>
@@ -1257,9 +1263,9 @@ function buildCardPopup(t, c) {
     <div class="popup-header">
       <div class="popup-icon" style="font-size:22px;">${c.icon}</div>
       <div style="flex:1;">
-        <div class="popup-title">${c.title}</div>
+        <div class="popup-title">${esc(c.title)}</div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:3px;">
-          <span class="diary-tag tag-trip">🧳 ${t.name}</span>
+          <span class="diary-tag tag-trip">🧳 ${esc(t.name)}</span>
         </div>
       </div>
       <button class="popup-more" title="更多"
@@ -1268,7 +1274,7 @@ function buildCardPopup(t, c) {
         <button class="popup-action-btn" onclick="map.closePopup();openTripDetail('${t.id}');openCardEdit('${c.id}')">✎ 編輯卡片</button>
       </div>
     </div>
-    ${c.text?`<div class="popup-note" style="white-space:pre-wrap;">${c.text}</div>`:''}
+    ${c.text?`<div class="popup-note" style="white-space:pre-wrap;">${esc(c.text)}</div>`:''}
     <div class="popup-actions">
       <button class="popup-action-btn" onclick="navigateTo(${c.lat},${c.lng})">➤ 導航</button>
     </div>
@@ -1285,7 +1291,7 @@ function typeMeta(t) {
 function tripById(id) { return trips.find(t=>t.id===id) || null; }
 function tripChip(item) {
   const t = tripById(item.tripId);
-  return t ? `<span class="diary-tag tag-trip">🧳 ${t.name}</span>` : '';
+  return t ? `<span class="diary-tag tag-trip">🧳 ${esc(t.name)}</span>` : '';
 }
 
 function itemImgHtml(item) {
@@ -1305,7 +1311,7 @@ function buildPopupContent(item) {
     <div class="popup-header">
       <div class="popup-icon">${headIcon}</div>
       <div style="flex:1;">
-        <div class="popup-title">${item.name}</div>
+        <div class="popup-title">${esc(item.name)}</div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
           <span class="diary-tag ${t.tag}">${t.label}</span>
           ${tripChip(item)}
@@ -1320,7 +1326,7 @@ function buildPopupContent(item) {
       </div>
     </div>
     ${itemImgHtml(item)}
-    ${item.note?`<div class="popup-note">${item.note}</div>`:''}
+    ${item.note?`<div class="popup-note">${esc(item.note)}</div>`:''}
     <div class="popup-actions">
       ${item.type==='wish'?`<button class="popup-action-btn go" onclick="checkinFromWish('${item.id}')">🐾 去過了，打卡！</button>`:''}
       <button class="popup-action-btn" onclick="openComments('${item.id}')">💬 留言（${item.comments?.length||0}）</button>
@@ -1386,13 +1392,13 @@ function renderCards() {
     return `<div class="diary-card" onclick="flyTo(${item.lat},${item.lng},'${item.id}')">
       <div class="diary-thumb">${thumb}</div>
       <div class="diary-info">
-        <div class="diary-name">${item.name}</div>
+        <div class="diary-name">${esc(item.name)}</div>
         <div class="diary-meta">
           <span class="diary-tag ${t.tag}">${t.label}</span>
           ${tripChip(item)}
           ${item.date?`<span class="diary-date">${item.date}</span>`:''}
         </div>
-        ${item.note?`<div class="diary-note">${item.note}</div>`:''}
+        ${item.note?`<div class="diary-note">${esc(item.note)}</div>`:''}
         <div class="diary-footer">
           <span class="diary-comments">${item.comments?.length?`💬 ${item.comments.length}`:''}</span>
           <div class="diary-author">${spriteSvg(m)}</div>
@@ -1525,7 +1531,7 @@ function selectMember(name) {
 function buildTripSelect() {
   const el = document.getElementById('tripSelect');
   el.innerHTML = `<option value="">🏠 日常紀錄（不掛旅程）</option>` +
-    trips.map(t => `<option value="${t.id}">🧳 ${t.name}${t.dateStart?`（${t.dateStart}）`:''}</option>`).join('');
+    trips.map(t => `<option value="${esc(t.id)}">🧳 ${esc(t.name)}${t.dateStart?`（${esc(t.dateStart)}）`:''}</option>`).join('');
   el.value = pendingCheckin.tripId || (tripFilter || '');
 }
 
@@ -1956,8 +1962,8 @@ function openLedger() {
     return `<div class="ledger-row" onclick="if(${!!(e.lat&&e.lng)}){document.getElementById('ledgerModal').classList.remove('show');flyToExpense('${e.id}');}">
       <span class="ledger-icon">💰</span>
       <div class="ledger-main">
-        <div class="ledger-title">${e.title}</div>
-        <div class="ledger-meta">${e.date||''} · ${e.category||''} · ${e.payer||''}${tp?` · 🧳 ${tp.name}`:''}</div>
+        <div class="ledger-title">${esc(e.title)}</div>
+        <div class="ledger-meta">${esc(e.date||'')} · ${esc(e.category||'')} · ${esc(e.payer||'')}${tp?` · 🧳 ${esc(tp.name)}`:''}</div>
       </div>
       <span class="ledger-amt">$${e.amount}</span>
     </div>`;
@@ -2220,8 +2226,8 @@ function renderTripDetail() {
     <div class="tcard-grid">
       ${cards.map(c => `
         <div class="tcard" onclick="openCardEdit('${c.id}')">
-          <div class="tcard-head"><span class="tcard-icon">${c.icon}</span><span class="tcard-title">${c.title}</span>${c.lat?'<span style="font-size:9px;">📍</span>':''}</div>
-          <div class="tcard-text ${c.text?'':'tcard-empty'}">${c.text || '點我填入資訊…'}</div>
+          <div class="tcard-head"><span class="tcard-icon">${esc(c.icon)}</span><span class="tcard-title">${esc(c.title)}</span>${c.lat?'<span style="font-size:9px;">📍</span>':''}</div>
+          <div class="tcard-text ${c.text?'':'tcard-empty'}">${c.text ? esc(c.text) : '點我填入資訊…'}</div>
         </div>`).join('')}
     </div>
     <div class="tcard-typebar">
@@ -2345,7 +2351,7 @@ function renderTrips() {
     return `<div class="trip-item ${tripFilter===t.id?'on':''}">
       <div class="trip-item-head" onclick="openTripDetail('${t.id}')">
         <span style="font-size:14px;">🧳</span>
-        <span class="trip-item-name">${t.name}</span>
+        <span class="trip-item-name">${esc(t.name)}</span>
         <span class="trip-item-date">${dates}</span>
       </div>
       <div class="trip-item-meta">${(t.members||[]).join('、')}${count?` · ${count} 筆紀錄`:''}${(t.cards||[]).length?` · 🗂 ${t.cards.length} 張卡`:''}</div>
@@ -2480,8 +2486,8 @@ function renderComments(item) {
     return `<div class="comment-item">
       <div class="comment-avatar">${spriteSvg(m)}</div>
       <div class="comment-body">
-        <div class="comment-name" style="color:${m.color}">${c.who}</div>
-        <div class="comment-text">${c.text}</div>
+        <div class="comment-name" style="color:${m.color}">${esc(c.who)}</div>
+        <div class="comment-text">${esc(c.text)}</div>
         <div class="comment-time">${c.time||''}</div>
       </div>
     </div>`;
