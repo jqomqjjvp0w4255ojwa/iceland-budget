@@ -475,10 +475,13 @@
     .sch-node-actions{display:flex;margin-top:6px;}
 
     /* 點不開的節點：不做卡片，一行字＋空心圓點 */
+    /* 文字自成一群靠左，導航鈕靠右對齊，不要卡在文字下面變成散落的碎片 */
     .sch-node.plain .sch-node-body{
       background:transparent;border:none;border-left:none;
       padding:6px 0 6px 4px;
+      display:flex;align-items:center;gap:10px;
     }
+    .sch-plain-text{flex:1;min-width:0;}
     .sch-node-dot.ring{
       width:11px;height:11px;background:var(--card);
       border:2px solid var(--border);margin-top:9px;margin-left:2px;
@@ -505,6 +508,16 @@
     .sch-conn-body{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;}
     .sch-conn-text{font-size:.66rem;color:var(--muted);}
     .sch-conn-note{font-size:.6rem;color:var(--muted);opacity:.7;}
+
+    /* 參考：掛在前一個節點下的附註，縮排、比景點小一號、不佔時間軸圓點 */
+    .sch-ref{display:flex;align-items:flex-start;gap:5px;
+      margin:1px 0 3px 62px;padding:1px 8px 1px 0;}
+    .sch-ref-mark{color:var(--border);font-size:.6rem;line-height:1.5;flex-shrink:0;}
+    .sch-ref-body{flex:1;min-width:0;}
+    .sch-ref-title{font-size:.7rem;color:var(--muted);}
+    .sch-ref-place{font-size:.6rem;color:var(--muted);opacity:.65;margin-left:5px;}
+    .sch-ref-note{font-size:.62rem;color:var(--muted);opacity:.8;line-height:1.6;margin-top:1px;}
+    .sch-ref .sch-nav{padding:1px 6px;font-size:.58rem;align-self:center;}
 
     /* 沒有行程的日子：虛線帶過 */
     .sch-gap{display:flex;align-items:center;gap:9px;margin:0 0 6px 14px;padding:2px 0;}

@@ -796,9 +796,10 @@ const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '其他':
 // 標題開頭若是時長（2h／2小時／40min／1.5h）就拆出來，其餘當方向文字
 function schSplitDuration(title) {
   const t = String(title || '').trim();
-  const m = t.match(/^(\d+(?:\.\d+)?\s*(?:h|hr|hrs|小時|時|min|mins|分鐘|分)|\d+\s*[:：]\s*\d+)\s*(.*)$/i);
+  // 允許兩段（2h 30min／1小時30分），否則「30min」會被當成方向文字甩到右邊
+  const m = t.match(/^((?:\d+(?:\.\d+)?\s*(?:h|hr|hrs|小時|時|min|mins|分鐘|分)\s*){1,2}|\d+\s*[:：]\s*\d+)\s*(.*)$/i);
   if (!m) return { dur: '', text: t };
-  return { dur: m[1].replace(/\s+/g, ''), text: m[2].trim() };
+  return { dur: m[1].trim().replace(/\s+/g, ''), text: m[2].trim() };
 }
 let _schFilter = 'all';
 let _schActiveKey = null;   // 日期跳轉列目前選中的那天
@@ -833,6 +834,20 @@ function buildScheduleDays(d) {
     String(a.date || '').split(/[\s,、]+/).filter(Boolean).forEach(one => {
       const dd = schDate(one, year);
       if (!dd) return;
+      // 日程表已經手動排了同一天的同一間 → 不再自動加一筆，改成把住宿表的
+      // 資料掛到手動那列上（保留你自己填的時間／備註，卡片一樣點得開）
+      const manual = items.find(x =>
+        x.category === '住宿' && x._d && schIsSameDay(x._d, dd) && x._stayIndex == null &&
+        String(x.title || '').trim() && (
+          String(a.name || '').includes(String(x.title).trim()) ||
+          String(x.title).trim().includes(String(a.name || '').trim())
+        ));
+      if (manual) {
+        manual._stayIndex = ai;
+        if (!manual.lat) { manual.lat = a.lat; manual.lng = a.lng; }
+        if (!manual.place) manual.place = a.address || '';
+        return;
+      }
       items.push({
         date: one, time: '', category: '住宿',
         title: a.name, note: '', place: a.address || '',
@@ -918,6 +933,12 @@ function buildScheduleDays(d) {
       const ta = parseSchTime(a.time), tb = parseSchTime(b.time);
       if (ta !== tb) return ta - tb;
       return (a.order || 0) - (b.order || 0);
+    });
+    // 「參考」是掛在前一個節點底下的附註，篩選時跟著上面那個節點一起出現
+    let parentCat = '';
+    day.items.forEach(x => {
+      if (x.category === '參考') x._parentCat = parentCat;
+      else if (x.category !== '交通') parentCat = x.category;
     });
   });
   return days;
@@ -1033,8 +1054,9 @@ function renderSchDay(day, today, d, dayNum) {
   const isToday = schIsSameDay(day.d, today);
   const isPast  = !isToday && day.d < today;
   // 交通是節點之間的連接線，篩選特定分類時沒有意義，只在「全部」顯示
-  const shown = day.items.filter(x => _schFilter === 'all' ? true : x.category === _schFilter);
-  if (!shown.length || shown.every(x => x.category === '交通')) return '';
+  const shown = day.items.filter(x => _schFilter === 'all' ? true
+    : (x.category === _schFilter || x._parentCat === _schFilter));
+  if (!shown.length || shown.every(x => x.category === '交通' || x.category === '參考')) return '';
 
   return `
     <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}" data-key="${esc(day.key)}">
@@ -1050,23 +1072,44 @@ function renderSchDay(day, today, d, dayNum) {
         <span class="sch-day-line"></span>
       </div>
       <div class="sch-nodes">
-        ${shown.map(x => renderSchNode(x, d)).join('')}
+        ${shown.map((x, i) => renderSchNode(x, d, i > 0 && x.time && x.time === shown[i - 1].time)).join('')}
       </div>
     </div>`;
 }
 
-function renderSchNode(x, d) {
+// sameTime＝跟上一個節點同一個時間（例如整批市區漫遊），時間就不重複印
+function renderSchNode(x, d, sameTime) {
   // 交通：不是節點而是節點之間的區間
   if (x.category === '交通') {
     const { dur, text } = schSplitDuration(x.title);
+    // 方向寫在說明欄；標題只寫時長時，就把說明升為主要文字，不再顯示「移動」
+    const main = text || x.note || '移動';
+    const sub  = text ? x.note : '';
     return `
       <div class="sch-conn">
         <div class="sch-conn-dot"><span class="sch-conn-line"></span></div>
         <div class="sch-node-time sch-conn-dur">${esc(dur || x.time || '')}</div>
         <div class="sch-conn-body">
-          <span class="sch-conn-text">${esc(text || '移動')}</span>
-          ${x.note ? `<span class="sch-conn-note">${esc(x.note)}</span>` : ''}
+          <span class="sch-conn-text">${esc(main)}</span>
+          ${sub ? `<span class="sch-conn-note">${esc(sub)}</span>` : ''}
         </div>
+      </div>`;
+  }
+
+  // 參考：不是獨立節點，是掛在前一個節點底下的小字附註（縮排、無圓點）
+  if (x.category === '參考') {
+    const ref = (x.lat && x.lng)
+      ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
+      : '';
+    return `
+      <div class="sch-ref">
+        <span class="sch-ref-mark">└</span>
+        <div class="sch-ref-body">
+          <span class="sch-ref-title">${esc(x.title)}</span>
+          ${x.place ? `<span class="sch-ref-place">${esc(x.place)}</span>` : ''}
+          ${x.note ? `<div class="sch-ref-note">${esc(x.note)}</div>` : ''}
+        </div>
+        ${ref}
       </div>`;
   }
 
@@ -1105,7 +1148,7 @@ function renderSchNode(x, d) {
   const clickable = stay ? `onclick="openSchStay(${x._stayIndex})"`
                   : act  ? `onclick="openSchAct(${actIndex})"` : '';
 
-  const time = `<div class="sch-node-time">${esc(x.time || '')}</div>`;
+  const time = `<div class="sch-node-time">${sameTime ? '' : esc(x.time || '')}</div>`;
   const cls = `cat-${esc(x.category)}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}`;
 
   // 點不開的節點不做卡片：空心圓點＋一行字（景點放大、車程等縮成一行）
@@ -1116,10 +1159,12 @@ function renderSchNode(x, d) {
         <div class="sch-node-dot ring"></div>
         ${time}
         <div class="sch-node-body">
-          <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${
-            x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
-          ${x.note ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
-          ${navBtn ? `<div class="sch-node-actions">${navBtn}</div>` : ''}
+          <div class="sch-plain-text">
+            <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${
+              x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
+            ${x.note ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
+          </div>
+          ${navBtn}
         </div>
       </div>`;
   }
