@@ -199,6 +199,10 @@
     .prep-who-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
     .prep-who.on .prep-who-avatar{filter:none;opacity:1;}
 
+    .prep-criteria{font-size:.65rem;color:var(--muted);line-height:1.7;padding:7px 11px;margin-bottom:12px;
+      background:var(--bg3);border-left:2px solid var(--border);border-radius:0 6px 6px 0;}
+    .prep-criteria b{color:var(--text);font-weight:600;}
+
     .prep-group{margin-bottom:4px;}
     .prep-item{
       position:relative;
@@ -207,6 +211,13 @@
       padding:10px 26px 10px 12px;margin-bottom:7px;
       transition:opacity .25s,border-color .25s;
     }
+    /* 重要度 5 且未完成＝不帶就完蛋，整列標紅提醒 */
+    .prep-item.critical{
+      border-left:3px solid var(--red);
+      background:linear-gradient(90deg,rgba(224,85,85,.08),transparent 55%);
+    }
+    .prep-item.critical .prep-name{font-weight:700;}
+    .prep-stars.critical{color:var(--red);}
     .prep-item.all-done{opacity:.55;border-color:rgba(78,195,121,.4);}
     .prep-item.all-done .prep-name{text-decoration:line-through;text-decoration-color:var(--muted);}
     .prep-main{flex:1;min-width:0;}
@@ -402,6 +413,14 @@
       flex-shrink:0;text-align:center;
       padding:3px 14px;border:1px solid var(--border);border-radius:999px;
       background:var(--bg3);
+    }
+    /* 白天模式：淺底上膠囊框顯得突兀，改為純文字＋兩側橫線 */
+    :root[data-theme="day"] .sch-day-badge{
+      border:none;background:transparent;padding:2px 12px;
+    }
+    :root[data-theme="day"] .sch-day.today .sch-day-badge{
+      background:transparent;
+      border-bottom:2px solid var(--accent);border-radius:0;
     }
     .sch-day-title{display:flex;align-items:center;justify-content:center;gap:6px;}
     .sch-day-num{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);letter-spacing:.05em;line-height:1.2;}

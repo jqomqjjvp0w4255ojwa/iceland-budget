@@ -349,10 +349,11 @@ function renderPrepItem(task) {
   // 只看「適用的人」有沒有完成
   const need = members.filter(m => taskAppliesTo(task, m));
   const allDone = need.length ? need.every(m => task.done?.[m]) : false;
+  const isCritical = (task.priority || 0) >= 5 && !allDone;
   const stars = task.priority > 0
-    ? `<span class="prep-stars" title="重要度 ${task.priority}">${'★'.repeat(Math.min(5, task.priority))}</span>` : '';
+    ? `<span class="prep-stars${isCritical ? ' critical' : ''}" title="重要度 ${task.priority}">${'★'.repeat(Math.min(5, task.priority))}</span>` : '';
 
-  return `<div class="prep-item${allDone ? ' all-done' : ''}" data-id="${esc(task.id)}">
+  return `<div class="prep-item${allDone ? ' all-done' : ''}${isCritical ? ' critical' : ''}" data-id="${esc(task.id)}">
     <div class="prep-main">
       <div class="prep-name">${esc(task.name)}${stars}</div>
       ${task.note ? `<div class="prep-note">${esc(task.note)}</div>` : ''}
@@ -446,7 +447,8 @@ function renderPrep(tasks) {
     return `<div class="empty">🧳 在「寫入_任務」表填入項目後顯示<br>
       <span style="font-size:.7rem;color:var(--muted)">分類填 待辦／行李／共用</span></div>`;
   }
-  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks);
+  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks)
+    + `<div class="prep-criteria">★ 評分基準：<b>當地買不買得到</b>——★5＝買不到也補不了（護照/藥/睡袋），★1–2＝冰島隨處可買</div>`;
 
   const groups = PREP_CATS.map(cat => {
     const list = tasks.filter(t => (t.category || '待辦') === cat.key)
@@ -894,6 +896,15 @@ function renderSchedule(d) {
 }
 
 // 日期跳轉列：只顯示選中的那天 ±2，選中置中放大、往外遞減
+// 依畫面寬度決定跳轉列左右各顯示幾天（窄機 ±2，寬螢幕最多 ±5）
+function schJumperSpan() {
+  const el = document.getElementById('schJumper') || document.getElementById('scheduleContent');
+  const w = el?.clientWidth || window.innerWidth || 360;
+  // 扣掉兩顆箭頭與間距後，每格約 52px；再換算成左右各幾格
+  const slots = Math.floor((w - 70) / 52);
+  return Math.max(2, Math.min(5, Math.floor((slots - 1) / 2)));
+}
+
 function renderSchJumper(days, today) {
   // 選中預設今天；今天不在行程內就用第一天
   if (!_schActiveKey || !days.some(x => x.key === _schActiveKey)) {
@@ -901,14 +912,15 @@ function renderSchJumper(days, today) {
     _schActiveKey = t ? t.key : days[0].key;
   }
   const idx = days.findIndex(x => x.key === _schActiveKey);
+  const span = schJumperSpan();
 
   const btns = [];
-  for (let off = -2; off <= 2; off++) {
+  for (let off = -span; off <= span; off++) {
     const i = idx + off;
     if (i < 0 || i >= days.length) continue;
     const day = days[i];
     const isToday = schIsSameDay(day.d, today);
-    btns.push(`<button class="sch-jump-day off${Math.abs(off)}${off === 0 ? ' active' : ''}${isToday ? ' today' : ''}"
+    btns.push(`<button class="sch-jump-day off${Math.min(2, Math.abs(off))}${off === 0 ? ' active' : ''}${isToday ? ' today' : ''}"
       data-key="${esc(day.key)}" onclick="schJumpTo('${esc(day.key)}')">
       <span class="sch-jump-d">D${i + 1}</span>
       <span class="sch-jump-date">${esc(day.key)}</span>
@@ -1027,8 +1039,10 @@ function findSchActivity(title, activities) {
 function schBlock(icon, label, val, opts) {
   if (!val) return '';
   opts = opts || {};
-  const body = opts.chips
-    ? `<div class="sch-chips">${splitToChips(val).map(c => `<span class="sch-chip">${esc(c)}</span>`).join('')}</div>`
+  // 想做 chips 但內容不適合拆時，退回一般段落（別把整段包成一顆巨大膠囊）
+  const chips = opts.chips ? splitToChips(val) : null;
+  const body = chips
+    ? `<div class="sch-chips">${chips.map(c => `<span class="sch-chip">${esc(c)}</span>`).join('')}</div>`
     : `<div class="sch-block-body">${esc(val)}</div>`;
   return `
     <div class="sch-block${opts.warn ? ' warn' : ''}">
@@ -1037,12 +1051,16 @@ function schBlock(icon, label, val, opts) {
     </div>`;
 }
 
-// 逗號/頓號/斜線分隔的清單 → chips（過長的段落不拆，避免切出破碎片段）
+// 清單型文字 → chips 陣列；不適合拆就回傳 null，讓呼叫端改用段落
 function splitToChips(text) {
   const t = String(text || '').trim();
+  if (!t) return null;
+  // 含句子結構（分號、破折號、括號長句）代表是敘述而非清單，直接不拆
+  if (/[；;—]|——/.test(t)) return null;
   const parts = t.split(/[、,，/／]+/).map(x => x.trim()).filter(Boolean);
-  // 每項都夠短才適合做 chips，否則整段當一塊
-  return (parts.length > 1 && parts.every(x => x.length <= 12)) ? parts : [t];
+  if (parts.length < 2) return null;              // 只有一項就不必做成標籤
+  if (!parts.every(x => x.length <= 10)) return null;  // 有長項＝敘述，整段保留
+  return parts;
 }
 
 // 價格區：每人價當視覺重心，其餘降階
@@ -1160,6 +1178,15 @@ window.setSchFilter = function(key) {
 };
 
 // 日期跳轉：捲到該天
+// 轉向或視窗縮放時，重算能顯示幾天
+(function(){
+  let t = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { if (document.getElementById('schJumper')) refreshSchJumper(); }, 200);
+  });
+})();
+
 window.schJumpTo = function(key) {
   _schActiveKey = key;
   refreshSchJumper();
