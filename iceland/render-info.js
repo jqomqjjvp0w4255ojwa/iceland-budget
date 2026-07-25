@@ -341,6 +341,64 @@ function taskAppliesTo(task, member) {
   return owner.split(/[,，、\s]+/).filter(Boolean).includes(member);
 }
 
+// ── 條件項目：說明欄寫 #if:key，只有回答「是」時才出現在清單裡
+const PREP_GATES = [
+  {
+    key: 'etias',
+    q: '2026 年 ETIAS 新制上路了嗎？',
+    yes: '已上路：出發前要線上申請',
+    no:  '還沒上路：免簽直接入境，不用辦',
+  },
+];
+
+function prepGateState() {
+  try { return JSON.parse(localStorage.getItem('prepGates') || '{}'); }
+  catch (e) { return {}; }
+}
+function prepGateOn(key) { return prepGateState()[key] === 'yes'; }
+
+window.setPrepGate = function(key, val) {
+  const s = prepGateState();
+  s[key] = val;
+  try { localStorage.setItem('prepGates', JSON.stringify(s)); } catch (e) {}
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(window.APP_DATA?.tasks || []);
+};
+
+// 這筆項目綁在哪個條件上（沒綁回傳 null）
+function taskGateKey(task) {
+  const m = String(task.note || '').match(/#if:([a-z0-9_]+)/i);
+  return m ? m[1].toLowerCase() : null;
+}
+// 顯示用說明：把 #if:xxx 標記拿掉
+function taskNoteText(task) {
+  return String(task.note || '').replace(/#if:[a-z0-9_]+/ig, '').trim();
+}
+// 條件沒成立的項目整個不參與清單與進度計算
+function prepGateVisible(task) {
+  const k = taskGateKey(task);
+  return !k || prepGateOn(k);
+}
+
+function renderPrepGates(allTasks) {
+  const s = prepGateState();
+  const used = PREP_GATES.filter(g => (allTasks || []).some(t => taskGateKey(t) === g.key));
+  if (!used.length) return '';
+  return used.map(g => {
+    const v = s[g.key] || 'no';
+    const hidden = (allTasks || []).filter(t => taskGateKey(t) === g.key).length;
+    return `<div class="prep-gate">
+      <div class="prep-gate-q">${esc(g.q)}</div>
+      <div class="prep-gate-btns">
+        <button class="prep-gate-btn${v === 'no' ? ' on' : ''}" onclick="setPrepGate('${esc(g.key)}','no')">否</button>
+        <button class="prep-gate-btn${v === 'yes' ? ' on' : ''}" onclick="setPrepGate('${esc(g.key)}','yes')">是</button>
+      </div>
+      <div class="prep-gate-hint">${esc(v === 'yes' ? g.yes : g.no)}${
+        v === 'yes' ? '' : `（已收起 ${hidden} 項）`}</div>
+    </div>`;
+  }).join('');
+}
+
 function renderPrepItem(task) {
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
   const isShared = task.category === '共用';
@@ -356,7 +414,7 @@ function renderPrepItem(task) {
   return `<div class="prep-item${allDone ? ' all-done' : ''}${isCritical ? ' critical' : ''}" data-id="${esc(task.id)}">
     <div class="prep-main">
       <div class="prep-name">${esc(task.name)}${stars}</div>
-      ${task.note ? `<div class="prep-note">${esc(task.note)}</div>` : ''}
+      ${taskNoteText(task) ? `<div class="prep-note">${esc(taskNoteText(task))}</div>` : ''}
       ${isShared && task.owner ? `<div class="prep-owner">🎒 由 ${esc(task.owner)} 負責帶</div>` : ''}
     </div>
     <div class="prep-avatars">${avatars}</div>
@@ -441,13 +499,15 @@ function renderPrepProgress(tasks) {
   </div>`;
 }
 
-function renderPrep(tasks) {
-  tasks = tasks || [];
-  if (!tasks.length) {
+function renderPrep(allTasks) {
+  allTasks = allTasks || [];
+  if (!allTasks.length) {
     return `<div class="empty">🧳 在「寫入_任務」表填入項目後顯示<br>
       <span style="font-size:.7rem;color:var(--muted)">分類填 待辦／行李／共用</span></div>`;
   }
-  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks)
+  const gates = renderPrepGates(allTasks);
+  const tasks = allTasks.filter(prepGateVisible);
+  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks) + gates
     + `<div class="prep-criteria">★ 評分基準：<b>當地買不買得到</b>——★5＝買不到也補不了（護照/藥/睡袋），★1–2＝冰島隨處可買</div>`;
 
   const groups = PREP_CATS.map(cat => {
@@ -886,7 +946,18 @@ function renderSchedule(d) {
         onclick="setSchFilter('${c.key}')">${c.label}</button>`).join('')}
     </div>`;
 
-  const body = days.map((day, i) => renderSchDay(day, today, d, i + 1)).join('');
+  // 有內容的日子之間若隔了空白天，插一段「空 N 天」的虛線軸
+  let body = '', prevDay = null;
+  days.forEach((day, i) => {
+    const html = renderSchDay(day, today, d, i + 1);
+    if (!html) return;
+    if (prevDay) {
+      const gap = Math.round((day.d - prevDay.d) / 86400000) - 1;
+      if (gap > 0) body += `<div class="sch-gap"><span class="sch-gap-dots"></span><span class="sch-gap-text">空 ${gap} 天</span></div>`;
+    }
+    body += html;
+    prevDay = day;
+  });
 
   return jumper + filters + `
     <div class="sch-scroll" id="schScroll">${body}</div>
@@ -1010,12 +1081,31 @@ function renderSchNode(x, d) {
   const clickable = stay ? `onclick="openSchStay(${x._stayIndex})"`
                   : act  ? `onclick="openSchAct(${actIndex})"` : '';
 
+  const time = `<div class="sch-node-time">${esc(x.time || '')}</div>`;
+  const cls = `cat-${esc(x.category)}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}`;
+
+  // 點不開的節點不做卡片：空心圓點＋一行字（景點放大、車程等縮成一行）
+  if (!clickable) {
+    const big = x.category === '景點';
+    return `
+      <div class="sch-node plain ${cls}${big ? ' big' : ''}">
+        ${time}
+        <div class="sch-node-dot ring"></div>
+        <div class="sch-node-body">
+          <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${
+            x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
+          ${x.note ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
+          ${navBtn ? `<div class="sch-node-actions">${navBtn}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
   return `
-    <div class="sch-node cat-${esc(x.category)}${clickable ? ' expandable' : ''}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}" ${clickable}>
-      <div class="sch-node-time">${esc(x.time || '')}</div>
+    <div class="sch-node expandable ${cls}" ${clickable}>
+      ${time}
       <div class="sch-node-dot">${icon}</div>
       <div class="sch-node-body">
-        <div class="sch-node-title">${esc(x.title)}${clickable ? '<span class="sch-expand">›</span>' : ''}</div>
+        <div class="sch-node-title">${esc(x.title)}<span class="sch-expand">›</span></div>
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
         ${stayTags}

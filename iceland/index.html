@@ -203,6 +203,17 @@
       background:var(--bg3);border-left:2px solid var(--border);border-radius:0 6px 6px 0;}
     .prep-criteria b{color:var(--text);font-weight:600;}
 
+    .prep-gate{display:flex;align-items:center;flex-wrap:wrap;gap:8px;
+      background:var(--bg3);border:1px dashed var(--border);border-radius:8px;
+      padding:9px 11px;margin-bottom:12px;}
+    .prep-gate-q{font-size:.72rem;color:var(--text);font-weight:600;}
+    .prep-gate-btns{display:flex;gap:5px;}
+    .prep-gate-btn{padding:3px 13px;border:1px solid var(--border);background:transparent;
+      color:var(--muted);border-radius:6px;cursor:pointer;font-size:.7rem;
+      font-family:'Lato',sans-serif;transition:.2s;}
+    .prep-gate-btn.on{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600;}
+    .prep-gate-hint{flex-basis:100%;font-size:.62rem;color:var(--muted);line-height:1.5;}
+
     .prep-group{margin-bottom:4px;}
     .prep-item{
       position:relative;
@@ -462,6 +473,32 @@
     .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.62rem;font-family:'Lato',sans-serif;}
     .sch-nav:active{background:rgba(79,195,247,.12);}
     .sch-node-actions{display:flex;margin-top:6px;}
+
+    /* 點不開的節點：不做卡片，一行字＋空心圓點 */
+    .sch-node.plain .sch-node-body{
+      background:transparent;border:none;border-left:none;
+      padding:6px 0 6px 4px;
+    }
+    .sch-node-dot.ring{
+      width:11px;height:11px;background:var(--card);
+      border:2px solid var(--border);margin-top:9px;margin-left:3px;
+    }
+    .sch-node.plain.big .sch-node-dot.ring{border-color:rgba(78,195,121,.75);width:13px;height:13px;margin-left:2px;}
+    .sch-node-line{display:flex;align-items:baseline;gap:5px;min-width:0;}
+    .sch-line-icon{font-size:.7rem;flex-shrink:0;}
+    .sch-line-title{font-size:.72rem;color:var(--muted);}
+    .sch-line-place{font-size:.63rem;color:var(--muted);opacity:.75;min-width:0;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    /* 景點：整條時間軸上最大的字 */
+    .sch-node.plain.big .sch-line-title{font-size:.95rem;color:var(--text);font-weight:600;letter-spacing:.02em;}
+    .sch-node.plain.big .sch-line-icon{font-size:.85rem;}
+    .sch-node.plain.big .sch-node-body{padding-top:4px;}
+
+    /* 沒有行程的日子：虛線帶過 */
+    .sch-gap{display:flex;align-items:center;gap:9px;margin:0 0 6px 14px;padding:2px 0;}
+    .sch-gap-dots{width:2px;height:26px;margin-left:-1px;flex-shrink:0;
+      background:repeating-linear-gradient(var(--border) 0 3px,transparent 3px 7px);}
+    .sch-gap-text{font-size:.62rem;color:var(--muted);opacity:.65;}
 
     .sch-stay-tags{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:5px;}
     .sch-payer{display:inline-flex;align-items:center;height:20px;}
