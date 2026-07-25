@@ -447,7 +447,8 @@ function renderPrep(tasks) {
     return `<div class="empty">🧳 在「寫入_任務」表填入項目後顯示<br>
       <span style="font-size:.7rem;color:var(--muted)">分類填 待辦／行李／共用</span></div>`;
   }
-  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks);
+  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks)
+    + `<div class="prep-criteria">★ 評分基準：<b>當地買不買得到</b>——★5＝買不到也補不了（護照/藥/睡袋），★1–2＝冰島隨處可買</div>`;
 
   const groups = PREP_CATS.map(cat => {
     const list = tasks.filter(t => (t.category || '待辦') === cat.key)
