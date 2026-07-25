@@ -341,6 +341,64 @@ function taskAppliesTo(task, member) {
   return owner.split(/[,，、\s]+/).filter(Boolean).includes(member);
 }
 
+// ── 條件項目：說明欄寫 #if:key，只有回答「是」時才出現在清單裡
+const PREP_GATES = [
+  {
+    key: 'etias',
+    q: '2026 年 ETIAS 新制上路了嗎？',
+    yes: '已上路：出發前要線上申請',
+    no:  '還沒上路：免簽直接入境，不用辦',
+  },
+];
+
+function prepGateState() {
+  try { return JSON.parse(localStorage.getItem('prepGates') || '{}'); }
+  catch (e) { return {}; }
+}
+function prepGateOn(key) { return prepGateState()[key] === 'yes'; }
+
+window.setPrepGate = function(key, val) {
+  const s = prepGateState();
+  s[key] = val;
+  try { localStorage.setItem('prepGates', JSON.stringify(s)); } catch (e) {}
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(window.APP_DATA?.tasks || []);
+};
+
+// 這筆項目綁在哪個條件上（沒綁回傳 null）
+function taskGateKey(task) {
+  const m = String(task.note || '').match(/#if:([a-z0-9_]+)/i);
+  return m ? m[1].toLowerCase() : null;
+}
+// 顯示用說明：把 #if:xxx 標記拿掉
+function taskNoteText(task) {
+  return String(task.note || '').replace(/#if:[a-z0-9_]+/ig, '').trim();
+}
+// 條件沒成立的項目整個不參與清單與進度計算
+function prepGateVisible(task) {
+  const k = taskGateKey(task);
+  return !k || prepGateOn(k);
+}
+
+function renderPrepGates(allTasks) {
+  const s = prepGateState();
+  const used = PREP_GATES.filter(g => (allTasks || []).some(t => taskGateKey(t) === g.key));
+  if (!used.length) return '';
+  return used.map(g => {
+    const v = s[g.key] || 'no';
+    const hidden = (allTasks || []).filter(t => taskGateKey(t) === g.key).length;
+    return `<div class="prep-gate">
+      <div class="prep-gate-q">${esc(g.q)}</div>
+      <div class="prep-gate-btns">
+        <button class="prep-gate-btn${v === 'no' ? ' on' : ''}" onclick="setPrepGate('${esc(g.key)}','no')">否</button>
+        <button class="prep-gate-btn${v === 'yes' ? ' on' : ''}" onclick="setPrepGate('${esc(g.key)}','yes')">是</button>
+      </div>
+      <div class="prep-gate-hint">${esc(v === 'yes' ? g.yes : g.no)}${
+        v === 'yes' ? '' : `（已收起 ${hidden} 項）`}</div>
+    </div>`;
+  }).join('');
+}
+
 function renderPrepItem(task) {
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
   const isShared = task.category === '共用';
@@ -356,7 +414,7 @@ function renderPrepItem(task) {
   return `<div class="prep-item${allDone ? ' all-done' : ''}${isCritical ? ' critical' : ''}" data-id="${esc(task.id)}">
     <div class="prep-main">
       <div class="prep-name">${esc(task.name)}${stars}</div>
-      ${task.note ? `<div class="prep-note">${esc(task.note)}</div>` : ''}
+      ${taskNoteText(task) ? `<div class="prep-note">${esc(taskNoteText(task))}</div>` : ''}
       ${isShared && task.owner ? `<div class="prep-owner">🎒 由 ${esc(task.owner)} 負責帶</div>` : ''}
     </div>
     <div class="prep-avatars">${avatars}</div>
@@ -441,13 +499,15 @@ function renderPrepProgress(tasks) {
   </div>`;
 }
 
-function renderPrep(tasks) {
-  tasks = tasks || [];
-  if (!tasks.length) {
+function renderPrep(allTasks) {
+  allTasks = allTasks || [];
+  if (!allTasks.length) {
     return `<div class="empty">🧳 在「寫入_任務」表填入項目後顯示<br>
       <span style="font-size:.7rem;color:var(--muted)">分類填 待辦／行李／共用</span></div>`;
   }
-  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks)
+  const gates = renderPrepGates(allTasks);
+  const tasks = allTasks.filter(prepGateVisible);
+  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks) + gates
     + `<div class="prep-criteria">★ 評分基準：<b>當地買不買得到</b>——★5＝買不到也補不了（護照/藥/睡袋），★1–2＝冰島隨處可買</div>`;
 
   const groups = PREP_CATS.map(cat => {

@@ -203,6 +203,17 @@
       background:var(--bg3);border-left:2px solid var(--border);border-radius:0 6px 6px 0;}
     .prep-criteria b{color:var(--text);font-weight:600;}
 
+    .prep-gate{display:flex;align-items:center;flex-wrap:wrap;gap:8px;
+      background:var(--bg3);border:1px dashed var(--border);border-radius:8px;
+      padding:9px 11px;margin-bottom:12px;}
+    .prep-gate-q{font-size:.72rem;color:var(--text);font-weight:600;}
+    .prep-gate-btns{display:flex;gap:5px;}
+    .prep-gate-btn{padding:3px 13px;border:1px solid var(--border);background:transparent;
+      color:var(--muted);border-radius:6px;cursor:pointer;font-size:.7rem;
+      font-family:'Lato',sans-serif;transition:.2s;}
+    .prep-gate-btn.on{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600;}
+    .prep-gate-hint{flex-basis:100%;font-size:.62rem;color:var(--muted);line-height:1.5;}
+
     .prep-group{margin-bottom:4px;}
     .prep-item{
       position:relative;
