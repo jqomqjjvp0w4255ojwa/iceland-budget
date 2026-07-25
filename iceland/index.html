@@ -12,21 +12,41 @@
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" rel="stylesheet" /></noscript>
   <style>
+    /* ── 夜色（預設）：極光下的冰島 */
     :root {
       --bg:#07111f; --bg2:#0d1f35; --bg3:#112540; --card:#0f2240;
       --border:#1e3a5f; --accent:#4fc3f7; --accent2:#81d4fa;
       --gold:#f0c040; --green:#4caf6e; --red:#e05555;
       --text:#e8f4fd; --muted:#7eb3d4;
       --aurora1:#00e5cc; --aurora2:#7c4dff; --aurora3:#ff6e40;
+      --glow1:rgba(0,229,204,.07); --glow2:rgba(124,77,255,.06); --glow3:rgba(79,195,247,.05);
     }
+
+    /* ── 白天：冰河與淺色岩層 */
+    :root[data-theme="day"] {
+      --bg:#eef3f8; --bg2:#e2ebf3; --bg3:#d8e4ef; --card:#ffffff;
+      --border:#c2d4e4; --accent:#0d7fb8; --accent2:#3a9dd0;
+      --gold:#c08a1a; --green:#2e8b57; --red:#c0392b;
+      --text:#16293d; --muted:#5b7691;
+      --aurora1:#0d9488; --aurora2:#6d4bc7; --aurora3:#d1552a;
+      --glow1:rgba(13,148,136,.06); --glow2:rgba(109,75,199,.05); --glow3:rgba(13,127,184,.05);
+    }
+    .theme-btn{
+      background:var(--bg3);border:1px solid var(--border);color:var(--text);
+      border-radius:999px;padding:3px 9px;cursor:pointer;font-size:.8rem;
+      line-height:1.4;transition:background .15s,border-color .15s;
+    }
+    .theme-btn:hover{border-color:var(--accent);}
+    .theme-btn:active{transform:translateY(1px);}
+
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;min-height:100vh;overflow-x:hidden;}
     body::before{
       content:'';position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:0;
       background:
-        radial-gradient(ellipse 80% 40% at 20% 10%,rgba(0,229,204,.07) 0%,transparent 60%),
-        radial-gradient(ellipse 60% 30% at 80% 5%,rgba(124,77,255,.06) 0%,transparent 55%),
-        radial-gradient(ellipse 50% 20% at 50% 0%,rgba(79,195,247,.05) 0%,transparent 50%);
+        radial-gradient(ellipse 80% 40% at 20% 10%,var(--glow1) 0%,transparent 60%),
+        radial-gradient(ellipse 60% 30% at 80% 5%,var(--glow2) 0%,transparent 55%),
+        radial-gradient(ellipse 50% 20% at 50% 0%,var(--glow3) 0%,transparent 50%);
     }
     .container{max-width:680px;margin:0 auto;padding:0 16px 80px;position:relative;z-index:1;}
     
@@ -558,6 +578,29 @@
   </style>
 </head>
 <body>
+<script>
+  // 主題：夜色（預設）／白天，記住上次選擇；越早執行越不會閃爍
+  (function(){
+    var t = localStorage.getItem('theme');
+    if (t === 'day') document.documentElement.setAttribute('data-theme', 'day');
+  })();
+  function toggleTheme(){
+    var root = document.documentElement;
+    var isDay = root.getAttribute('data-theme') === 'day';
+    if (isDay) { root.removeAttribute('data-theme'); localStorage.setItem('theme','night'); }
+    else       { root.setAttribute('data-theme','day'); localStorage.setItem('theme','day'); }
+    syncThemeBtn();
+  }
+  function syncThemeBtn(){
+    var b = document.getElementById('themeBtn');
+    if (!b) return;
+    var isDay = document.documentElement.getAttribute('data-theme') === 'day';
+    // 顯示「點了會切到哪」：白天模式時顯示月亮（可切回夜色）
+    b.textContent = isDay ? '🌙' : '☀';
+    b.title = isDay ? '切換為夜色配色' : '切換為白天配色';
+  }
+  document.addEventListener('DOMContentLoaded', syncThemeBtn);
+</script>
 <div class="offline-badge" id="offlineBadge">📵 離線模式</div>
 <!-- 低調通往台灣版的小門 -->
 <a href="../taiwan/" title="🍉" style="position:fixed;top:10px;right:10px;z-index:3000;font-size:14px;text-decoration:none;opacity:.35;filter:saturate(.7);">🍉</a>
@@ -568,6 +611,7 @@
     <div class="subtitle">Iceland · September 2026</div>
     <div class="sync-bar">
       <span class="sync-status" id="syncStatus">載入中…</span>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切換日夜配色">🌙</button>
       <button class="sync-btn" id="syncBtn" onclick="manualSync()" title="點擊同步雲端資料">
         <span class="dot dot-local" id="syncDot"></span>
         <span class="sync-icon" id="syncIcon">☁</span>
