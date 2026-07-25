@@ -314,19 +314,44 @@
     .prep-more{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 8px;line-height:1;}
 
     /* ══ 日程時間軸 ══ */
-    .sch-jumper{display:flex;align-items:center;gap:6px;margin:4px 0 8px;}
-    .sch-jump-arrow{flex-shrink:0;width:26px;height:26px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-size:14px;line-height:1;}
-    .sch-jump-arrow:active{background:var(--border);}
-    .sch-jump-scroll{flex:1;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding:2px 0;}
-    .sch-jump-scroll::-webkit-scrollbar{display:none;}
-    .sch-jump-day{flex-shrink:0;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;cursor:pointer;font-size:.7rem;font-family:'Lato',sans-serif;}
-    .sch-jump-day.today{border-color:var(--accent);color:var(--accent);font-weight:700;}
+    .sch-jumper{display:flex;align-items:center;gap:4px;margin:4px 0 10px;}
+    .sch-jump-arrow{flex-shrink:0;width:24px;height:38px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;cursor:pointer;font-size:15px;line-height:1;}
+    .sch-jump-arrow:active{background:var(--bg3);color:var(--text);}
+    .sch-jump-arrow:disabled{opacity:.25;cursor:default;}
+    .sch-jump-scroll{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;}
+
+    .sch-jump-day{
+      flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;
+      background:transparent;border:1px solid transparent;border-radius:8px;
+      color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;
+      padding:4px 8px;transition:all .18s ease;
+    }
+    .sch-jump-d{font-family:'Cinzel',serif;line-height:1.1;}
+    .sch-jump-date{line-height:1.1;opacity:.75;}
+
+    /* 距離選中越遠越小越淡 */
+    .sch-jump-day.off0{padding:6px 13px;border-color:var(--accent);background:rgba(var(--accent-rgb,224,96,96),.1);color:var(--accent);}
+    .sch-jump-day.off0 .sch-jump-d{font-size:.95rem;font-weight:700;}
+    .sch-jump-day.off0 .sch-jump-date{font-size:.66rem;opacity:1;}
+
+    .sch-jump-day.off1{opacity:.72;}
+    .sch-jump-day.off1 .sch-jump-d{font-size:.76rem;}
+    .sch-jump-day.off1 .sch-jump-date{font-size:.58rem;}
+
+    .sch-jump-day.off2{opacity:.4;}
+    .sch-jump-day.off2 .sch-jump-d{font-size:.64rem;}
+    .sch-jump-day.off2 .sch-jump-date{font-size:.52rem;}
+
+    /* 今天：未選中時用金色點出來 */
+    .sch-jump-day.today:not(.off0) .sch-jump-d{color:var(--gold);}
 
     .sch-filters{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;}
     .sch-filter{padding:3px 11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:999px;cursor:pointer;font-size:.68rem;font-family:'Lato',sans-serif;}
     .sch-filter.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 
-    .sch-scroll{position:relative;max-height:60vh;overflow-y:auto;padding-right:2px;}
+    .sch-scroll{position:relative;max-height:60vh;overflow-y:auto;padding-right:2px;
+      scrollbar-width:none;-ms-overflow-style:none;}
+    .sch-scroll::-webkit-scrollbar{display:none;width:0;height:0;}
     .sch-day{margin-bottom:14px;transition:opacity .25s;}
     .sch-day.past{opacity:.42;}
     .sch-day-head{margin-bottom:7px;position:sticky;top:0;background:var(--card);padding:4px 0 5px;z-index:2;}

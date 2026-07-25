@@ -649,6 +649,7 @@ const SCH_CATS = [
 ];
 const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '其他':'🚗' };
 let _schFilter = 'all';
+let _schActiveKey = null;   // 日期跳轉列目前選中的那天
 
 // 「9/17」→ 當年的 Date（行程都在同一年）
 function schDate(dateStr, year) {
@@ -733,19 +734,7 @@ function renderSchedule(d) {
   }
   const today = new Date();
 
-  // 日期跳轉列：[9/15 ‹ 16 › 17]
-  const jumper = `
-    <div class="sch-jumper">
-      <button class="sch-jump-arrow" onclick="schJumpStep(-1)" title="前一天">‹</button>
-      <div class="sch-jump-scroll" id="schJumpScroll">
-        ${days.map(day => {
-          const isToday = schIsSameDay(day.d, today);
-          return `<button class="sch-jump-day${isToday ? ' today' : ''}" data-key="${esc(day.key)}"
-            onclick="schJumpTo('${esc(day.key)}')">${esc(day.key)}</button>`;
-        }).join('')}
-      </div>
-      <button class="sch-jump-arrow" onclick="schJumpStep(1)" title="後一天">›</button>
-    </div>`;
+  const jumper = renderSchJumper(days, today);
 
   const filters = `
     <div class="sch-filters">
@@ -760,6 +749,45 @@ function renderSchedule(d) {
     <button class="sch-back-today" id="schBackToday" onclick="schScrollToToday()" style="display:none;">
       <span id="schBackArrow">↑</span> 回到今日
     </button>`;
+}
+
+// 日期跳轉列：只顯示選中的那天 ±2，選中置中放大、往外遞減
+function renderSchJumper(days, today) {
+  // 選中預設今天；今天不在行程內就用第一天
+  if (!_schActiveKey || !days.some(x => x.key === _schActiveKey)) {
+    const t = days.find(x => schIsSameDay(x.d, today));
+    _schActiveKey = t ? t.key : days[0].key;
+  }
+  const idx = days.findIndex(x => x.key === _schActiveKey);
+
+  const btns = [];
+  for (let off = -2; off <= 2; off++) {
+    const i = idx + off;
+    if (i < 0 || i >= days.length) continue;
+    const day = days[i];
+    const isToday = schIsSameDay(day.d, today);
+    btns.push(`<button class="sch-jump-day off${Math.abs(off)}${off === 0 ? ' active' : ''}${isToday ? ' today' : ''}"
+      data-key="${esc(day.key)}" onclick="schJumpTo('${esc(day.key)}')">
+      <span class="sch-jump-d">D${i + 1}</span>
+      <span class="sch-jump-date">${esc(day.key)}</span>
+    </button>`);
+  }
+
+  return `
+    <div class="sch-jumper" id="schJumper">
+      <button class="sch-jump-arrow" onclick="schJumpStep(-1)" ${idx <= 0 ? 'disabled' : ''} title="前一天">‹</button>
+      <div class="sch-jump-scroll">${btns.join('')}</div>
+      <button class="sch-jump-arrow" onclick="schJumpStep(1)" ${idx >= days.length - 1 ? 'disabled' : ''} title="後一天">›</button>
+    </div>`;
+}
+
+// 只重畫跳轉列（不動時間軸，避免捲動位置跳掉）
+function refreshSchJumper() {
+  const el = document.getElementById('schJumper');
+  if (!el) return;
+  const days = buildScheduleDays(window.APP_DATA || window.STATIC);
+  if (!days.length) return;
+  el.outerHTML = renderSchJumper(days, new Date());
 }
 
 function renderSchDay(day, today, d, dayNum) {
@@ -856,23 +884,21 @@ window.setSchFilter = function(key) {
 
 // 日期跳轉：捲到該天
 window.schJumpTo = function(key) {
+  _schActiveKey = key;
+  refreshSchJumper();
   const target = document.querySelector(`.sch-day[data-key="${key}"]`);
   const scroller = document.getElementById('schScroll');
   if (!target || !scroller) return;
   scroller.scrollTo({ top: target.offsetTop - scroller.offsetTop - 4, behavior: 'smooth' });
-  // 跳轉列也把該日按鈕捲到看得見
-  document.querySelector(`.sch-jump-day[data-key="${key}"]`)
-    ?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
 };
 
-// ‹ › 前後一天
+// ‹ › 前後一天（移動選中的那天）
 window.schJumpStep = function(dir) {
-  const days = [...document.querySelectorAll('.sch-day')];
+  const days = buildScheduleDays(window.APP_DATA || window.STATIC);
   if (!days.length) return;
-  const scroller = document.getElementById('schScroll');
-  const cur = days.findIndex(el => el.offsetTop - scroller.offsetTop >= scroller.scrollTop - 8);
-  const next = Math.max(0, Math.min(days.length - 1, (cur < 0 ? 0 : cur) + dir));
-  schJumpTo(days[next].dataset.key);
+  const idx = days.findIndex(x => x.key === _schActiveKey);
+  const next = Math.max(0, Math.min(days.length - 1, (idx < 0 ? 0 : idx) + dir));
+  schJumpTo(days[next].key);
 };
 
 window.schScrollToToday = function() {
@@ -890,6 +916,15 @@ function schBindScroll() {
   if (!todayEl) { btn.style.display = 'none'; return; }
 
   function update() {
+    // 捲到哪天，跳轉列就跟著選到哪天
+    const dayEls = [...scroller.querySelectorAll('.sch-day')];
+    const cur = dayEls.filter(el => el.offsetTop - scroller.offsetTop <= scroller.scrollTop + 40).pop()
+             || dayEls[0];
+    if (cur && cur.dataset.key !== _schActiveKey) {
+      _schActiveKey = cur.dataset.key;
+      refreshSchJumper();
+    }
+
     const todayTop = todayEl.offsetTop - scroller.offsetTop;
     const view = scroller.scrollTop;
     const diff = todayTop - view;
