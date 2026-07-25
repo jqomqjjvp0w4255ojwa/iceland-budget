@@ -447,7 +447,7 @@
     .sch-nodes{border-left:2px solid var(--border);margin-left:14px;padding-left:0;padding-top:2px;}
     .sch-node{position:relative;display:flex;align-items:flex-start;gap:8px;padding:4px 8px 4px 0;margin-left:-9px;}
     .sch-node.expandable{cursor:pointer;}
-    .sch-node-time{flex-shrink:0;width:42px;text-align:right;font-size:.63rem;color:var(--muted);padding-top:9px;}
+    .sch-node-time{flex-shrink:0;width:40px;text-align:left;font-size:.63rem;color:var(--muted);padding-top:9px;}
     .sch-node-dot{flex-shrink:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--card);border:1px solid var(--border);border-radius:50%;z-index:1;margin-top:5px;}
     .sch-node.cat-住宿 .sch-node-dot{border-color:rgba(79,195,247,.6);}
     .sch-node.cat-活動 .sch-node-dot{border-color:rgba(255,167,38,.6);}
@@ -481,9 +481,9 @@
     }
     .sch-node-dot.ring{
       width:11px;height:11px;background:var(--card);
-      border:2px solid var(--border);margin-top:9px;margin-left:3px;
+      border:2px solid var(--border);margin-top:9px;margin-left:2px;
     }
-    .sch-node.plain.big .sch-node-dot.ring{border-color:rgba(78,195,121,.75);width:13px;height:13px;margin-left:2px;}
+    .sch-node.plain.big .sch-node-dot.ring{border-color:rgba(78,195,121,.75);width:13px;height:13px;margin-left:1px;}
     .sch-node-line{display:flex;align-items:baseline;gap:5px;min-width:0;}
     .sch-line-icon{font-size:.7rem;flex-shrink:0;}
     .sch-line-title{font-size:.72rem;color:var(--muted);}
@@ -497,7 +497,7 @@
     /* 交通：兩個節點之間的虛線區間，時長在軸左、方向在軸右 */
     .sch-conn{position:relative;display:flex;align-items:center;gap:8px;
       padding:2px 8px 2px 0;margin-left:-9px;}
-    .sch-conn-dur{color:var(--accent2);font-size:.62rem;padding-top:0;letter-spacing:.02em;}
+    .sch-conn-dur{color:var(--accent2);font-size:.62rem;padding-top:0;letter-spacing:.02em;align-self:center;}
     .sch-conn-dot{flex-shrink:0;width:18px;align-self:stretch;min-height:34px;
       display:flex;justify-content:center;background:var(--card);z-index:1;}
     .sch-conn-line{width:2px;

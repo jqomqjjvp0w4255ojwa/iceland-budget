@@ -1061,8 +1061,8 @@ function renderSchNode(x, d) {
     const { dur, text } = schSplitDuration(x.title);
     return `
       <div class="sch-conn">
-        <div class="sch-node-time sch-conn-dur">${esc(dur || x.time || '')}</div>
         <div class="sch-conn-dot"><span class="sch-conn-line"></span></div>
+        <div class="sch-node-time sch-conn-dur">${esc(dur || x.time || '')}</div>
         <div class="sch-conn-body">
           <span class="sch-conn-text">${esc(text || '移動')}</span>
           ${x.note ? `<span class="sch-conn-note">${esc(x.note)}</span>` : ''}
@@ -1113,8 +1113,8 @@ function renderSchNode(x, d) {
     const big = x.category === '景點';
     return `
       <div class="sch-node plain ${cls}${big ? ' big' : ''}">
-        ${time}
         <div class="sch-node-dot ring"></div>
+        ${time}
         <div class="sch-node-body">
           <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${
             x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
@@ -1126,8 +1126,8 @@ function renderSchNode(x, d) {
 
   return `
     <div class="sch-node expandable ${cls}" ${clickable}>
-      ${time}
       <div class="sch-node-dot">${icon}</div>
+      ${time}
       <div class="sch-node-body">
         <div class="sch-node-title">${esc(x.title)}<span class="sch-expand">›</span></div>
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
