@@ -302,7 +302,7 @@ function renderInfo(d) {
       ${renderCarDetail(d.car)}
     </div>
     <div id="infoTab-schedule" class="section">
-      <div class="empty">📅 日程 sheet 填入後顯示</div>
+      <div id="scheduleContent">${renderSchedule(d)}</div>
     </div>
     <div id="infoTab-insurance" class="section">
       <div class="empty">🛡 保險資訊填入後顯示</div>
@@ -353,6 +353,7 @@ function renderPrepItem(task) {
       ${isShared && task.owner ? `<div class="prep-owner">🎒 由 ${esc(task.owner)} 負責帶</div>` : ''}
     </div>
     <div class="prep-avatars">${avatars}</div>
+    <button type="button" class="prep-more" title="編輯／刪除" onclick="openEditPrep('${esc(task.id)}');event.stopPropagation();">⋮</button>
   </div>`;
 }
 
@@ -417,33 +418,140 @@ function renderPrep(tasks) {
   return progress + groups + otherHtml + addBtn;
 }
 
-// ── 新增項目（直接寫回 sheet）
-window.openAddPrep = function() {
-  const name = prompt('項目名稱？（例如：換冰島克朗）');
-  if (!name || !name.trim()) return;
-  const catInput = prompt('分類？輸入 1=待辦　2=行李　3=共用', '1');
-  const category = { '1':'待辦', '2':'行李', '3':'共用' }[String(catInput || '1').trim()] || '待辦';
-  let owner = '';
-  if (category === '共用') owner = (prompt('由誰負責帶？（可留空）') || '').trim();
-  const priority = parseInt(prompt('重要度 1–5？', '3'), 10) || 3;
-  const note = (prompt('說明？（可留空）') || '').trim();
+// ── 新增項目：彈窗（同記帳表單風格），直接寫回 sheet
+const PREP_CAT_OPTS = [
+  { key:'待辦', label:'📋 待辦' },
+  { key:'行李', label:'🎒 行李' },
+  { key:'共用', label:'🤝 共用' },
+];
+let _prepCat = '待辦';
+let _prepOwner = '';
+let _prepPriority = 3;
+let _prepEditId = null;   // null＝新增模式，否則是正在編輯的 task.id
 
+window.openAddPrep = function() {
+  _prepEditId = null;
+  _prepCat = '待辦';
+  _prepOwner = '';
+  _prepPriority = 3;
+  document.getElementById('prepName').value = '';
+  document.getElementById('prepNote').value = '';
+  document.getElementById('pxModalPrepTitle').textContent = '▶ 新增準備項目';
+  document.getElementById('pxBtnPrep').textContent = '[ 加入清單 ]';
+  document.getElementById('pxBtnPrepDelete').style.display = 'none';
+  renderPrepCatBtns();
+  renderPrepOwnerBtns();
+  renderPrepPriorityBtns();
+  pxCheckPrepSubmit();
+  document.getElementById('pxModalPrep').classList.add('show');
+  window.lockBody?.();
+  setTimeout(() => document.getElementById('prepName')?.focus(), 100);
+};
+
+window.openEditPrep = function(taskId) {
+  const task = (window.APP_DATA?.tasks || []).find(t => t.id === taskId);
+  if (!task) return;
+  _prepEditId = taskId;
+  _prepCat = task.category || '待辦';
+  _prepOwner = task.owner || '';
+  _prepPriority = task.priority || 3;
+  document.getElementById('prepName').value = task.name || '';
+  document.getElementById('prepNote').value = task.note || '';
+  document.getElementById('pxModalPrepTitle').textContent = '▶ 編輯準備項目';
+  document.getElementById('pxBtnPrep').textContent = '[ 儲存修改 ]';
+  document.getElementById('pxBtnPrepDelete').style.display = '';
+  renderPrepCatBtns();
+  renderPrepOwnerBtns();
+  renderPrepPriorityBtns();
+  pxCheckPrepSubmit();
+  document.getElementById('pxModalPrep').classList.add('show');
+  window.lockBody?.();
+};
+
+function renderPrepCatBtns() {
+  const el = document.getElementById('prepCatBtns');
+  el.innerHTML = PREP_CAT_OPTS.map(c =>
+    `<button type="button" class="px-chip${_prepCat===c.key?' on':''}" onclick="selectPrepCat('${c.key}')">${c.label}</button>`
+  ).join('');
+  document.getElementById('prepOwnerField').style.display = _prepCat === '共用' ? '' : 'none';
+}
+window.selectPrepCat = function(key) {
+  _prepCat = key;
+  if (key !== '共用') _prepOwner = '';
+  renderPrepCatBtns();
+  renderPrepOwnerBtns();
+};
+
+function renderPrepOwnerBtns() {
+  const el = document.getElementById('prepOwnerBtns');
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
-  const task = {
-    id: 'tmp_' + Date.now(), category, name: name.trim(), priority, note, owner,
-    done: Object.fromEntries(members.map(m => [m, false])),
-  };
+  el.innerHTML = members.map(m =>
+    `<button type="button" class="px-chip${_prepOwner===m?' on':''}" onclick="selectPrepOwner('${esc(m)}')">${esc(m)}</button>`
+  ).join('');
+}
+window.selectPrepOwner = function(m) {
+  _prepOwner = _prepOwner === m ? '' : m;   // 再點一次取消選取
+  renderPrepOwnerBtns();
+};
+
+function renderPrepPriorityBtns() {
+  const el = document.getElementById('prepPriorityBtns');
+  el.innerHTML = [1,2,3,4,5].map(n =>
+    `<button type="button" class="px-chip${_prepPriority===n?' on':''}" onclick="selectPrepPriority(${n})">${'★'.repeat(n)}</button>`
+  ).join('');
+}
+window.selectPrepPriority = function(n) {
+  _prepPriority = n;
+  renderPrepPriorityBtns();
+};
+
+window.pxCheckPrepSubmit = function() {
+  const ready = document.getElementById('prepName').value.trim().length > 0;
+  document.getElementById('pxBtnPrep').disabled = !ready;
+};
+
+window.submitPrepModal = function() {
+  const name = document.getElementById('prepName').value.trim();
+  if (!name) return;
+  const note = document.getElementById('prepNote').value.trim();
+  const category = _prepCat, owner = _prepOwner, priority = _prepPriority;
+  const gasBase = window.TRIP_CONFIG?.apiBase || '';
   window.APP_DATA = window.APP_DATA || {};
   window.APP_DATA.tasks = window.APP_DATA.tasks || [];
-  window.APP_DATA.tasks.push(task);
   const el = document.getElementById('prepContent');
-  if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
 
-  const gasBase = window.TRIP_CONFIG?.apiBase || '';
+  // ── 編輯既有項目 ──
+  if (_prepEditId) {
+    const task = window.APP_DATA.tasks.find(t => t.id === _prepEditId);
+    if (!task) { window.cancelPxModal?.('pxModalPrep'); return; }
+    Object.assign(task, { category, name, priority, note, owner });
+    if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
+    window.cancelPxModal?.('pxModalPrep');
+    if (gasBase && task._rowIndex) {
+      fetch(gasBase, {
+        method: 'POST',
+        body: JSON.stringify({ action:'editTask', rowIndex:task._rowIndex, category, name, priority, note, owner }),
+      }).catch(e => {
+        console.warn('修改準備項目失敗', e);
+        window.setSyncState?.('local', '⚠ 修改項目同步失敗');
+      });
+    }
+    return;
+  }
+
+  // ── 新增項目 ──
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const task = {
+    id: 'tmp_' + Date.now(), category, name, priority, note, owner,
+    done: Object.fromEntries(members.map(m => [m, false])),
+  };
+  window.APP_DATA.tasks.push(task);
+  if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
+  window.cancelPxModal?.('pxModalPrep');
   if (!gasBase) return;
   fetch(gasBase, {
     method: 'POST',
-    body: JSON.stringify({ action:'addTask', category, name:task.name, priority, note, owner }),
+    body: JSON.stringify({ action:'addTask', category, name, priority, note, owner }),
   })
     .then(r => r.json())
     .then(res => {
@@ -451,13 +559,38 @@ window.openAddPrep = function() {
       if (res?.ok && res.msg?.id) {
         task.id = res.msg.id;
         task._rowIndex = res.msg.rowIndex;
-        if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
+        const el2 = document.getElementById('prepContent');
+        if (el2) el2.innerHTML = renderPrep(window.APP_DATA.tasks);
       }
     })
     .catch(e => {
       console.warn('新增準備項目失敗', e);
       window.setSyncState?.('local', '⚠ 新增項目同步失敗');
     });
+};
+
+window.deletePrepModal = function() {
+  if (!_prepEditId) return;
+  const tasks = window.APP_DATA?.tasks || [];
+  const idx = tasks.findIndex(t => t.id === _prepEditId);
+  if (idx < 0) return;
+  const task = tasks[idx];
+  if (!confirm(`刪除「${task.name}」？`)) return;
+  tasks.splice(idx, 1);
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(tasks);
+  window.cancelPxModal?.('pxModalPrep');
+
+  const gasBase = window.TRIP_CONFIG?.apiBase || '';
+  if (gasBase && task._rowIndex) {
+    fetch(gasBase, {
+      method: 'POST',
+      body: JSON.stringify({ action:'deleteTask', rowIndex:task._rowIndex }),
+    }).catch(e => {
+      console.warn('刪除準備項目失敗', e);
+      window.setSyncState?.('local', '⚠ 刪除項目同步失敗');
+    });
+  }
 };
 
 // 點小人 → 切換該成員的完成狀態（樂觀更新，背景同步）
@@ -502,6 +635,254 @@ window.togglePrep = function(taskId, member, btn) {
   const bars = document.getElementById('prepProgress');
   if (bars) bars.outerHTML = renderPrepProgress(window.APP_DATA?.tasks || []);
 };
+
+
+// ══════════════════════════════════════════════════════════
+//  日程時間軸：日期跳轉 + 分類篩選 + 住宿展開 + 回到今日
+// ══════════════════════════════════════════════════════════
+const SCH_CATS = [
+  { key:'all',  label:'全部' },
+  { key:'景點', label:'景點' },
+  { key:'住宿', label:'住宿' },
+  { key:'活動', label:'活動' },
+  { key:'其他', label:'其他' },
+];
+const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '其他':'🚗' };
+let _schFilter = 'all';
+
+// 「9/17」→ 當年的 Date（行程都在同一年）
+function schDate(dateStr, year) {
+  const m = String(dateStr || '').match(/(\d{1,2})\s*[\/月-]\s*(\d{1,2})/);
+  if (!m) return null;
+  return new Date(year, +m[1] - 1, +m[2]);
+}
+function schWeekday(d) {
+  return d ? ['日','一','二','三','四','五','六'][d.getDay()] : '';
+}
+function schIsSameDay(a, b) {
+  return a && b && a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+// 把日程 + 住宿合併成節點，依日期分組
+function buildScheduleDays(d) {
+  const year = new Date(window.TRIP_CONFIG?.dates?.depart || Date.now()).getFullYear();
+  // 日期欄留空＝沿用上一列（GAS 已處理，這裡再保險一次，避免節點憑空消失）
+  let lastD = null;
+  const items = (d.schedule || []).map(x => {
+    const parsed = schDate(x.date, year) || lastD;
+    if (parsed) lastD = parsed;
+    return { ...x, _d: parsed };
+  });
+
+  // 住宿表的每一晚 → 自動變成住宿節點（日期欄可能是「9/15 9/16」這種多晚）
+  (d.accommodation || []).forEach((a, ai) => {
+    String(a.date || '').split(/[\s,、]+/).filter(Boolean).forEach(one => {
+      const dd = schDate(one, year);
+      if (!dd) return;
+      items.push({
+        date: one, time: '', category: '住宿',
+        title: a.name, note: '', place: a.address || '',
+        lat: a.lat, lng: a.lng, order: 9999,   // 住宿排當天最後
+        _d: dd, _stayIndex: ai,
+      });
+    });
+  });
+
+  // 依日期分組
+  const byDate = new Map();
+  items.filter(x => x._d).forEach(x => {
+    const key = `${x._d.getMonth()+1}/${x._d.getDate()}`;
+    if (!byDate.has(key)) byDate.set(key, { key, d: x._d, items: [] });
+    byDate.get(key).items.push(x);
+  });
+
+  // 日期排序；同一天內：有時間的排前面（依時間），沒時間的照 sheet 順序
+  const days = [...byDate.values()].sort((a, b) => a.d - b.d);
+  days.forEach(day => {
+    day.items.sort((a, b) => {
+      const ta = parseSchTime(a.time), tb = parseSchTime(b.time);
+      if (ta !== tb) return ta - tb;
+      return (a.order || 0) - (b.order || 0);
+    });
+  });
+  return days;
+}
+
+// 時間排序用：「09:00」→540、「上午」→ 早、「下午」→ 晚、空白→ 依原順序（回傳 大數 讓它落到後面但仍受 order 影響）
+function parseSchTime(t) {
+  const s = String(t || '').trim();
+  if (!s) return 100000;
+  const hm = s.match(/(\d{1,2})\s*[:：]\s*(\d{2})/);
+  if (hm) return +hm[1] * 60 + +hm[2];
+  if (/上午|早/.test(s)) return 8 * 60;
+  if (/中午/.test(s))    return 12 * 60;
+  if (/下午/.test(s))    return 14 * 60;
+  if (/傍晚|黃昏/.test(s)) return 17 * 60;
+  if (/晚/.test(s))      return 19 * 60;
+  const h = s.match(/^(\d{1,2})$/);
+  if (h) return +h[1] * 60;
+  return 100000;
+}
+
+function renderSchedule(d) {
+  const days = buildScheduleDays(d);
+  if (!days.length) {
+    return `<div class="empty">📅 在「日程」表填入行程後顯示<br>
+      <span style="font-size:.7rem;color:var(--muted)">欄位：日期／時間／分類／標題／說明／地點</span></div>`;
+  }
+  const today = new Date();
+
+  // 日期跳轉列：[9/15 ‹ 16 › 17]
+  const jumper = `
+    <div class="sch-jumper">
+      <button class="sch-jump-arrow" onclick="schJumpStep(-1)" title="前一天">‹</button>
+      <div class="sch-jump-scroll" id="schJumpScroll">
+        ${days.map(day => {
+          const isToday = schIsSameDay(day.d, today);
+          return `<button class="sch-jump-day${isToday ? ' today' : ''}" data-key="${esc(day.key)}"
+            onclick="schJumpTo('${esc(day.key)}')">${esc(day.key)}</button>`;
+        }).join('')}
+      </div>
+      <button class="sch-jump-arrow" onclick="schJumpStep(1)" title="後一天">›</button>
+    </div>`;
+
+  const filters = `
+    <div class="sch-filters">
+      ${SCH_CATS.map(c => `<button class="sch-filter${_schFilter===c.key?' on':''}"
+        onclick="setSchFilter('${c.key}')">${c.label}</button>`).join('')}
+    </div>`;
+
+  const body = days.map(day => renderSchDay(day, today, d)).join('');
+
+  return jumper + filters + `
+    <div class="sch-scroll" id="schScroll">${body}</div>
+    <button class="sch-back-today" id="schBackToday" onclick="schScrollToToday()" style="display:none;">
+      <span id="schBackArrow">↑</span> 回到今日
+    </button>`;
+}
+
+function renderSchDay(day, today, d) {
+  const isToday = schIsSameDay(day.d, today);
+  const isPast  = !isToday && day.d < today;
+  const shown = day.items.filter(x => _schFilter === 'all' || x.category === _schFilter);
+  if (!shown.length) return '';
+
+  return `
+    <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}" data-key="${esc(day.key)}">
+      <div class="sch-day-head">
+        <span class="sch-day-date">${esc(day.key)}</span>
+        <span class="sch-day-week">${schWeekday(day.d)}</span>
+        ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
+      </div>
+      <div class="sch-nodes">
+        ${shown.map(x => renderSchNode(x, d)).join('')}
+      </div>
+    </div>`;
+}
+
+function renderSchNode(x, d) {
+  const icon = SCH_ICONS[x.category] || '•';
+  const isStay = x.category === '住宿';
+  const stay = isStay && x._stayIndex != null ? (d.accommodation || [])[x._stayIndex] : null;
+
+  const navBtn = (x.lat && x.lng)
+    ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
+    : '';
+
+  // 住宿：可展開詳細
+  const detail = stay ? `
+    <div class="sch-stay-detail" style="display:none;">
+      ${stay.address    ? `<div class="sch-kv"><span>地址</span><div>${esc(stay.address)}</div></div>` : ''}
+      ${stay.stayType   ? `<div class="sch-kv"><span>類型</span><div>${esc(stay.stayType)}</div></div>` : ''}
+      ${stay.facilities ? `<div class="sch-kv"><span>設備</span><div>${esc(stay.facilities)}</div></div>` : ''}
+      ${stay.extraFee   ? `<div class="sch-kv"><span>自費</span><div>${esc(stay.extraFee)}</div></div>` : ''}
+      ${stay.bring      ? `<div class="sch-kv"><span>自備</span><div>${esc(stay.bring)}</div></div>` : ''}
+      ${stay.nearby     ? `<div class="sch-kv"><span>周邊</span><div>${esc(stay.nearby)}</div></div>` : ''}
+      ${stay.note       ? `<div class="sch-kv"><span>備註</span><div>${esc(stay.note)}</div></div>` : ''}
+      <div class="sch-kv"><span>費用</span><div>${fmt(stay.twd)}${stay.paid ? ' · 已付' : ' · 未付'}${stay.payer ? ' · ' + esc(stay.payer) : ''}</div></div>
+    </div>` : '';
+
+  return `
+    <div class="sch-node cat-${esc(x.category)}${stay ? ' expandable' : ''}"
+      ${stay ? `onclick="this.classList.toggle('open');const el=this.querySelector('.sch-stay-detail');if(el)el.style.display=el.style.display==='none'?'block':'none';"` : ''}>
+      <div class="sch-node-time">${esc(x.time || '')}</div>
+      <div class="sch-node-dot">${icon}</div>
+      <div class="sch-node-body">
+        <div class="sch-node-title">${esc(x.title)}${stay ? '<span class="sch-expand">⌄</span>' : ''}</div>
+        ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
+        ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
+        ${detail}
+      </div>
+      ${navBtn}
+    </div>`;
+}
+
+window.setSchFilter = function(key) {
+  _schFilter = key;
+  const el = document.getElementById('scheduleContent');
+  if (el) el.innerHTML = renderSchedule(window.APP_DATA || window.STATIC);
+  schBindScroll();
+};
+
+// 日期跳轉：捲到該天
+window.schJumpTo = function(key) {
+  const target = document.querySelector(`.sch-day[data-key="${key}"]`);
+  const scroller = document.getElementById('schScroll');
+  if (!target || !scroller) return;
+  scroller.scrollTo({ top: target.offsetTop - scroller.offsetTop - 4, behavior: 'smooth' });
+  // 跳轉列也把該日按鈕捲到看得見
+  document.querySelector(`.sch-jump-day[data-key="${key}"]`)
+    ?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
+};
+
+// ‹ › 前後一天
+window.schJumpStep = function(dir) {
+  const days = [...document.querySelectorAll('.sch-day')];
+  if (!days.length) return;
+  const scroller = document.getElementById('schScroll');
+  const cur = days.findIndex(el => el.offsetTop - scroller.offsetTop >= scroller.scrollTop - 8);
+  const next = Math.max(0, Math.min(days.length - 1, (cur < 0 ? 0 : cur) + dir));
+  schJumpTo(days[next].dataset.key);
+};
+
+window.schScrollToToday = function() {
+  const today = document.querySelector('.sch-day.today');
+  if (today) schJumpTo(today.dataset.key);
+};
+
+// 捲動時決定「回到今日」要不要出現、箭頭朝哪
+function schBindScroll() {
+  const scroller = document.getElementById('schScroll');
+  const btn = document.getElementById('schBackToday');
+  const arrow = document.getElementById('schBackArrow');
+  if (!scroller || !btn) return;
+  const todayEl = scroller.querySelector('.sch-day.today');
+  if (!todayEl) { btn.style.display = 'none'; return; }
+
+  function update() {
+    const todayTop = todayEl.offsetTop - scroller.offsetTop;
+    const view = scroller.scrollTop;
+    const diff = todayTop - view;
+    if (Math.abs(diff) < scroller.clientHeight * 0.5) {
+      btn.style.display = 'none';   // 今日就在視野內
+      return;
+    }
+    btn.style.display = 'flex';
+    // 今日在下方 → 按鈕貼底、箭頭朝下；今日在上方 → 貼頂、箭頭朝上
+    const below = diff > 0;
+    arrow.textContent = below ? '↓' : '↑';
+    btn.classList.toggle('at-bottom', below);
+    btn.classList.toggle('at-top', !below);
+  }
+  scroller.removeEventListener('scroll', scroller._schHandler || (()=>{}));
+  scroller._schHandler = update;
+  scroller.addEventListener('scroll', update, { passive:true });
+  update();
+  // 一進來就對準今日
+  if (todayEl) scroller.scrollTop = todayEl.offsetTop - scroller.offsetTop - 4;
+}
+window.schBindScroll = schBindScroll;
 
 function renderCarDetail(car) {
   return `
@@ -554,4 +935,5 @@ window.showInfoTab = function(id, btn) {
   document.querySelectorAll('#mainSection-info .tab').forEach(t => t.classList.remove('active'));
   document.getElementById('infoTab-'+id)?.classList.add('active');
   btn.classList.add('active');
+  if (id === 'schedule') setTimeout(() => window.schBindScroll?.(), 0);
 };

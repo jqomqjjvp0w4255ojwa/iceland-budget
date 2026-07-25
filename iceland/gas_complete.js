@@ -15,7 +15,48 @@ const SHEET_NAMES = {
   expense:       '寫入_一般開銷',
   checkin:       '寫入_腳印',
   task:          '寫入_任務',
+  schedule:      '日程',
 };
+
+// ── 日程表欄位 ───────────────────────────────────────────
+// A日期(9/17) B時間(可空/可寫「上午」) C分類 D標題 E說明 F地點 G緯度 H經度
+//   分類：景點／住宿／活動／其他（住宿列可留空，會自動從住宿表帶入）
+//   時間：填了就顯示，沒填就按列的順序排
+var SCHEDULE_HEADER = [
+  '日期','時間','分類','標題','說明','地點','緯度','經度'
+];
+
+// ── 一次性：建立日程表（在編輯器選這個函式按執行）──
+function setupScheduleSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAMES.schedule);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAMES.schedule);
+  }
+  var rows = sheet.getDataRange().getValues();
+  var header = rows[0].map(function(h){ return String(h || '').trim(); });
+  if (header[0] === '日期' && header[2] === '分類') {
+    applyScheduleValidation_(sheet);
+    sheet.setFrozenRows(1);
+    return '已是新結構，已重設驗證規則';
+  }
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+  sheet.getRange(1, 1, 1, SCHEDULE_HEADER.length).setValues([SCHEDULE_HEADER]);
+  applyScheduleValidation_(sheet);
+  sheet.setFrozenRows(1);
+  return '日程表已建立';
+}
+
+function applyScheduleValidation_(sheet) {
+  var last = Math.max(sheet.getMaxRows(), 200);
+  // C 分類：景點／住宿／活動／其他
+  sheet.getRange(2, 3, last - 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['景點', '住宿', '活動', '其他'], true)
+      .setAllowInvalid(false).build());
+  var widths = [80, 70, 70, 220, 320, 180, 90, 90];
+  for (var c = 0; c < widths.length; c++) sheet.setColumnWidth(c + 1, widths[c]);
+}
 
 // ── 行前準備清單欄位 ─────────────────────────────────────
 // A項目ID B分類 C項目名稱 D重要度 E說明 F負責人
@@ -273,6 +314,35 @@ function readTaskSheet(sheet) {
   return { tasks: tasks };
 }
 
+// ── 日程讀取（時間軸用）─────────────────────────────────
+function readScheduleSheet(sheet) {
+  var rows = sheet.getDataRange().getDisplayValues();
+  if (rows.length < 2) return { schedule: [] };
+  var out = [];
+  var lastDate = '';
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    var date = String(r[0] || '').trim();
+    var title = String(r[3] || '').trim();
+    // 日期可以只寫在該天第一列，後面留空＝沿用上一列的日期
+    if (date) lastDate = date; else date = lastDate;
+    if (!title || !date) continue;
+    out.push({
+      date:     date,
+      time:     r[1] || '',
+      category: r[2] || '其他',
+      title:    title,
+      note:     r[4] || '',
+      place:    r[5] || '',
+      lat:      parseFloat(r[6]) || 0,
+      lng:      parseFloat(r[7]) || 0,
+      order:    i,                  // sheet 原始順序（沒填時間時用它排）
+      _rowIndex: i + 1,
+    });
+  }
+  return { schedule: out };
+}
+
 // ── 住宿地圖讀取（住宿 sheet 的 lat/lng 欄）────────────
 function readStayMap(sheet) {
   var rows = sheet.getDataRange().getDisplayValues();
@@ -313,6 +383,8 @@ function doGet(e) {
           result[key] = readCheckinSheet(sheet);
         } else if (key === 'task') {
           result[key] = readTaskSheet(sheet);
+        } else if (key === 'schedule') {
+          result[key] = readScheduleSheet(sheet);
         } else {
           result[key] = readSheet(sheet);
         }
@@ -352,6 +424,17 @@ function doGet(e) {
           .setMimeType(ContentService.MimeType.JSON);
       }
       return ContentService.createTextOutput(JSON.stringify(readCheckinSheet(checkinSheet)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 日程時間軸：?sheet=schedule
+    if (param === 'schedule') {
+      var schSheet = ss.getSheetByName(SHEET_NAMES.schedule);
+      if (!schSheet) {
+        return ContentService.createTextOutput(JSON.stringify({ schedule: [] }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify(readScheduleSheet(schSheet)))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -490,6 +573,22 @@ function doPost(e) {
       sheet.getRange(payload.rowIndex, 10).setValue(new Date().toISOString());
       clearCache();
       return ok('task toggled');
+    }
+
+    // ── 行前準備：修改項目（名稱／分類／重要度／說明／負責人）──
+    // B分類 C項目名稱 D重要度 E說明 F負責人
+    if (action === 'editTask') {
+      var sheet = ss.getSheetByName(SHEET_NAMES.task);
+      if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.task);
+      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      if (payload.category !== undefined) sheet.getRange(payload.rowIndex, 2).setValue(payload.category);
+      if (payload.name     !== undefined) sheet.getRange(payload.rowIndex, 3).setValue(payload.name);
+      if (payload.priority !== undefined) sheet.getRange(payload.rowIndex, 4).setValue(payload.priority);
+      if (payload.note     !== undefined) sheet.getRange(payload.rowIndex, 5).setValue(payload.note);
+      if (payload.owner    !== undefined) sheet.getRange(payload.rowIndex, 6).setValue(payload.owner);
+      sheet.getRange(payload.rowIndex, 10).setValue(new Date().toISOString());
+      clearCache();
+      return ok('task updated');
     }
 
     // ── 行前準備：新增項目 ────────────────────────────────

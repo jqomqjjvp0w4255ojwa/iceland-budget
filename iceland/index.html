@@ -166,9 +166,10 @@
 
     .prep-group{margin-bottom:4px;}
     .prep-item{
+      position:relative;
       display:flex;align-items:center;gap:10px;
       background:var(--card);border:1px solid var(--border);border-radius:8px;
-      padding:10px 12px;margin-bottom:7px;
+      padding:10px 26px 10px 12px;margin-bottom:7px;
       transition:opacity .25s,border-color .25s;
     }
     .prep-item.all-done{opacity:.55;border-color:rgba(78,195,121,.4);}
@@ -307,6 +308,58 @@
     .px-btn-cancel{flex:1;background:#c8d8a8;border:none;border-right:2px solid #2a4a1a;padding:12px;font-family:'Silkscreen',monospace;font-size:8px;color:#2a4a1a;cursor:pointer;}
     .px-btn-cancel:hover{background:#a8c888;}
     .px-btn-submit{flex:2;background:#2a4a1a;border:none;padding:12px;font-family:'Silkscreen',monospace;font-size:8px;color:#c8d8a8;cursor:pointer;letter-spacing:1px;}
+    .px-chip-row{display:flex;gap:6px;flex-wrap:wrap;}
+    .px-chip{background:#f8fce8;border:2px solid #2a4a1a;color:#2a4a1a;font-family:'Silkscreen',monospace;font-size:10px;padding:6px 12px;cursor:pointer;letter-spacing:.5px;}
+    .px-chip.on{background:#2a4a1a;color:#c8d8a8;}
+    .prep-more{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 8px;line-height:1;}
+
+    /* ══ 日程時間軸 ══ */
+    .sch-jumper{display:flex;align-items:center;gap:6px;margin:4px 0 8px;}
+    .sch-jump-arrow{flex-shrink:0;width:26px;height:26px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-size:14px;line-height:1;}
+    .sch-jump-arrow:active{background:var(--border);}
+    .sch-jump-scroll{flex:1;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding:2px 0;}
+    .sch-jump-scroll::-webkit-scrollbar{display:none;}
+    .sch-jump-day{flex-shrink:0;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;cursor:pointer;font-size:.7rem;font-family:'Lato',sans-serif;}
+    .sch-jump-day.today{border-color:var(--accent);color:var(--accent);font-weight:700;}
+
+    .sch-filters{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;}
+    .sch-filter{padding:3px 11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:999px;cursor:pointer;font-size:.68rem;font-family:'Lato',sans-serif;}
+    .sch-filter.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+    .sch-scroll{position:relative;max-height:60vh;overflow-y:auto;padding-right:2px;}
+    .sch-day{margin-bottom:14px;transition:opacity .25s;}
+    .sch-day.past{opacity:.42;}
+    .sch-day-head{display:flex;align-items:center;gap:7px;margin-bottom:6px;position:sticky;top:0;background:var(--card);padding:3px 0;z-index:2;}
+    .sch-day-date{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);}
+    .sch-day-week{font-size:.65rem;color:var(--muted);}
+    .sch-today-tag{font-size:.6rem;background:var(--accent);color:#fff;padding:1px 7px;border-radius:999px;}
+    .sch-day.today .sch-day-date{color:var(--accent);}
+
+    .sch-nodes{border-left:2px solid var(--border);margin-left:8px;padding-left:0;}
+    .sch-node{position:relative;display:flex;align-items:flex-start;gap:8px;padding:7px 8px 7px 0;margin-left:-9px;}
+    .sch-node.expandable{cursor:pointer;}
+    .sch-node-time{flex-shrink:0;width:42px;text-align:right;font-size:.63rem;color:var(--muted);padding-top:3px;}
+    .sch-node-dot{flex-shrink:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--card);border:1px solid var(--border);border-radius:50%;z-index:1;}
+    .sch-node.cat-住宿 .sch-node-dot{border-color:rgba(79,195,247,.6);}
+    .sch-node.cat-活動 .sch-node-dot{border-color:rgba(255,167,38,.6);}
+    .sch-node.cat-景點 .sch-node-dot{border-color:rgba(78,195,121,.6);}
+    .sch-node-body{flex:1;min-width:0;}
+    .sch-node-title{font-size:.8rem;color:var(--text);display:flex;align-items:center;gap:5px;}
+    .sch-node-place{font-size:.66rem;color:var(--muted);margin-top:2px;}
+    .sch-node-note{font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.7;white-space:pre-wrap;}
+    .sch-expand{font-size:.7rem;color:var(--muted);transition:transform .2s;}
+    .sch-node.open .sch-expand{transform:rotate(180deg);}
+    .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 7px;cursor:pointer;font-size:.7rem;}
+
+    .sch-stay-detail{margin-top:7px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;}
+    .sch-kv{display:flex;gap:8px;font-size:.68rem;padding:3px 0;line-height:1.6;}
+    .sch-kv span{flex:0 0 34px;color:var(--muted);}
+    .sch-kv div{flex:1;color:var(--text);word-break:break-word;}
+
+    .sch-back-today{position:sticky;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:5px;background:var(--accent);color:#fff;border:none;border-radius:999px;padding:6px 16px;cursor:pointer;font-size:.7rem;font-family:'Lato',sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.4);z-index:5;width:max-content;}
+    .sch-back-today.at-bottom{bottom:10px;margin-top:-34px;}
+    .sch-back-today.at-top{top:10px;margin-bottom:-34px;}
+    .prep-more:active{color:var(--text);}
     .px-btn-submit:hover{background:#3a6a2a;}
     .px-btn-submit:disabled{background:#888;cursor:not-allowed;}
     .px-divider{border:none;border-top:1px solid #2a4a1a;margin:10px 0;}
@@ -672,6 +725,42 @@
             <div class="px-repay-picker-list" id="pxRepayToList"></div>
           </div>
         </div>
+
+<!-- 行前準備：新增項目彈窗 -->
+<div class="px-modal-overlay" id="pxModalPrep" onclick="closePxModalOutside(event,'pxModalPrep')">
+  <div class="px-modal-box">
+    <div class="px-modal-header">
+      <span id="pxModalPrepTitle">▶ 新增準備項目</span>
+      <button onclick="cancelPxModal('pxModalPrep')">✕ 取消</button>
+    </div>
+    <div class="px-form">
+      <div class="px-field">
+        <label class="px-label">▸ 項目名稱 *</label>
+        <input class="px-input" type="text" id="prepName" placeholder="例如：換冰島克朗" style="font-size:16px;" autocomplete="off" oninput="pxCheckPrepSubmit()">
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 分類</label>
+        <div class="px-chip-row" id="prepCatBtns"></div>
+      </div>
+      <div class="px-field" id="prepOwnerField" style="display:none;">
+        <label class="px-label">▸ 負責人（誰帶？可不選）</label>
+        <div class="px-chip-row" id="prepOwnerBtns"></div>
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 重要度</label>
+        <div class="px-chip-row" id="prepPriorityBtns"></div>
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 說明（可不填）</label>
+        <input class="px-input" type="text" id="prepNote" placeholder="補充備註…" style="font-size:16px;" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:8px;padding:4px 0 8px;">
+        <button id="pxBtnPrepDelete" onclick="deletePrepModal()" style="display:none;background:#5a1a1a;border:none;padding:12px 14px;font-family:'Silkscreen',monospace;font-size:8px;color:#e8c8c8;cursor:pointer;letter-spacing:1px;">🗑 刪除</button>
+        <button class="px-btn-submit" id="pxBtnPrep" onclick="submitPrepModal()" disabled style="flex:1;">[ 加入清單 ]</button>
+      </div>
+    </div>
+  </div>
+</div>
       </div>
       <div class="px-field">
         <label class="px-label">▸ 金額（NT$）*</label>
