@@ -690,6 +690,42 @@ function buildScheduleDays(d) {
     });
   });
 
+  // 航班 → 自動變成航段節點（三人相同航段合併成一筆，不同的標註是誰的）
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const segMap = new Map();
+  (d.flights || []).forEach(f => {
+    (f.segments || []).forEach(seg => {
+      // depTime 格式「2026/9/14 7:00」
+      const dm = String(seg.depTime || '').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+      if (!dm) return;
+      const tm = String(seg.depTime || '').match(/(\d{1,2}:\d{2})/);
+      const am = String(seg.arrTime || '').match(/(\d{1,2}:\d{2})/);
+      const key = `${seg.flightNo || ''}|${seg.depTime}`;
+      if (!segMap.has(key)) {
+        segMap.set(key, {
+          date: `${+dm[2]}/${+dm[3]}`,
+          time: tm ? tm[1] : '',
+          category: '其他',
+          _flight: true,
+          title: `${seg.from} → ${seg.to}`,
+          place: [seg.flightNo, seg.operatedBy || seg.airline].filter(Boolean).join(' · '),
+          note: am ? `抵達 ${am[1]}${seg.flightTime ? `（飛 ${seg.flightTime}）` : ''}` : '',
+          lat: 0, lng: 0, order: 0,
+          _d: new Date(+dm[1], +dm[2] - 1, +dm[3]),
+          _who: new Set(),
+        });
+      }
+      segMap.get(key)._who.add(f.person);
+    });
+  });
+  segMap.forEach(node => {
+    // 不是全員同班機才標名字（例如寧的回程不同路線）
+    if (node._who.size && node._who.size < members.length) {
+      node.title += `（${[...node._who].join('、')}）`;
+    }
+    items.push(node);
+  });
+
   // 依日期分組
   const byDate = new Map();
   items.filter(x => x._d).forEach(x => {
@@ -824,7 +860,7 @@ function renderSchNode(x, d) {
 
   // 住宿：沿用帳簿住宿卡的類型判斷（sheet 有填類型就優先用）
   const pt = isStay ? placeTypeIcon(stay?.stayType || x.title || '') : null;
-  const icon = isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
+  const icon = x._flight ? '✈️' : isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
 
   const navBtn = (x.lat && x.lng)
     ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
