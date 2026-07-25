@@ -35,6 +35,7 @@ function queuePayload(payload) {
   const queue = getPendingQueue();
   queue.push(payload);
   setPendingQueue(queue);
+  setTimeout(() => scheduleQueueRetry(), 0);
   return queue.length;
 }
 window.getPendingCount = () => getPendingQueue().length;
@@ -114,12 +115,28 @@ window.__flushPendingQueue = async function() {
     return true;
   } catch (e) {
     setPendingQueue(queue);   // 保住重試次數
-    setSyncState?.('local', `⚠ 還有 ${getPendingQueue().length} 筆未上傳，點同步鈕重試`);
+    // 把真正的錯誤秀出來，否則只看到「未上傳」根本不知道卡在哪
+    window.__lastSyncError = String(e?.message || e);
+    console.error('待同步佇列送出失敗', e);
+    setSyncState?.('local',
+      `⚠ 還有 ${getPendingQueue().length} 筆未上傳：${window.__lastSyncError.slice(0, 60)}`);
     return false;
   } finally {
     _flushing = false;
+    scheduleQueueRetry();
   }
 };
+
+// 佇列還有東西就每 60 秒自動重試一次，不必等使用者手動按同步
+let _retryTimer = null;
+function scheduleQueueRetry() {
+  clearTimeout(_retryTimer);
+  if (!getPendingQueue().length) return;
+  _retryTimer = setTimeout(() => {
+    if (navigator.onLine) window.__flushPendingQueue?.();
+  }, 60000);
+}
+window.addEventListener('load', scheduleQueueRetry);
 
 
 function optimisticDelete(type, rowIndex) {
