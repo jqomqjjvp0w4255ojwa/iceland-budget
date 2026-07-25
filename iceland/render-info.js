@@ -799,11 +799,15 @@ function renderSchDay(day, today, d, dayNum) {
   return `
     <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}" data-key="${esc(day.key)}">
       <div class="sch-day-head">
-        <div class="sch-day-title">
-          <span class="sch-day-num">第 ${dayNum} 天</span>
-          ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
+        <span class="sch-day-line"></span>
+        <div class="sch-day-badge">
+          <div class="sch-day-title">
+            <span class="sch-day-num">第 ${dayNum} 天</span>
+            ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
+          </div>
+          <div class="sch-day-sub">${esc(day.key)}（${schWeekday(day.d)}）</div>
         </div>
-        <div class="sch-day-sub">${esc(day.key)}（${schWeekday(day.d)}）</div>
+        <span class="sch-day-line"></span>
       </div>
       <div class="sch-nodes">
         ${shown.map(x => renderSchNode(x, d)).join('')}
