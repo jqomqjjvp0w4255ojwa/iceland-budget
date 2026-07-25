@@ -417,20 +417,82 @@ function renderPrep(tasks) {
   return progress + groups + otherHtml + addBtn;
 }
 
-// ── 新增項目（直接寫回 sheet）
+// ── 新增項目：彈窗（同記帳表單風格），直接寫回 sheet
+const PREP_CAT_OPTS = [
+  { key:'待辦', label:'📋 待辦' },
+  { key:'行李', label:'🎒 行李' },
+  { key:'共用', label:'🤝 共用' },
+];
+let _prepCat = '待辦';
+let _prepOwner = '';
+let _prepPriority = 3;
+
 window.openAddPrep = function() {
-  const name = prompt('項目名稱？（例如：換冰島克朗）');
-  if (!name || !name.trim()) return;
-  const catInput = prompt('分類？輸入 1=待辦　2=行李　3=共用', '1');
-  const category = { '1':'待辦', '2':'行李', '3':'共用' }[String(catInput || '1').trim()] || '待辦';
-  let owner = '';
-  if (category === '共用') owner = (prompt('由誰負責帶？（可留空）') || '').trim();
-  const priority = parseInt(prompt('重要度 1–5？', '3'), 10) || 3;
-  const note = (prompt('說明？（可留空）') || '').trim();
+  _prepCat = '待辦';
+  _prepOwner = '';
+  _prepPriority = 3;
+  document.getElementById('prepName').value = '';
+  document.getElementById('prepNote').value = '';
+  renderPrepCatBtns();
+  renderPrepOwnerBtns();
+  renderPrepPriorityBtns();
+  pxCheckPrepSubmit();
+  document.getElementById('pxModalPrep').classList.add('show');
+  window.lockBody?.();
+  setTimeout(() => document.getElementById('prepName')?.focus(), 100);
+};
+
+function renderPrepCatBtns() {
+  const el = document.getElementById('prepCatBtns');
+  el.innerHTML = PREP_CAT_OPTS.map(c =>
+    `<button type="button" class="px-chip${_prepCat===c.key?' on':''}" onclick="selectPrepCat('${c.key}')">${c.label}</button>`
+  ).join('');
+  document.getElementById('prepOwnerField').style.display = _prepCat === '共用' ? '' : 'none';
+}
+window.selectPrepCat = function(key) {
+  _prepCat = key;
+  if (key !== '共用') _prepOwner = '';
+  renderPrepCatBtns();
+  renderPrepOwnerBtns();
+};
+
+function renderPrepOwnerBtns() {
+  const el = document.getElementById('prepOwnerBtns');
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  el.innerHTML = members.map(m =>
+    `<button type="button" class="px-chip${_prepOwner===m?' on':''}" onclick="selectPrepOwner('${esc(m)}')">${esc(m)}</button>`
+  ).join('');
+}
+window.selectPrepOwner = function(m) {
+  _prepOwner = _prepOwner === m ? '' : m;   // 再點一次取消選取
+  renderPrepOwnerBtns();
+};
+
+function renderPrepPriorityBtns() {
+  const el = document.getElementById('prepPriorityBtns');
+  el.innerHTML = [1,2,3,4,5].map(n =>
+    `<button type="button" class="px-chip${_prepPriority===n?' on':''}" onclick="selectPrepPriority(${n})">${'★'.repeat(n)}</button>`
+  ).join('');
+}
+window.selectPrepPriority = function(n) {
+  _prepPriority = n;
+  renderPrepPriorityBtns();
+};
+
+window.pxCheckPrepSubmit = function() {
+  const ready = document.getElementById('prepName').value.trim().length > 0;
+  document.getElementById('pxBtnPrep').disabled = !ready;
+};
+
+window.submitPrepModal = function() {
+  const name = document.getElementById('prepName').value.trim();
+  if (!name) return;
+  const note = document.getElementById('prepNote').value.trim();
+  const category = _prepCat, owner = _prepOwner, priority = _prepPriority;
 
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
   const task = {
-    id: 'tmp_' + Date.now(), category, name: name.trim(), priority, note, owner,
+    id: 'tmp_' + Date.now(), category, name, priority, note, owner,
     done: Object.fromEntries(members.map(m => [m, false])),
   };
   window.APP_DATA = window.APP_DATA || {};
@@ -439,11 +501,13 @@ window.openAddPrep = function() {
   const el = document.getElementById('prepContent');
   if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
 
+  window.cancelPxModal?.('pxModalPrep');
+
   const gasBase = window.TRIP_CONFIG?.apiBase || '';
   if (!gasBase) return;
   fetch(gasBase, {
     method: 'POST',
-    body: JSON.stringify({ action:'addTask', category, name:task.name, priority, note, owner }),
+    body: JSON.stringify({ action:'addTask', category, name, priority, note, owner }),
   })
     .then(r => r.json())
     .then(res => {
@@ -451,7 +515,8 @@ window.openAddPrep = function() {
       if (res?.ok && res.msg?.id) {
         task.id = res.msg.id;
         task._rowIndex = res.msg.rowIndex;
-        if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
+        const el2 = document.getElementById('prepContent');
+        if (el2) el2.innerHTML = renderPrep(window.APP_DATA.tasks);
       }
     })
     .catch(e => {
