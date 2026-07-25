@@ -833,6 +833,20 @@ function buildScheduleDays(d) {
     String(a.date || '').split(/[\s,、]+/).filter(Boolean).forEach(one => {
       const dd = schDate(one, year);
       if (!dd) return;
+      // 日程表已經手動排了同一天的同一間 → 不再自動加一筆，改成把住宿表的
+      // 資料掛到手動那列上（保留你自己填的時間／備註，卡片一樣點得開）
+      const manual = items.find(x =>
+        x.category === '住宿' && x._d && schIsSameDay(x._d, dd) && x._stayIndex == null &&
+        String(x.title || '').trim() && (
+          String(a.name || '').includes(String(x.title).trim()) ||
+          String(x.title).trim().includes(String(a.name || '').trim())
+        ));
+      if (manual) {
+        manual._stayIndex = ai;
+        if (!manual.lat) { manual.lat = a.lat; manual.lng = a.lng; }
+        if (!manual.place) manual.place = a.address || '';
+        return;
+      }
       items.push({
         date: one, time: '', category: '住宿',
         title: a.name, note: '', place: a.address || '',
