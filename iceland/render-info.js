@@ -353,6 +353,7 @@ function renderPrepItem(task) {
       ${isShared && task.owner ? `<div class="prep-owner">🎒 由 ${esc(task.owner)} 負責帶</div>` : ''}
     </div>
     <div class="prep-avatars">${avatars}</div>
+    <button type="button" class="prep-more" title="編輯／刪除" onclick="openEditPrep('${esc(task.id)}');event.stopPropagation();">⋮</button>
   </div>`;
 }
 
@@ -426,13 +427,18 @@ const PREP_CAT_OPTS = [
 let _prepCat = '待辦';
 let _prepOwner = '';
 let _prepPriority = 3;
+let _prepEditId = null;   // null＝新增模式，否則是正在編輯的 task.id
 
 window.openAddPrep = function() {
+  _prepEditId = null;
   _prepCat = '待辦';
   _prepOwner = '';
   _prepPriority = 3;
   document.getElementById('prepName').value = '';
   document.getElementById('prepNote').value = '';
+  document.getElementById('pxModalPrepTitle').textContent = '▶ 新增準備項目';
+  document.getElementById('pxBtnPrep').textContent = '[ 加入清單 ]';
+  document.getElementById('pxBtnPrepDelete').style.display = 'none';
   renderPrepCatBtns();
   renderPrepOwnerBtns();
   renderPrepPriorityBtns();
@@ -440,6 +446,26 @@ window.openAddPrep = function() {
   document.getElementById('pxModalPrep').classList.add('show');
   window.lockBody?.();
   setTimeout(() => document.getElementById('prepName')?.focus(), 100);
+};
+
+window.openEditPrep = function(taskId) {
+  const task = (window.APP_DATA?.tasks || []).find(t => t.id === taskId);
+  if (!task) return;
+  _prepEditId = taskId;
+  _prepCat = task.category || '待辦';
+  _prepOwner = task.owner || '';
+  _prepPriority = task.priority || 3;
+  document.getElementById('prepName').value = task.name || '';
+  document.getElementById('prepNote').value = task.note || '';
+  document.getElementById('pxModalPrepTitle').textContent = '▶ 編輯準備項目';
+  document.getElementById('pxBtnPrep').textContent = '[ 儲存修改 ]';
+  document.getElementById('pxBtnPrepDelete').style.display = '';
+  renderPrepCatBtns();
+  renderPrepOwnerBtns();
+  renderPrepPriorityBtns();
+  pxCheckPrepSubmit();
+  document.getElementById('pxModalPrep').classList.add('show');
+  window.lockBody?.();
 };
 
 function renderPrepCatBtns() {
@@ -489,21 +515,39 @@ window.submitPrepModal = function() {
   if (!name) return;
   const note = document.getElementById('prepNote').value.trim();
   const category = _prepCat, owner = _prepOwner, priority = _prepPriority;
+  const gasBase = window.TRIP_CONFIG?.apiBase || '';
+  window.APP_DATA = window.APP_DATA || {};
+  window.APP_DATA.tasks = window.APP_DATA.tasks || [];
+  const el = document.getElementById('prepContent');
 
+  // ── 編輯既有項目 ──
+  if (_prepEditId) {
+    const task = window.APP_DATA.tasks.find(t => t.id === _prepEditId);
+    if (!task) { window.cancelPxModal?.('pxModalPrep'); return; }
+    Object.assign(task, { category, name, priority, note, owner });
+    if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
+    window.cancelPxModal?.('pxModalPrep');
+    if (gasBase && task._rowIndex) {
+      fetch(gasBase, {
+        method: 'POST',
+        body: JSON.stringify({ action:'editTask', rowIndex:task._rowIndex, category, name, priority, note, owner }),
+      }).catch(e => {
+        console.warn('修改準備項目失敗', e);
+        window.setSyncState?.('local', '⚠ 修改項目同步失敗');
+      });
+    }
+    return;
+  }
+
+  // ── 新增項目 ──
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
   const task = {
     id: 'tmp_' + Date.now(), category, name, priority, note, owner,
     done: Object.fromEntries(members.map(m => [m, false])),
   };
-  window.APP_DATA = window.APP_DATA || {};
-  window.APP_DATA.tasks = window.APP_DATA.tasks || [];
   window.APP_DATA.tasks.push(task);
-  const el = document.getElementById('prepContent');
   if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
-
   window.cancelPxModal?.('pxModalPrep');
-
-  const gasBase = window.TRIP_CONFIG?.apiBase || '';
   if (!gasBase) return;
   fetch(gasBase, {
     method: 'POST',
@@ -523,6 +567,30 @@ window.submitPrepModal = function() {
       console.warn('新增準備項目失敗', e);
       window.setSyncState?.('local', '⚠ 新增項目同步失敗');
     });
+};
+
+window.deletePrepModal = function() {
+  if (!_prepEditId) return;
+  const tasks = window.APP_DATA?.tasks || [];
+  const idx = tasks.findIndex(t => t.id === _prepEditId);
+  if (idx < 0) return;
+  const task = tasks[idx];
+  if (!confirm(`刪除「${task.name}」？`)) return;
+  tasks.splice(idx, 1);
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(tasks);
+  window.cancelPxModal?.('pxModalPrep');
+
+  const gasBase = window.TRIP_CONFIG?.apiBase || '';
+  if (gasBase && task._rowIndex) {
+    fetch(gasBase, {
+      method: 'POST',
+      body: JSON.stringify({ action:'deleteTask', rowIndex:task._rowIndex }),
+    }).catch(e => {
+      console.warn('刪除準備項目失敗', e);
+      window.setSyncState?.('local', '⚠ 刪除項目同步失敗');
+    });
+  }
 };
 
 // 點小人 → 切換該成員的完成狀態（樂觀更新，背景同步）

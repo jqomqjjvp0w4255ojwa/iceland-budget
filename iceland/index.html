@@ -166,9 +166,10 @@
 
     .prep-group{margin-bottom:4px;}
     .prep-item{
+      position:relative;
       display:flex;align-items:center;gap:10px;
       background:var(--card);border:1px solid var(--border);border-radius:8px;
-      padding:10px 12px;margin-bottom:7px;
+      padding:10px 26px 10px 12px;margin-bottom:7px;
       transition:opacity .25s,border-color .25s;
     }
     .prep-item.all-done{opacity:.55;border-color:rgba(78,195,121,.4);}
@@ -310,6 +311,8 @@
     .px-chip-row{display:flex;gap:6px;flex-wrap:wrap;}
     .px-chip{background:#f8fce8;border:2px solid #2a4a1a;color:#2a4a1a;font-family:'Silkscreen',monospace;font-size:10px;padding:6px 12px;cursor:pointer;letter-spacing:.5px;}
     .px-chip.on{background:#2a4a1a;color:#c8d8a8;}
+    .prep-more{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 8px;line-height:1;}
+    .prep-more:active{color:var(--text);}
     .px-btn-submit:hover{background:#3a6a2a;}
     .px-btn-submit:disabled{background:#888;cursor:not-allowed;}
     .px-divider{border:none;border-top:1px solid #2a4a1a;margin:10px 0;}
@@ -680,7 +683,7 @@
 <div class="px-modal-overlay" id="pxModalPrep" onclick="closePxModalOutside(event,'pxModalPrep')">
   <div class="px-modal-box">
     <div class="px-modal-header">
-      <span>▶ 新增準備項目</span>
+      <span id="pxModalPrepTitle">▶ 新增準備項目</span>
       <button onclick="cancelPxModal('pxModalPrep')">✕ 取消</button>
     </div>
     <div class="px-form">
@@ -705,6 +708,7 @@
         <input class="px-input" type="text" id="prepNote" placeholder="補充備註…" style="font-size:16px;" autocomplete="off">
       </div>
       <div style="display:flex;gap:8px;padding:4px 0 8px;">
+        <button id="pxBtnPrepDelete" onclick="deletePrepModal()" style="display:none;background:#5a1a1a;border:none;padding:12px 14px;font-family:'Silkscreen',monospace;font-size:8px;color:#e8c8c8;cursor:pointer;letter-spacing:1px;">🗑 刪除</button>
         <button class="px-btn-submit" id="pxBtnPrep" onclick="submitPrepModal()" disabled style="flex:1;">[ 加入清單 ]</button>
       </div>
     </div>

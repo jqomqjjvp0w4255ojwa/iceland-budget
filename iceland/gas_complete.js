@@ -492,6 +492,22 @@ function doPost(e) {
       return ok('task toggled');
     }
 
+    // ── 行前準備：修改項目（名稱／分類／重要度／說明／負責人）──
+    // B分類 C項目名稱 D重要度 E說明 F負責人
+    if (action === 'editTask') {
+      var sheet = ss.getSheetByName(SHEET_NAMES.task);
+      if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.task);
+      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      if (payload.category !== undefined) sheet.getRange(payload.rowIndex, 2).setValue(payload.category);
+      if (payload.name     !== undefined) sheet.getRange(payload.rowIndex, 3).setValue(payload.name);
+      if (payload.priority !== undefined) sheet.getRange(payload.rowIndex, 4).setValue(payload.priority);
+      if (payload.note     !== undefined) sheet.getRange(payload.rowIndex, 5).setValue(payload.note);
+      if (payload.owner    !== undefined) sheet.getRange(payload.rowIndex, 6).setValue(payload.owner);
+      sheet.getRange(payload.rowIndex, 10).setValue(new Date().toISOString());
+      clearCache();
+      return ok('task updated');
+    }
+
     // ── 行前準備：新增項目 ────────────────────────────────
     if (action === 'addTask') {
       var sheet = ss.getSheetByName(SHEET_NAMES.task);
