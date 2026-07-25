@@ -796,9 +796,10 @@ const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '其他':
 // 標題開頭若是時長（2h／2小時／40min／1.5h）就拆出來，其餘當方向文字
 function schSplitDuration(title) {
   const t = String(title || '').trim();
-  const m = t.match(/^(\d+(?:\.\d+)?\s*(?:h|hr|hrs|小時|時|min|mins|分鐘|分)|\d+\s*[:：]\s*\d+)\s*(.*)$/i);
+  // 允許兩段（2h 30min／1小時30分），否則「30min」會被當成方向文字甩到右邊
+  const m = t.match(/^((?:\d+(?:\.\d+)?\s*(?:h|hr|hrs|小時|時|min|mins|分鐘|分)\s*){1,2}|\d+\s*[:：]\s*\d+)\s*(.*)$/i);
   if (!m) return { dur: '', text: t };
-  return { dur: m[1].replace(/\s+/g, ''), text: m[2].trim() };
+  return { dur: m[1].trim().replace(/\s+/g, ''), text: m[2].trim() };
 }
 let _schFilter = 'all';
 let _schActiveKey = null;   // 日期跳轉列目前選中的那天
@@ -1155,10 +1156,12 @@ function renderSchNode(x, d, sameTime) {
         <div class="sch-node-dot ring"></div>
         ${time}
         <div class="sch-node-body">
-          <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${
-            x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
-          ${x.note ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
-          ${navBtn ? `<div class="sch-node-actions">${navBtn}</div>` : ''}
+          <div class="sch-plain-text">
+            <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${
+              x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
+            ${x.note ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
+          </div>
+          ${navBtn}
         </div>
       </div>`;
   }

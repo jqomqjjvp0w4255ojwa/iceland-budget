@@ -475,10 +475,13 @@
     .sch-node-actions{display:flex;margin-top:6px;}
 
     /* 點不開的節點：不做卡片，一行字＋空心圓點 */
+    /* 文字自成一群靠左，導航鈕靠右對齊，不要卡在文字下面變成散落的碎片 */
     .sch-node.plain .sch-node-body{
       background:transparent;border:none;border-left:none;
       padding:6px 0 6px 4px;
+      display:flex;align-items:center;gap:10px;
     }
+    .sch-plain-text{flex:1;min-width:0;}
     .sch-node-dot.ring{
       width:11px;height:11px;background:var(--card);
       border:2px solid var(--border);margin-top:9px;margin-left:2px;
