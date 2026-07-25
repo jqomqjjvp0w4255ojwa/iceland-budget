@@ -305,7 +305,7 @@ function renderInfo(d) {
       <div id="scheduleContent">${renderSchedule(d)}</div>
     </div>
     <div id="infoTab-insurance" class="section">
-      <div class="empty">🛡 保險資訊填入後顯示</div>
+      ${renderInsurance(d.insurance)}
     </div>
 
   `;
@@ -894,7 +894,7 @@ function renderSchNode(x, d) {
   const icon = x._flight ? '✈️' : isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
 
   const navBtn = (x.lat && x.lng)
-    ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
+    ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤ 導航</button>`
     : '';
 
   // 住宿：一眼標籤列（詳情進彈窗）
@@ -910,6 +910,7 @@ function renderSchNode(x, d) {
         <span class="tag tag-person">${esc(pt.label)}</span>
         ${payTag}
         ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
+        ${navBtn}
       </div>`;
   }
 
@@ -925,8 +926,8 @@ function renderSchNode(x, d) {
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
         ${stayTags}
+        ${!stay && navBtn ? `<div class="sch-node-actions">${navBtn}</div>` : ''}
       </div>
-      ${navBtn}
     </div>`;
 }
 
@@ -1107,6 +1108,49 @@ function schBindScroll() {
   if (todayEl) scroller.scrollTop = schRelTop(todayEl, scroller) - 4;
 }
 window.schBindScroll = schBindScroll;
+
+// ══════════════════════════════════════════════════════════
+//  保險：依 公司＋方案 分組成卡片，一列＝一個理賠項目
+// ══════════════════════════════════════════════════════════
+function renderInsurance(items) {
+  items = items || [];
+  if (!items.length) {
+    return `<div class="empty">🛡 在「保險」表填入後顯示<br>
+      <span style="font-size:.7rem;color:var(--muted)">欄位：保險公司／方案／理賠項目／理賠金額／理賠方法／備註</span></div>`;
+  }
+  // 沿用上一列的公司/方案（同一張保單多列時可留空）
+  let lastCompany = '', lastPlan = '';
+  const filled = items.map(x => {
+    if (x.company) lastCompany = x.company; 
+    if (x.plan) lastPlan = x.plan;
+    return { ...x, company: x.company || lastCompany, plan: x.plan || lastPlan };
+  });
+  const groups = new Map();
+  filled.forEach(x => {
+    const key = `${x.company}｜${x.plan}`;
+    if (!groups.has(key)) groups.set(key, { company: x.company, plan: x.plan, rows: [] });
+    groups.get(key).rows.push(x);
+  });
+
+  return [...groups.values()].map(g => `
+    <div class="car-card" style="margin-bottom:12px;">
+      <div class="car-header">
+        <div class="car-title">🛡 ${esc(g.company)}</div>
+        ${g.plan ? `<div class="car-model">${esc(g.plan)}</div>` : ''}
+      </div>
+      <div style="padding:4px 16px 12px;">
+        ${g.rows.map(r => `
+          <div style="padding:9px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span style="flex:1;font-size:.82rem;color:var(--text);">${esc(r.item)}</span>
+              ${r.amount ? `<span style="font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);white-space:nowrap;">${esc(r.amount)}</span>` : ''}
+            </div>
+            ${r.method ? `<div style="font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.7;">📋 ${esc(r.method)}</div>` : ''}
+            ${r.note ? `<div style="font-size:.66rem;color:var(--muted);margin-top:2px;">📌 ${esc(r.note)}</div>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
 
 function renderCarDetail(car) {
   return `
