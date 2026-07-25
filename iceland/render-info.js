@@ -1064,12 +1064,13 @@ function renderSchDay(day, today, d, dayNum) {
         <span class="sch-day-line"></span>
       </div>
       <div class="sch-nodes">
-        ${shown.map(x => renderSchNode(x, d)).join('')}
+        ${shown.map((x, i) => renderSchNode(x, d, i > 0 && x.time && x.time === shown[i - 1].time)).join('')}
       </div>
     </div>`;
 }
 
-function renderSchNode(x, d) {
+// sameTime＝跟上一個節點同一個時間（例如整批市區漫遊），時間就不重複印
+function renderSchNode(x, d, sameTime) {
   // 交通：不是節點而是節點之間的區間
   if (x.category === '交通') {
     const { dur, text } = schSplitDuration(x.title);
@@ -1119,7 +1120,7 @@ function renderSchNode(x, d) {
   const clickable = stay ? `onclick="openSchStay(${x._stayIndex})"`
                   : act  ? `onclick="openSchAct(${actIndex})"` : '';
 
-  const time = `<div class="sch-node-time">${esc(x.time || '')}</div>`;
+  const time = `<div class="sch-node-time">${sameTime ? '' : esc(x.time || '')}</div>`;
   const cls = `cat-${esc(x.category)}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}`;
 
   // 點不開的節點不做卡片：空心圓點＋一行字（景點放大、車程等縮成一行）
