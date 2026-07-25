@@ -293,7 +293,7 @@ function renderInfo(d) {
       <button class="tab" onclick="showInfoTab('insurance',this)">🛡 保險</button>
     </div>
     <div id="infoTab-prep" class="section active">
-      <div class="empty">🧳 行前準備清單（建置中）</div>
+      <div id="prepContent">${renderPrep(d.tasks)}</div>
     </div>
     <div id="infoTab-flight" class="section">
       ${renderInfoFlights(d.flights)}
@@ -310,6 +310,198 @@ function renderInfo(d) {
 
   `;
 }
+
+// ══════════════════════════════════════════════════════════
+//  行前準備清單：勾選＝該成員的像素小人亮起來站上去
+// ══════════════════════════════════════════════════════════
+const PREP_CATS = [
+  { key:'待辦', icon:'📋', label:'出發前待辦' },
+  { key:'行李', icon:'🎒', label:'行李打包' },
+  { key:'共用', icon:'🤝', label:'共用裝備分工' },
+];
+
+// 一個成員的小人：未完成灰階半透明，完成後彩色站好
+function prepAvatar(task, member, dim) {
+  const done = !!task.done?.[member];
+  const disabled = dim && !done;      // 共用裝備：非負責人不需要勾
+  const title = disabled
+    ? `${member}（由 ${task.owner} 負責）`
+    : `${member}${done ? '：已準備好' : '：還沒'}`;
+  return `<button class="prep-avatar${done ? ' done' : ''}${disabled ? ' dim' : ''}"
+    title="${esc(title)}"
+    onclick="togglePrep('${esc(task.id)}','${esc(member)}',this);event.stopPropagation();">
+    ${avatarSvg(member)}
+  </button>`;
+}
+
+function renderPrepItem(task) {
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const isShared = task.category === '共用';
+  // 共用裝備：有指定負責人時，其他人的小人淡出（仍可點，只是視覺提示）
+  const avatars = members.map(m => prepAvatar(task, m, isShared && task.owner && task.owner !== m)).join('');
+  const doneCount = members.filter(m => task.done?.[m]).length;
+  const allDone = isShared
+    ? (task.owner ? !!task.done?.[task.owner] : doneCount > 0)
+    : doneCount === members.length;
+  const stars = task.priority > 0
+    ? `<span class="prep-stars" title="重要度 ${task.priority}">${'★'.repeat(Math.min(5, task.priority))}</span>` : '';
+
+  return `<div class="prep-item${allDone ? ' all-done' : ''}" data-id="${esc(task.id)}">
+    <div class="prep-main">
+      <div class="prep-name">${esc(task.name)}${stars}</div>
+      ${task.note ? `<div class="prep-note">${esc(task.note)}</div>` : ''}
+      ${isShared && task.owner ? `<div class="prep-owner">🎒 由 ${esc(task.owner)} 負責帶</div>` : ''}
+    </div>
+    <div class="prep-avatars">${avatars}</div>
+  </div>`;
+}
+
+// 每人各自的準備進度（共用裝備只算負責人那份）
+function renderPrepProgress(tasks) {
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const perMember = members.map(m => {
+    const mine = (tasks || []).filter(t => t.category !== '共用' || !t.owner || t.owner === m);
+    const done = mine.filter(t => t.done?.[m]).length;
+    return { m, done, total: mine.length, pct: mine.length ? Math.round(done / mine.length * 100) : 0 };
+  });
+  return `<div class="prep-progress" id="prepProgress">
+    ${perMember.map(p => `
+      <div class="prep-progress-item">
+        <div class="prep-progress-avatar${p.pct === 100 ? ' done' : ''}">${avatarSvg(p.m)}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="prep-progress-label"><span>${esc(p.m)}</span><span>${p.done}/${p.total}</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${p.pct}%"></div></div>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderPrep(tasks) {
+  tasks = tasks || [];
+  if (!tasks.length) {
+    return `<div class="empty">🧳 在「寫入_任務」表填入項目後顯示<br>
+      <span style="font-size:.7rem;color:var(--muted)">分類填 待辦／行李／共用</span></div>`;
+  }
+  const progress = renderPrepProgress(tasks);
+
+  const groups = PREP_CATS.map(cat => {
+    const list = tasks.filter(t => (t.category || '待辦') === cat.key)
+      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    if (!list.length) return '';
+    return `
+      <div class="prep-group">
+        <div class="section-title">${cat.icon} ${cat.label}
+          <span style="font-size:.65rem;color:var(--muted);font-weight:400;">（${list.length}）</span>
+        </div>
+        ${list.map(renderPrepItem).join('')}
+      </div>`;
+  }).join('');
+
+  // 沒被分類到的（分類欄填了別的字）
+  const known = PREP_CATS.map(c => c.key);
+  const others = tasks.filter(t => !known.includes(t.category || '待辦'));
+  const otherHtml = others.length ? `
+    <div class="prep-group">
+      <div class="section-title">📌 其他<span style="font-size:.65rem;color:var(--muted);font-weight:400;">（${others.length}）</span></div>
+      ${others.map(renderPrepItem).join('')}
+    </div>` : '';
+
+  const addBtn = `
+    <div style="text-align:center;margin-top:14px;">
+      <button onclick="openAddPrep()" style="
+        padding:8px 18px;border:1.5px dashed var(--border);background:transparent;
+        color:var(--muted);border-radius:8px;cursor:pointer;font-size:.72rem;
+        font-family:'Lato',sans-serif;">＋ 新增準備項目</button>
+    </div>`;
+
+  return progress + groups + otherHtml + addBtn;
+}
+
+// ── 新增項目（直接寫回 sheet）
+window.openAddPrep = function() {
+  const name = prompt('項目名稱？（例如：換冰島克朗）');
+  if (!name || !name.trim()) return;
+  const catInput = prompt('分類？輸入 1=待辦　2=行李　3=共用', '1');
+  const category = { '1':'待辦', '2':'行李', '3':'共用' }[String(catInput || '1').trim()] || '待辦';
+  let owner = '';
+  if (category === '共用') owner = (prompt('由誰負責帶？（可留空）') || '').trim();
+  const priority = parseInt(prompt('重要度 1–5？', '3'), 10) || 3;
+  const note = (prompt('說明？（可留空）') || '').trim();
+
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const task = {
+    id: 'tmp_' + Date.now(), category, name: name.trim(), priority, note, owner,
+    done: Object.fromEntries(members.map(m => [m, false])),
+  };
+  window.APP_DATA = window.APP_DATA || {};
+  window.APP_DATA.tasks = window.APP_DATA.tasks || [];
+  window.APP_DATA.tasks.push(task);
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
+
+  const gasBase = window.TRIP_CONFIG?.apiBase || '';
+  if (!gasBase) return;
+  fetch(gasBase, {
+    method: 'POST',
+    body: JSON.stringify({ action:'addTask', category, name:task.name, priority, note, owner }),
+  })
+    .then(r => r.json())
+    .then(res => {
+      // 換成 sheet 給的正式 ID 與行號，之後才勾得動
+      if (res?.ok && res.msg?.id) {
+        task.id = res.msg.id;
+        task._rowIndex = res.msg.rowIndex;
+        if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
+      }
+    })
+    .catch(e => {
+      console.warn('新增準備項目失敗', e);
+      window.setSyncState?.('local', '⚠ 新增項目同步失敗');
+    });
+};
+
+// 點小人 → 切換該成員的完成狀態（樂觀更新，背景同步）
+window.togglePrep = function(taskId, member, btn) {
+  const task = (window.APP_DATA?.tasks || []).find(t => t.id === taskId);
+  if (!task) return;
+  task.done = task.done || {};
+  const next = !task.done[member];
+  task.done[member] = next;
+
+  // 立即反應：小人亮起／暗下
+  btn.classList.toggle('done', next);
+  btn.classList.add('pop');
+  setTimeout(() => btn.classList.remove('pop'), 260);
+
+  // 整列狀態（全員完成時整列淡化）
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const row = btn.closest('.prep-item');
+  if (row) {
+    const isShared = task.category === '共用';
+    const allDone = isShared
+      ? (task.owner ? !!task.done[task.owner] : members.some(m => task.done[m]))
+      : members.every(m => task.done[m]);
+    row.classList.toggle('all-done', allDone);
+  }
+
+  // 背景同步 GAS（失敗就回捲）
+  const gasBase = window.TRIP_CONFIG?.apiBase || '';
+  if (gasBase && task._rowIndex) {
+    fetch(gasBase, {
+      method: 'POST',
+      body: JSON.stringify({ action:'toggleTask', rowIndex:task._rowIndex, who:member, done:next }),
+    }).catch(e => {
+      console.warn('準備狀態同步失敗', e);
+      task.done[member] = !next;
+      btn.classList.toggle('done', !next);
+      window.setSyncState?.('local', '⚠ 準備清單同步失敗');
+    });
+  }
+
+  // 更新上方進度條
+  const bars = document.getElementById('prepProgress');
+  if (bars) bars.outerHTML = renderPrepProgress(window.APP_DATA?.tasks || []);
+};
 
 function renderCarDetail(car) {
   return `

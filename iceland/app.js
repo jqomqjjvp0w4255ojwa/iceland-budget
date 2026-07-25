@@ -3,7 +3,7 @@
     "https://script.google.com/macros/s/AKfycbxv7Z69Jer0CL03X51DkmAbflI8D8kFDKVKngxBehU2_IDW8R-TftT0kdzs4u4QIf7r/exec";
   const CACHE_KEY = (window.TRIP_CONFIG && window.TRIP_CONFIG.cacheKey) || 'cached_iceland_budget';
   window._GAS_BASE = API_BASE;
-  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
+  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷", task: "寫入_任務" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
@@ -41,7 +41,7 @@
     return fallback;
   }
 
-  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense }) {
+  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task }) {
 
     const oCells = overview?.cells ?? [];
     const iskRow = oCells.find(r => r.includes('ISK')) || [];
@@ -255,6 +255,22 @@
     });
 
     const flights = Object.values(flightByTicket);
+    // ── 行前準備清單（GAS 回傳已是物件陣列）
+    const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+    let tasks = Array.isArray(task?.tasks) ? task.tasks : [];
+    if (!tasks.length && task?.cells) {
+      // 相容：GAS 還沒更新時，用通用轉換讀
+      tasks = cellsToRows(task, true)
+        .filter(row => String(row['項目名稱'] ?? '').trim() !== '')
+        .map(row => ({
+          id: row['項目ID'] || '', category: row['分類'] || '待辦',
+          name: row['項目名稱'], priority: num(row['重要度']),
+          note: row['說明'] || '', owner: row['負責人'] || '',
+          done: Object.fromEntries(members.map(m => [m, yes(row[m + '狀態'])])),
+          updated: row['最後更新'] || '', _rowIndex: row._rowIndex,
+        }));
+    }
+
     const totalFlightTWD = flights.reduce((s, f) => s + (f.totalTWD || 0), 0);
     const tagLibrary = (expense?.tagLibrary || []).filter(Boolean);
 
@@ -264,6 +280,7 @@
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
       activity: activityData,
       expenses, split: splitData, dialogLines, flights, totalFlightTWD, repayHistory,
+      tasks,
     };
   }
 
@@ -317,9 +334,9 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const all = await res.json();
       if (all.error) throw new Error(all.error);
-      const { overview, accommodation, car, activity, split, lines, flight, expense } = all;
+      const { overview, accommodation, car, activity, split, lines, flight, expense, task } = all;
 
-      const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
+      const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task });
       window.APP_DATA = newData;
       localStorage.setItem(CACHE_KEY, JSON.stringify(window.APP_DATA));
       window.renderAll?.();
