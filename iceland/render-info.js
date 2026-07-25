@@ -753,7 +753,7 @@ function renderSchedule(d) {
         onclick="setSchFilter('${c.key}')">${c.label}</button>`).join('')}
     </div>`;
 
-  const body = days.map(day => renderSchDay(day, today, d)).join('');
+  const body = days.map((day, i) => renderSchDay(day, today, d, i + 1)).join('');
 
   return jumper + filters + `
     <div class="sch-scroll" id="schScroll">${body}</div>
@@ -762,7 +762,7 @@ function renderSchedule(d) {
     </button>`;
 }
 
-function renderSchDay(day, today, d) {
+function renderSchDay(day, today, d, dayNum) {
   const isToday = schIsSameDay(day.d, today);
   const isPast  = !isToday && day.d < today;
   const shown = day.items.filter(x => _schFilter === 'all' || x.category === _schFilter);
@@ -771,9 +771,11 @@ function renderSchDay(day, today, d) {
   return `
     <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}" data-key="${esc(day.key)}">
       <div class="sch-day-head">
-        <span class="sch-day-date">${esc(day.key)}</span>
-        <span class="sch-day-week">${schWeekday(day.d)}</span>
-        ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
+        <div class="sch-day-title">
+          <span class="sch-day-num">第 ${dayNum} 天</span>
+          ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
+        </div>
+        <div class="sch-day-sub">${esc(day.key)}（${schWeekday(day.d)}）</div>
       </div>
       <div class="sch-nodes">
         ${shown.map(x => renderSchNode(x, d)).join('')}

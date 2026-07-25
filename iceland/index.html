@@ -329,11 +329,12 @@
     .sch-scroll{position:relative;max-height:60vh;overflow-y:auto;padding-right:2px;}
     .sch-day{margin-bottom:14px;transition:opacity .25s;}
     .sch-day.past{opacity:.42;}
-    .sch-day-head{display:flex;align-items:center;gap:7px;margin-bottom:6px;position:sticky;top:0;background:var(--card);padding:3px 0;z-index:2;}
-    .sch-day-date{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);}
-    .sch-day-week{font-size:.65rem;color:var(--muted);}
+    .sch-day-head{margin-bottom:7px;position:sticky;top:0;background:var(--card);padding:4px 0 5px;z-index:2;}
+    .sch-day-title{display:flex;align-items:center;gap:7px;}
+    .sch-day-num{font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);letter-spacing:.05em;}
+    .sch-day-sub{font-size:.63rem;color:var(--muted);margin-top:1px;}
     .sch-today-tag{font-size:.6rem;background:var(--accent);color:#fff;padding:1px 7px;border-radius:999px;}
-    .sch-day.today .sch-day-date{color:var(--accent);}
+    .sch-day.today .sch-day-num{color:var(--accent);}
 
     .sch-nodes{border-left:2px solid var(--border);margin-left:8px;padding-left:0;}
     .sch-node{position:relative;display:flex;align-items:flex-start;gap:8px;padding:7px 8px 7px 0;margin-left:-9px;}
