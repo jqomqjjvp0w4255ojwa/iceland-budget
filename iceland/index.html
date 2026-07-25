@@ -405,7 +405,9 @@
     .sch-node-place{font-size:.66rem;color:var(--muted);margin-top:2px;}
     .sch-node-note{font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.7;white-space:pre-wrap;}
     .sch-expand{font-size:.8rem;color:var(--muted);margin-left:auto;padding-left:6px;}
-    .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 7px;cursor:pointer;font-size:.7rem;margin-top:7px;}
+    .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.62rem;font-family:'Lato',sans-serif;}
+    .sch-nav:active{background:rgba(79,195,247,.12);}
+    .sch-node-actions{display:flex;margin-top:6px;}
 
     .sch-stay-tags{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:5px;}
     .sch-payer{display:inline-flex;align-items:center;height:20px;}
@@ -1204,5 +1206,13 @@ window.pxResetQty = function() {
 })();
 </script>
 
+
+<!-- 日程節點詳情彈窗（住宿／活動） -->
+<div class="sch-modal-overlay" id="schModal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="sch-modal-box">
+    <button class="sch-modal-close" onclick="document.getElementById('schModal').classList.remove('show')">✕</button>
+    <div id="schModalBody"></div>
+  </div>
+</div>
 </body>
 </html>

@@ -894,7 +894,7 @@ function renderSchNode(x, d) {
   const icon = x._flight ? '✈️' : isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
 
   const navBtn = (x.lat && x.lng)
-    ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
+    ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤ 導航</button>`
     : '';
 
   // 住宿：一眼標籤列（詳情進彈窗）
@@ -910,6 +910,7 @@ function renderSchNode(x, d) {
         <span class="tag tag-person">${esc(pt.label)}</span>
         ${payTag}
         ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
+        ${navBtn}
       </div>`;
   }
 
@@ -925,8 +926,8 @@ function renderSchNode(x, d) {
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
         ${stayTags}
+        ${!stay && navBtn ? `<div class="sch-node-actions">${navBtn}</div>` : ''}
       </div>
-      ${navBtn}
     </div>`;
 }
 
