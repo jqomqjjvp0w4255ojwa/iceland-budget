@@ -414,6 +414,14 @@
       padding:3px 14px;border:1px solid var(--border);border-radius:999px;
       background:var(--bg3);
     }
+    /* 白天模式：淺底上膠囊框顯得突兀，改為純文字＋兩側橫線 */
+    :root[data-theme="day"] .sch-day-badge{
+      border:none;background:transparent;padding:2px 12px;
+    }
+    :root[data-theme="day"] .sch-day.today .sch-day-badge{
+      background:transparent;
+      border-bottom:2px solid var(--accent);border-radius:0;
+    }
     .sch-day-title{display:flex;align-items:center;justify-content:center;gap:6px;}
     .sch-day-num{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);letter-spacing:.05em;line-height:1.2;}
     .sch-day-sub{font-size:.6rem;color:var(--muted);line-height:1.3;}

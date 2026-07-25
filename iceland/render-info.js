@@ -896,6 +896,15 @@ function renderSchedule(d) {
 }
 
 // 日期跳轉列：只顯示選中的那天 ±2，選中置中放大、往外遞減
+// 依畫面寬度決定跳轉列左右各顯示幾天（窄機 ±2，寬螢幕最多 ±5）
+function schJumperSpan() {
+  const el = document.getElementById('schJumper') || document.getElementById('scheduleContent');
+  const w = el?.clientWidth || window.innerWidth || 360;
+  // 扣掉兩顆箭頭與間距後，每格約 52px；再換算成左右各幾格
+  const slots = Math.floor((w - 70) / 52);
+  return Math.max(2, Math.min(5, Math.floor((slots - 1) / 2)));
+}
+
 function renderSchJumper(days, today) {
   // 選中預設今天；今天不在行程內就用第一天
   if (!_schActiveKey || !days.some(x => x.key === _schActiveKey)) {
@@ -903,14 +912,15 @@ function renderSchJumper(days, today) {
     _schActiveKey = t ? t.key : days[0].key;
   }
   const idx = days.findIndex(x => x.key === _schActiveKey);
+  const span = schJumperSpan();
 
   const btns = [];
-  for (let off = -2; off <= 2; off++) {
+  for (let off = -span; off <= span; off++) {
     const i = idx + off;
     if (i < 0 || i >= days.length) continue;
     const day = days[i];
     const isToday = schIsSameDay(day.d, today);
-    btns.push(`<button class="sch-jump-day off${Math.abs(off)}${off === 0 ? ' active' : ''}${isToday ? ' today' : ''}"
+    btns.push(`<button class="sch-jump-day off${Math.min(2, Math.abs(off))}${off === 0 ? ' active' : ''}${isToday ? ' today' : ''}"
       data-key="${esc(day.key)}" onclick="schJumpTo('${esc(day.key)}')">
       <span class="sch-jump-d">D${i + 1}</span>
       <span class="sch-jump-date">${esc(day.key)}</span>
@@ -1162,6 +1172,15 @@ window.setSchFilter = function(key) {
 };
 
 // 日期跳轉：捲到該天
+// 轉向或視窗縮放時，重算能顯示幾天
+(function(){
+  let t = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { if (document.getElementById('schJumper')) refreshSchJumper(); }, 200);
+  });
+})();
+
 window.schJumpTo = function(key) {
   _schActiveKey = key;
   refreshSchJumper();
