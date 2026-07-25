@@ -352,6 +352,17 @@
     .sch-node.open .sch-expand{transform:rotate(180deg);}
     .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 7px;cursor:pointer;font-size:.7rem;}
 
+    .sch-stay-tags{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:5px;}
+    .sch-payer{display:inline-flex;align-items:center;height:20px;}
+    .sch-payer svg{height:20px;width:auto;image-rendering:pixelated;}
+    .sch-node.stay-paid .sch-node-dot{border-color:rgba(78,195,121,.75);}
+    .sch-node.stay-unpaid .sch-node-dot{border-color:rgba(255,167,38,.65);}
+
+    .sch-stay-price{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding-bottom:6px;margin-bottom:5px;border-bottom:1px solid var(--border);}
+    .sch-price-per{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);}
+    .sch-price-total{font-size:.68rem;color:var(--muted);}
+    .sch-price-orig{font-size:.63rem;color:var(--muted);}
+
     .sch-stay-detail{margin-top:7px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;}
     .sch-kv{display:flex;gap:8px;font-size:.68rem;padding:3px 0;line-height:1.6;}
     .sch-kv span{flex:0 0 34px;color:var(--muted);}

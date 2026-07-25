@@ -784,29 +784,55 @@ function renderSchDay(day, today, d, dayNum) {
 }
 
 function renderSchNode(x, d) {
-  const icon = SCH_ICONS[x.category] || '•';
   const isStay = x.category === '住宿';
   const stay = isStay && x._stayIndex != null ? (d.accommodation || [])[x._stayIndex] : null;
+  // 住宿：沿用帳簿住宿卡的類型判斷（sheet 有填類型就優先用）
+  const pt = isStay ? placeTypeIcon(stay?.stayType || x.title || '') : null;
+  const icon = isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
 
   const navBtn = (x.lat && x.lng)
     ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
     : '';
 
-  // 住宿：可展開詳細
-  const detail = stay ? `
-    <div class="sch-stay-detail" style="display:none;">
-      ${stay.address    ? `<div class="sch-kv"><span>地址</span><div>${esc(stay.address)}</div></div>` : ''}
-      ${stay.stayType   ? `<div class="sch-kv"><span>類型</span><div>${esc(stay.stayType)}</div></div>` : ''}
-      ${stay.facilities ? `<div class="sch-kv"><span>設備</span><div>${esc(stay.facilities)}</div></div>` : ''}
-      ${stay.extraFee   ? `<div class="sch-kv"><span>自費</span><div>${esc(stay.extraFee)}</div></div>` : ''}
-      ${stay.bring      ? `<div class="sch-kv"><span>自備</span><div>${esc(stay.bring)}</div></div>` : ''}
-      ${stay.nearby     ? `<div class="sch-kv"><span>周邊</span><div>${esc(stay.nearby)}</div></div>` : ''}
-      ${stay.note       ? `<div class="sch-kv"><span>備註</span><div>${esc(stay.note)}</div></div>` : ''}
-      <div class="sch-kv"><span>費用</span><div>${fmt(stay.twd)}${stay.paid ? ' · 已付' : ' · 未付'}${stay.payer ? ' · ' + esc(stay.payer) : ''}</div></div>
-    </div>` : '';
+  // 住宿：標籤列（付款狀態／可否取消／付款人像素頭像）＋可展開詳細
+  let stayTags = '', detail = '';
+  if (stay) {
+    let payTag;
+    if (stay.paid && stay.payDate)   payTag = `<span class="tag tag-paid">${esc(stay.payDate)} 付款</span>`;
+    else if (stay.paid)              payTag = `<span class="tag tag-paid">已付款</span>`;
+    else if (stay.deductDate)        payTag = `<span class="tag tag-unpaid">${esc(stay.deductDate)} 扣款</span>`;
+    else                             payTag = `<span class="tag tag-unpaid">未付款</span>`;
+
+    stayTags = `
+      <div class="sch-stay-tags">
+        <span class="tag tag-person">${esc(pt.label)}</span>
+        ${payTag}
+        <span class="tag ${stay.cancel ? 'tag-cancel' : 'tag-nocancel'}">${stay.cancel ? '可取消' : '不可退'}</span>
+        ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
+      </div>`;
+
+    detail = `
+      <div class="sch-stay-detail" style="display:none;">
+        <div class="sch-stay-price">
+          ${stay.twd ? `
+            <span class="sch-price-per">${fmtPer(stay.twd)}</span>
+            <span class="sch-price-total">${fmt(stay.twd)} 合計</span>
+            ${stay.orig && stay.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(stay.orig, stay.cur)}</span>` : ''}
+          ` : `<span class="sch-price-per" style="color:var(--muted);font-size:.8rem;">現場付</span>`}
+          ${stay.nights ? `<span class="sch-price-orig">${stay.nights} 晚</span>` : ''}
+          ${stay.foreignFee ? `<span class="tag tag-fee">手續費 NT$${stay.foreignFee}</span>` : ''}
+        </div>
+        ${stay.address    ? `<div class="sch-kv"><span>地址</span><div>${esc(stay.address)}</div></div>` : ''}
+        ${stay.facilities ? `<div class="sch-kv"><span>設備</span><div>${esc(stay.facilities)}</div></div>` : ''}
+        ${stay.extraFee   ? `<div class="sch-kv"><span>自費</span><div>${esc(stay.extraFee)}</div></div>` : ''}
+        ${stay.bring      ? `<div class="sch-kv"><span>自備</span><div>${esc(stay.bring)}</div></div>` : ''}
+        ${stay.nearby     ? `<div class="sch-kv"><span>周邊</span><div>${esc(stay.nearby)}</div></div>` : ''}
+        ${stay.note       ? `<div class="sch-kv"><span>備註</span><div>📌 ${esc(stay.note)}</div></div>` : ''}
+      </div>`;
+  }
 
   return `
-    <div class="sch-node cat-${esc(x.category)}${stay ? ' expandable' : ''}"
+    <div class="sch-node cat-${esc(x.category)}${stay ? ' expandable' : ''}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}"
       ${stay ? `onclick="this.classList.toggle('open');const el=this.querySelector('.sch-stay-detail');if(el)el.style.display=el.style.display==='none'?'block':'none';"` : ''}>
       <div class="sch-node-time">${esc(x.time || '')}</div>
       <div class="sch-node-dot">${icon}</div>
@@ -814,6 +840,7 @@ function renderSchNode(x, d) {
         <div class="sch-node-title">${esc(x.title)}${stay ? '<span class="sch-expand">⌄</span>' : ''}</div>
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
+        ${stayTags}
         ${detail}
       </div>
       ${navBtn}
