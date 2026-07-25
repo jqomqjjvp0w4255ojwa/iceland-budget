@@ -207,6 +207,13 @@
       padding:10px 26px 10px 12px;margin-bottom:7px;
       transition:opacity .25s,border-color .25s;
     }
+    /* 重要度 5 且未完成＝不帶就完蛋，整列標紅提醒 */
+    .prep-item.critical{
+      border-left:3px solid var(--red);
+      background:linear-gradient(90deg,rgba(224,85,85,.08),transparent 55%);
+    }
+    .prep-item.critical .prep-name{font-weight:700;}
+    .prep-stars.critical{color:var(--red);}
     .prep-item.all-done{opacity:.55;border-color:rgba(78,195,121,.4);}
     .prep-item.all-done .prep-name{text-decoration:line-through;text-decoration-color:var(--muted);}
     .prep-main{flex:1;min-width:0;}

@@ -349,10 +349,11 @@ function renderPrepItem(task) {
   // 只看「適用的人」有沒有完成
   const need = members.filter(m => taskAppliesTo(task, m));
   const allDone = need.length ? need.every(m => task.done?.[m]) : false;
+  const isCritical = (task.priority || 0) >= 5 && !allDone;
   const stars = task.priority > 0
-    ? `<span class="prep-stars" title="重要度 ${task.priority}">${'★'.repeat(Math.min(5, task.priority))}</span>` : '';
+    ? `<span class="prep-stars${isCritical ? ' critical' : ''}" title="重要度 ${task.priority}">${'★'.repeat(Math.min(5, task.priority))}</span>` : '';
 
-  return `<div class="prep-item${allDone ? ' all-done' : ''}" data-id="${esc(task.id)}">
+  return `<div class="prep-item${allDone ? ' all-done' : ''}${isCritical ? ' critical' : ''}" data-id="${esc(task.id)}">
     <div class="prep-main">
       <div class="prep-name">${esc(task.name)}${stars}</div>
       ${task.note ? `<div class="prep-note">${esc(task.note)}</div>` : ''}
