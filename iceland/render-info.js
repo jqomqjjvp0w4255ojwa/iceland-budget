@@ -1039,8 +1039,10 @@ function findSchActivity(title, activities) {
 function schBlock(icon, label, val, opts) {
   if (!val) return '';
   opts = opts || {};
-  const body = opts.chips
-    ? `<div class="sch-chips">${splitToChips(val).map(c => `<span class="sch-chip">${esc(c)}</span>`).join('')}</div>`
+  // 想做 chips 但內容不適合拆時，退回一般段落（別把整段包成一顆巨大膠囊）
+  const chips = opts.chips ? splitToChips(val) : null;
+  const body = chips
+    ? `<div class="sch-chips">${chips.map(c => `<span class="sch-chip">${esc(c)}</span>`).join('')}</div>`
     : `<div class="sch-block-body">${esc(val)}</div>`;
   return `
     <div class="sch-block${opts.warn ? ' warn' : ''}">
@@ -1049,12 +1051,16 @@ function schBlock(icon, label, val, opts) {
     </div>`;
 }
 
-// 逗號/頓號/斜線分隔的清單 → chips（過長的段落不拆，避免切出破碎片段）
+// 清單型文字 → chips 陣列；不適合拆就回傳 null，讓呼叫端改用段落
 function splitToChips(text) {
   const t = String(text || '').trim();
+  if (!t) return null;
+  // 含句子結構（分號、破折號、括號長句）代表是敘述而非清單，直接不拆
+  if (/[；;—]|——/.test(t)) return null;
   const parts = t.split(/[、,，/／]+/).map(x => x.trim()).filter(Boolean);
-  // 每項都夠短才適合做 chips，否則整段當一塊
-  return (parts.length > 1 && parts.every(x => x.length <= 12)) ? parts : [t];
+  if (parts.length < 2) return null;              // 只有一項就不必做成標籤
+  if (!parts.every(x => x.length <= 10)) return null;  // 有長項＝敘述，整段保留
+  return parts;
 }
 
 // 價格區：每人價當視覺重心，其餘降階
