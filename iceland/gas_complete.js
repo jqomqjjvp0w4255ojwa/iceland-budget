@@ -27,21 +27,36 @@ var TASK_HEADER = [
   '猴狀態','花狀態','寧狀態','最後更新'
 ];
 
+// ── 行前準備成員（狀態欄順序）
+var TASK_MEMBERS = ['猴', '花', '寧'];
+
 // ── 一次性：建立／升級任務表結構（在編輯器選這個函式按執行）──
-// 舊表（項目ID/項目名稱/重要度/說明/猴狀態/花狀態/寧狀態/最後更新）
-// 會自動搬成新結構，現有資料保留，空白列不留。
+// 可重複執行：舊表會搬成新結構，已是新結構則只重設驗證規則。
+// 會先清掉舊的資料驗證（舊 C 欄是重要度，有 0–5 規則，會擋住新的文字欄）。
 function setupTaskSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(SHEET_NAMES.task);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAMES.task);
     sheet.getRange(1, 1, 1, TASK_HEADER.length).setValues([TASK_HEADER]);
+    applyTaskValidation_(sheet);
     sheet.setFrozenRows(1);
     return '已建立新表';
   }
+
   var rows = sheet.getDataRange().getValues();
-  var header = rows[0].map(function(h){ return String(h||'').trim(); });
-  if (header[1] === '分類') return '已是新結構，未變更';
+  var header = rows[0].map(function(h){ return String(h || '').trim(); });
+  var isNew  = header[1] === '分類';
+
+  // 整張表先解除資料驗證，否則寫入會被舊規則擋下
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+
+  if (isNew) {
+    // 已是新結構：只重設驗證規則，資料不動
+    applyTaskValidation_(sheet);
+    sheet.setFrozenRows(1);
+    return '已是新結構，已重設驗證規則';
+  }
 
   // 舊 → 新：把有名稱的列搬過去，分類先給「待辦」
   var moved = [];
@@ -49,32 +64,55 @@ function setupTaskSheet() {
     var r = rows[i];
     if (String(r[1] || '').trim() === '') continue;   // 舊 B 欄＝項目名稱
     moved.push([
-      r[0] || ('re' + ('00' + moved.length).slice(-3)),
-      '待辦',            // 分類（之後可自行改成 行李／共用）
-      r[1],              // 項目名稱
-      r[2] || 3,         // 重要度
-      r[3] || '',        // 說明
-      '',                // 負責人
-      r[4] || false,     // 猴狀態
-      r[5] || false,     // 花狀態
-      r[6] || false,     // 寧狀態
-      r[7] || '',        // 最後更新
+      r[0] || ('re' + ('00' + (moved.length + 1)).slice(-3)),
+      '待辦',                       // 分類（之後可改成 行李／共用）
+      r[1],                         // 項目名稱
+      Number(r[2]) || 3,            // 重要度
+      r[3] || '',                   // 說明
+      '',                           // 負責人
+      r[4] === true, r[5] === true, r[6] === true,   // 猴／花／寧狀態
+      r[7] || '',                   // 最後更新
     ]);
   }
+
   sheet.clear();
   sheet.getRange(1, 1, 1, TASK_HEADER.length).setValues([TASK_HEADER]);
-  if (moved.length) sheet.getRange(2, 1, moved.length, TASK_HEADER.length).setValues(moved);
+  if (moved.length) {
+    sheet.getRange(2, 1, moved.length, TASK_HEADER.length).setValues(moved);
+  }
+  applyTaskValidation_(sheet);
   sheet.setFrozenRows(1);
   return '已升級，搬移 ' + moved.length + ' 筆';
 }
 
-// 找某欄第一個空行（從 startRow 起，1-based）
-function findFirstEmptyRow(sheet, colLetter, startRow) {
-  var vals = sheet.getRange(colLetter + ':' + colLetter).getValues();
-  for (var i = startRow - 1; i < vals.length; i++) {
-    if (String(vals[i][0] || '').trim() === '') return i + 1;
-  }
-  return vals.length + 1;
+// 任務表的下拉選單與核取方塊（讓手動填表好填）
+function applyTaskValidation_(sheet) {
+  var last = Math.max(sheet.getMaxRows(), 200);
+
+  // B 分類：待辦／行李／共用
+  sheet.getRange(2, 2, last - 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['待辦', '行李', '共用'], true)
+      .setAllowInvalid(false).build());
+
+  // D 重要度：0–5
+  sheet.getRange(2, 4, last - 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['0', '1', '2', '3', '4', '5'], true)
+      .setAllowInvalid(false).build());
+
+  // F 負責人：成員（共用裝備才填，可留空）
+  sheet.getRange(2, 6, last - 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(TASK_MEMBERS, true)
+      .setAllowInvalid(true).build());
+
+  // G/H/I 三人狀態：核取方塊
+  sheet.getRange(2, 7, last - 1, 3).insertCheckboxes();
+
+  // 欄寬（純粹好讀）
+  var widths = [80, 70, 200, 70, 260, 70, 55, 55, 55, 150];
+  for (var c = 0; c < widths.length; c++) sheet.setColumnWidth(c + 1, widths[c]);
 }
 
 function readSheet(sheet) {
@@ -221,11 +259,13 @@ function readTaskSheet(sheet) {
       priority:  parseInt(r[3], 10) || 0,
       note:      r[4] || '',
       owner:     r[5] || '',
-      done: {
-        '猴': String(r[6]).toUpperCase() === 'TRUE',
-        '花': String(r[7]).toUpperCase() === 'TRUE',
-        '寧': String(r[8]).toUpperCase() === 'TRUE',
-      },
+      done: (function(){
+        var d = {};
+        TASK_MEMBERS.forEach(function(m, k){
+          d[m] = String(r[6 + k]).toUpperCase() === 'TRUE';
+        });
+        return d;
+      })(),
       updated:   r[9] || '',
       _rowIndex: i + 1,
     });
@@ -443,9 +483,9 @@ function doPost(e) {
       var sheet = ss.getSheetByName(SHEET_NAMES.task);
       if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.task);
       if (!payload.rowIndex) throw new Error('缺少 rowIndex');
-      var memberCols = { '猴': 7, '花': 8, '寧': 9 };
-      var col = memberCols[payload.who];
-      if (!col) throw new Error('未知成員：' + payload.who);
+      var mIdx = TASK_MEMBERS.indexOf(payload.who);
+      if (mIdx < 0) throw new Error('未知成員：' + payload.who);
+      var col = 7 + mIdx;
       sheet.getRange(payload.rowIndex, col).setValue(payload.done === true);
       sheet.getRange(payload.rowIndex, 10).setValue(new Date().toISOString());
       clearCache();
