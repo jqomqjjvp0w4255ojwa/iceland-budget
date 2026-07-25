@@ -56,7 +56,7 @@ body{
 .topbar-title{font-size:11px;color:var(--text);letter-spacing:1px;flex:1;}
 .topbar-members{display:flex;gap:6px;}
 .member-avatar{
-  width:30px;height:30px;border-radius:6px;
+  width:24px;height:42px;border-radius:6px;
   border:2px solid var(--border);
   background:var(--panel2);
   display:flex;align-items:center;justify-content:center;
@@ -986,6 +986,7 @@ let pickingLocation = false;
 let pickingCard = null;   // {tripId, cardId} 行前卡片選點中
 let routeLine = null;     // 旅程路線（出發→途經→目的）
 let markers = {};
+let expMarkers = {};
 const isDesktop = () => window.matchMedia('(min-width:900px)').matches;
 
 // ══════════════════════════════════════════
@@ -1136,6 +1137,7 @@ function makeMarkerIcon(item, zoom) {
 function renderMarkers() {
   clusterGroup.clearLayers();
   markers = {};
+  expMarkers = {};
   const zoom = map.getZoom();
   getVisible().forEach(item => {
     const m = getMemberByName(item.who);
@@ -1167,6 +1169,7 @@ function renderMarkers() {
           }),
           fallbackIcon:'💰', memberColor:m.color, svgData:null,
         }).bindPopup(() => buildExpensePopup(e), { className:'px-popup', maxWidth:240, closeButton:false });
+        expMarkers[e.id] = marker;
         clusterGroup.addLayer(marker);
       });
   }
@@ -1969,6 +1972,7 @@ function flyToExpense(id) {
   const e = expenses.find(x=>x.id===id);
   if (!e || !e.lat) return;
   map.flyTo([e.lat, e.lng], 14, { duration: 1 });
+  setTimeout(() => { if (expMarkers[id]) expMarkers[id].openPopup(); }, 1100);
 }
 
 // ══════════════════════════════════════════
