@@ -314,28 +314,72 @@
     .prep-more{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 8px;line-height:1;}
 
     /* ══ 日程時間軸 ══ */
-    .sch-jumper{display:flex;align-items:center;gap:6px;margin:4px 0 8px;}
-    .sch-jump-arrow{flex-shrink:0;width:26px;height:26px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-size:14px;line-height:1;}
-    .sch-jump-arrow:active{background:var(--border);}
-    .sch-jump-scroll{flex:1;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding:2px 0;}
-    .sch-jump-scroll::-webkit-scrollbar{display:none;}
-    .sch-jump-day{flex-shrink:0;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;cursor:pointer;font-size:.7rem;font-family:'Lato',sans-serif;}
-    .sch-jump-day.today{border-color:var(--accent);color:var(--accent);font-weight:700;}
+    .sch-jumper{display:flex;align-items:center;gap:4px;margin:4px 0 10px;}
+    .sch-jump-arrow{flex-shrink:0;width:24px;height:38px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;cursor:pointer;font-size:15px;line-height:1;}
+    .sch-jump-arrow:active{background:var(--bg3);color:var(--text);}
+    .sch-jump-arrow:disabled{opacity:.25;cursor:default;}
+    .sch-jump-scroll{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;}
+
+    .sch-jump-day{
+      flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;
+      background:transparent;border:1px solid transparent;border-radius:8px;
+      color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;
+      padding:4px 8px;transition:all .18s ease;
+    }
+    .sch-jump-d{font-family:'Cinzel',serif;line-height:1.1;}
+    .sch-jump-date{line-height:1.1;opacity:.75;}
+
+    /* 距離選中越遠越小越淡 */
+    .sch-jump-day.off0{padding:6px 13px;border-color:var(--accent);background:rgba(var(--accent-rgb,224,96,96),.1);color:var(--accent);}
+    .sch-jump-day.off0 .sch-jump-d{font-size:.95rem;font-weight:700;}
+    .sch-jump-day.off0 .sch-jump-date{font-size:.66rem;opacity:1;}
+
+    .sch-jump-day.off1{opacity:.72;}
+    .sch-jump-day.off1 .sch-jump-d{font-size:.76rem;}
+    .sch-jump-day.off1 .sch-jump-date{font-size:.58rem;}
+
+    .sch-jump-day.off2{opacity:.4;}
+    .sch-jump-day.off2 .sch-jump-d{font-size:.64rem;}
+    .sch-jump-day.off2 .sch-jump-date{font-size:.52rem;}
+
+    /* 今天：未選中時用金色點出來 */
+    .sch-jump-day.today:not(.off0) .sch-jump-d{color:var(--gold);}
 
     .sch-filters{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;}
     .sch-filter{padding:3px 11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:999px;cursor:pointer;font-size:.68rem;font-family:'Lato',sans-serif;}
     .sch-filter.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 
-    .sch-scroll{position:relative;max-height:60vh;overflow-y:auto;padding-right:2px;}
-    .sch-day{margin-bottom:14px;transition:opacity .25s;}
+    .sch-scroll{position:relative;max-height:60vh;overflow-y:auto;padding-right:2px;
+      scrollbar-width:none;-ms-overflow-style:none;}
+    .sch-scroll::-webkit-scrollbar{display:none;width:0;height:0;}
+    .sch-day{margin-bottom:26px;transition:opacity .25s;}
+    .sch-day:last-child{margin-bottom:8px;}
     .sch-day.past{opacity:.42;}
-    .sch-day-head{display:flex;align-items:center;gap:7px;margin-bottom:6px;position:sticky;top:0;background:var(--card);padding:3px 0;z-index:2;}
-    .sch-day-date{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);}
-    .sch-day-week{font-size:.65rem;color:var(--muted);}
-    .sch-today-tag{font-size:.6rem;background:var(--accent);color:#fff;padding:1px 7px;border-radius:999px;}
-    .sch-day.today .sch-day-date{color:var(--accent);}
 
-    .sch-nodes{border-left:2px solid var(--border);margin-left:8px;padding-left:0;}
+    /* 日期＝時間軸上的站點：左右延伸橫線，把軸切成一段一段 */
+    .sch-day-head{
+      display:flex;align-items:center;gap:8px;
+      margin-bottom:10px;position:sticky;top:0;z-index:3;
+      background:var(--card);padding:6px 0 7px;
+    }
+    .sch-day-line{flex:1;height:1px;background:var(--border);}
+    .sch-day-badge{
+      flex-shrink:0;text-align:center;
+      padding:3px 14px;border:1px solid var(--border);border-radius:999px;
+      background:var(--bg3);
+    }
+    .sch-day-title{display:flex;align-items:center;justify-content:center;gap:6px;}
+    .sch-day-num{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);letter-spacing:.05em;line-height:1.2;}
+    .sch-day-sub{font-size:.6rem;color:var(--muted);line-height:1.3;}
+    .sch-today-tag{font-size:.58rem;background:var(--accent);color:#fff;padding:1px 6px;border-radius:999px;}
+
+    /* 今天：站點整個亮起來 */
+    .sch-day.today .sch-day-badge{border-color:var(--accent);background:rgba(224,96,96,.08);}
+    .sch-day.today .sch-day-num{color:var(--accent);}
+    .sch-day.today .sch-day-line{background:linear-gradient(90deg,transparent,var(--accent));}
+    .sch-day.today .sch-day-line:last-child{background:linear-gradient(90deg,var(--accent),transparent);}
+
+    .sch-nodes{border-left:2px solid var(--border);margin-left:14px;padding-left:0;padding-top:2px;}
     .sch-node{position:relative;display:flex;align-items:flex-start;gap:8px;padding:7px 8px 7px 0;margin-left:-9px;}
     .sch-node.expandable{cursor:pointer;}
     .sch-node-time{flex-shrink:0;width:42px;text-align:right;font-size:.63rem;color:var(--muted);padding-top:3px;}
@@ -350,6 +394,17 @@
     .sch-expand{font-size:.7rem;color:var(--muted);transition:transform .2s;}
     .sch-node.open .sch-expand{transform:rotate(180deg);}
     .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 7px;cursor:pointer;font-size:.7rem;}
+
+    .sch-stay-tags{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:5px;}
+    .sch-payer{display:inline-flex;align-items:center;height:20px;}
+    .sch-payer svg{height:20px;width:auto;image-rendering:pixelated;}
+    .sch-node.stay-paid .sch-node-dot{border-color:rgba(78,195,121,.75);}
+    .sch-node.stay-unpaid .sch-node-dot{border-color:rgba(255,167,38,.65);}
+
+    .sch-stay-price{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding-bottom:6px;margin-bottom:5px;border-bottom:1px solid var(--border);}
+    .sch-price-per{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);}
+    .sch-price-total{font-size:.68rem;color:var(--muted);}
+    .sch-price-orig{font-size:.63rem;color:var(--muted);}
 
     .sch-stay-detail{margin-top:7px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;}
     .sch-kv{display:flex;gap:8px;font-size:.68rem;padding:3px 0;line-height:1.6;}

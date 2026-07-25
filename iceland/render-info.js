@@ -649,6 +649,7 @@ const SCH_CATS = [
 ];
 const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '其他':'🚗' };
 let _schFilter = 'all';
+let _schActiveKey = null;   // 日期跳轉列目前選中的那天
 
 // 「9/17」→ 當年的 Date（行程都在同一年）
 function schDate(dateStr, year) {
@@ -733,19 +734,7 @@ function renderSchedule(d) {
   }
   const today = new Date();
 
-  // 日期跳轉列：[9/15 ‹ 16 › 17]
-  const jumper = `
-    <div class="sch-jumper">
-      <button class="sch-jump-arrow" onclick="schJumpStep(-1)" title="前一天">‹</button>
-      <div class="sch-jump-scroll" id="schJumpScroll">
-        ${days.map(day => {
-          const isToday = schIsSameDay(day.d, today);
-          return `<button class="sch-jump-day${isToday ? ' today' : ''}" data-key="${esc(day.key)}"
-            onclick="schJumpTo('${esc(day.key)}')">${esc(day.key)}</button>`;
-        }).join('')}
-      </div>
-      <button class="sch-jump-arrow" onclick="schJumpStep(1)" title="後一天">›</button>
-    </div>`;
+  const jumper = renderSchJumper(days, today);
 
   const filters = `
     <div class="sch-filters">
@@ -753,7 +742,7 @@ function renderSchedule(d) {
         onclick="setSchFilter('${c.key}')">${c.label}</button>`).join('')}
     </div>`;
 
-  const body = days.map(day => renderSchDay(day, today, d)).join('');
+  const body = days.map((day, i) => renderSchDay(day, today, d, i + 1)).join('');
 
   return jumper + filters + `
     <div class="sch-scroll" id="schScroll">${body}</div>
@@ -762,7 +751,46 @@ function renderSchedule(d) {
     </button>`;
 }
 
-function renderSchDay(day, today, d) {
+// 日期跳轉列：只顯示選中的那天 ±2，選中置中放大、往外遞減
+function renderSchJumper(days, today) {
+  // 選中預設今天；今天不在行程內就用第一天
+  if (!_schActiveKey || !days.some(x => x.key === _schActiveKey)) {
+    const t = days.find(x => schIsSameDay(x.d, today));
+    _schActiveKey = t ? t.key : days[0].key;
+  }
+  const idx = days.findIndex(x => x.key === _schActiveKey);
+
+  const btns = [];
+  for (let off = -2; off <= 2; off++) {
+    const i = idx + off;
+    if (i < 0 || i >= days.length) continue;
+    const day = days[i];
+    const isToday = schIsSameDay(day.d, today);
+    btns.push(`<button class="sch-jump-day off${Math.abs(off)}${off === 0 ? ' active' : ''}${isToday ? ' today' : ''}"
+      data-key="${esc(day.key)}" onclick="schJumpTo('${esc(day.key)}')">
+      <span class="sch-jump-d">D${i + 1}</span>
+      <span class="sch-jump-date">${esc(day.key)}</span>
+    </button>`);
+  }
+
+  return `
+    <div class="sch-jumper" id="schJumper">
+      <button class="sch-jump-arrow" onclick="schJumpStep(-1)" ${idx <= 0 ? 'disabled' : ''} title="前一天">‹</button>
+      <div class="sch-jump-scroll">${btns.join('')}</div>
+      <button class="sch-jump-arrow" onclick="schJumpStep(1)" ${idx >= days.length - 1 ? 'disabled' : ''} title="後一天">›</button>
+    </div>`;
+}
+
+// 只重畫跳轉列（不動時間軸，避免捲動位置跳掉）
+function refreshSchJumper() {
+  const el = document.getElementById('schJumper');
+  if (!el) return;
+  const days = buildScheduleDays(window.APP_DATA || window.STATIC);
+  if (!days.length) return;
+  el.outerHTML = renderSchJumper(days, new Date());
+}
+
+function renderSchDay(day, today, d, dayNum) {
   const isToday = schIsSameDay(day.d, today);
   const isPast  = !isToday && day.d < today;
   const shown = day.items.filter(x => _schFilter === 'all' || x.category === _schFilter);
@@ -771,9 +799,15 @@ function renderSchDay(day, today, d) {
   return `
     <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}" data-key="${esc(day.key)}">
       <div class="sch-day-head">
-        <span class="sch-day-date">${esc(day.key)}</span>
-        <span class="sch-day-week">${schWeekday(day.d)}</span>
-        ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
+        <span class="sch-day-line"></span>
+        <div class="sch-day-badge">
+          <div class="sch-day-title">
+            <span class="sch-day-num">第 ${dayNum} 天</span>
+            ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
+          </div>
+          <div class="sch-day-sub">${esc(day.key)}（${schWeekday(day.d)}）</div>
+        </div>
+        <span class="sch-day-line"></span>
       </div>
       <div class="sch-nodes">
         ${shown.map(x => renderSchNode(x, d)).join('')}
@@ -782,29 +816,55 @@ function renderSchDay(day, today, d) {
 }
 
 function renderSchNode(x, d) {
-  const icon = SCH_ICONS[x.category] || '•';
   const isStay = x.category === '住宿';
   const stay = isStay && x._stayIndex != null ? (d.accommodation || [])[x._stayIndex] : null;
+  // 住宿：沿用帳簿住宿卡的類型判斷（sheet 有填類型就優先用）
+  const pt = isStay ? placeTypeIcon(stay?.stayType || x.title || '') : null;
+  const icon = isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
 
   const navBtn = (x.lat && x.lng)
     ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
     : '';
 
-  // 住宿：可展開詳細
-  const detail = stay ? `
-    <div class="sch-stay-detail" style="display:none;">
-      ${stay.address    ? `<div class="sch-kv"><span>地址</span><div>${esc(stay.address)}</div></div>` : ''}
-      ${stay.stayType   ? `<div class="sch-kv"><span>類型</span><div>${esc(stay.stayType)}</div></div>` : ''}
-      ${stay.facilities ? `<div class="sch-kv"><span>設備</span><div>${esc(stay.facilities)}</div></div>` : ''}
-      ${stay.extraFee   ? `<div class="sch-kv"><span>自費</span><div>${esc(stay.extraFee)}</div></div>` : ''}
-      ${stay.bring      ? `<div class="sch-kv"><span>自備</span><div>${esc(stay.bring)}</div></div>` : ''}
-      ${stay.nearby     ? `<div class="sch-kv"><span>周邊</span><div>${esc(stay.nearby)}</div></div>` : ''}
-      ${stay.note       ? `<div class="sch-kv"><span>備註</span><div>${esc(stay.note)}</div></div>` : ''}
-      <div class="sch-kv"><span>費用</span><div>${fmt(stay.twd)}${stay.paid ? ' · 已付' : ' · 未付'}${stay.payer ? ' · ' + esc(stay.payer) : ''}</div></div>
-    </div>` : '';
+  // 住宿：標籤列（付款狀態／可否取消／付款人像素頭像）＋可展開詳細
+  let stayTags = '', detail = '';
+  if (stay) {
+    let payTag;
+    if (stay.paid && stay.payDate)   payTag = `<span class="tag tag-paid">${esc(stay.payDate)} 付款</span>`;
+    else if (stay.paid)              payTag = `<span class="tag tag-paid">已付款</span>`;
+    else if (stay.deductDate)        payTag = `<span class="tag tag-unpaid">${esc(stay.deductDate)} 扣款</span>`;
+    else                             payTag = `<span class="tag tag-unpaid">未付款</span>`;
+
+    stayTags = `
+      <div class="sch-stay-tags">
+        <span class="tag tag-person">${esc(pt.label)}</span>
+        ${payTag}
+        <span class="tag ${stay.cancel ? 'tag-cancel' : 'tag-nocancel'}">${stay.cancel ? '可取消' : '不可退'}</span>
+        ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
+      </div>`;
+
+    detail = `
+      <div class="sch-stay-detail" style="display:none;">
+        <div class="sch-stay-price">
+          ${stay.twd ? `
+            <span class="sch-price-per">${fmtPer(stay.twd)}</span>
+            <span class="sch-price-total">${fmt(stay.twd)} 合計</span>
+            ${stay.orig && stay.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(stay.orig, stay.cur)}</span>` : ''}
+          ` : `<span class="sch-price-per" style="color:var(--muted);font-size:.8rem;">現場付</span>`}
+          ${stay.nights ? `<span class="sch-price-orig">${stay.nights} 晚</span>` : ''}
+          ${stay.foreignFee ? `<span class="tag tag-fee">手續費 NT$${stay.foreignFee}</span>` : ''}
+        </div>
+        ${stay.address    ? `<div class="sch-kv"><span>地址</span><div>${esc(stay.address)}</div></div>` : ''}
+        ${stay.facilities ? `<div class="sch-kv"><span>設備</span><div>${esc(stay.facilities)}</div></div>` : ''}
+        ${stay.extraFee   ? `<div class="sch-kv"><span>自費</span><div>${esc(stay.extraFee)}</div></div>` : ''}
+        ${stay.bring      ? `<div class="sch-kv"><span>自備</span><div>${esc(stay.bring)}</div></div>` : ''}
+        ${stay.nearby     ? `<div class="sch-kv"><span>周邊</span><div>${esc(stay.nearby)}</div></div>` : ''}
+        ${stay.note       ? `<div class="sch-kv"><span>備註</span><div>📌 ${esc(stay.note)}</div></div>` : ''}
+      </div>`;
+  }
 
   return `
-    <div class="sch-node cat-${esc(x.category)}${stay ? ' expandable' : ''}"
+    <div class="sch-node cat-${esc(x.category)}${stay ? ' expandable' : ''}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}"
       ${stay ? `onclick="this.classList.toggle('open');const el=this.querySelector('.sch-stay-detail');if(el)el.style.display=el.style.display==='none'?'block':'none';"` : ''}>
       <div class="sch-node-time">${esc(x.time || '')}</div>
       <div class="sch-node-dot">${icon}</div>
@@ -812,6 +872,7 @@ function renderSchNode(x, d) {
         <div class="sch-node-title">${esc(x.title)}${stay ? '<span class="sch-expand">⌄</span>' : ''}</div>
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
+        ${stayTags}
         ${detail}
       </div>
       ${navBtn}
@@ -827,23 +888,21 @@ window.setSchFilter = function(key) {
 
 // 日期跳轉：捲到該天
 window.schJumpTo = function(key) {
+  _schActiveKey = key;
+  refreshSchJumper();
   const target = document.querySelector(`.sch-day[data-key="${key}"]`);
   const scroller = document.getElementById('schScroll');
   if (!target || !scroller) return;
   scroller.scrollTo({ top: target.offsetTop - scroller.offsetTop - 4, behavior: 'smooth' });
-  // 跳轉列也把該日按鈕捲到看得見
-  document.querySelector(`.sch-jump-day[data-key="${key}"]`)
-    ?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
 };
 
-// ‹ › 前後一天
+// ‹ › 前後一天（移動選中的那天）
 window.schJumpStep = function(dir) {
-  const days = [...document.querySelectorAll('.sch-day')];
+  const days = buildScheduleDays(window.APP_DATA || window.STATIC);
   if (!days.length) return;
-  const scroller = document.getElementById('schScroll');
-  const cur = days.findIndex(el => el.offsetTop - scroller.offsetTop >= scroller.scrollTop - 8);
-  const next = Math.max(0, Math.min(days.length - 1, (cur < 0 ? 0 : cur) + dir));
-  schJumpTo(days[next].dataset.key);
+  const idx = days.findIndex(x => x.key === _schActiveKey);
+  const next = Math.max(0, Math.min(days.length - 1, (idx < 0 ? 0 : idx) + dir));
+  schJumpTo(days[next].key);
 };
 
 window.schScrollToToday = function() {
@@ -861,6 +920,15 @@ function schBindScroll() {
   if (!todayEl) { btn.style.display = 'none'; return; }
 
   function update() {
+    // 捲到哪天，跳轉列就跟著選到哪天
+    const dayEls = [...scroller.querySelectorAll('.sch-day')];
+    const cur = dayEls.filter(el => el.offsetTop - scroller.offsetTop <= scroller.scrollTop + 40).pop()
+             || dayEls[0];
+    if (cur && cur.dataset.key !== _schActiveKey) {
+      _schActiveKey = cur.dataset.key;
+      refreshSchJumper();
+    }
+
     const todayTop = todayEl.offsetTop - scroller.offsetTop;
     const view = scroller.scrollTop;
     const diff = todayTop - view;
