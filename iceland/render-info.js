@@ -363,6 +363,65 @@ function renderPrepItem(task) {
   </div>`;
 }
 
+// 這筆項目在目前檢視下算不算「已完成」
+function prepIsDone(task) {
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  if (_prepWho) return !!task.done?.[_prepWho];          // 只看某人時＝那人勾了沒
+  const need = members.filter(m => taskAppliesTo(task, m));
+  return need.length ? need.every(m => task.done?.[m]) : false;
+}
+
+function prepPassFilter(task) {
+  if (_prepWho && !taskAppliesTo(task, _prepWho)) return false;  // 不干他的事就不顯示
+  if (_prepView === 'todo' && prepIsDone(task)) return false;
+  return true;
+}
+
+// 未完成優先，其次重要度高的在前
+function prepSort(a, b) {
+  const da = prepIsDone(a) ? 1 : 0, db = prepIsDone(b) ? 1 : 0;
+  if (da !== db) return da - db;
+  return (b.priority || 0) - (a.priority || 0);
+}
+
+function renderPrepFilters(tasks) {
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const all = tasks || [];
+  const saveWho = _prepWho, saveView = _prepView;
+
+  // 計數用目前的人物篩選、但不受完成狀態影響
+  _prepView = 'all';
+  const scoped = all.filter(prepPassFilter);
+  const todoCount = scoped.filter(t => !prepIsDone(t)).length;
+  _prepView = saveView;
+
+  return `
+    <div class="prep-filters">
+      <div class="prep-filter-group">
+        <button class="prep-filter${_prepView==='todo'?' on':''}" onclick="setPrepView('todo')">未完成 ${todoCount}</button>
+        <button class="prep-filter${_prepView==='all'?' on':''}" onclick="setPrepView('all')">全部 ${scoped.length}</button>
+      </div>
+      <div class="prep-filter-group">
+        <button class="prep-who${!_prepWho?' on':''}" onclick="setPrepWho('')">全員</button>
+        ${members.map(m => `
+          <button class="prep-who${_prepWho===m?' on':''}" onclick="setPrepWho('${esc(m)}')" title="只看 ${esc(m)} 要準備的">
+            <span class="prep-who-avatar">${avatarSvg(m)}</span>
+          </button>`).join('')}
+      </div>
+    </div>`;
+}
+
+window.setPrepView = function(v) {
+  _prepView = v;
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(window.APP_DATA?.tasks || []);
+};
+window.setPrepWho = function(m) {
+  _prepWho = m;
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(window.APP_DATA?.tasks || []);
+};
+
 // 每人各自的準備進度（共用裝備只算負責人那份）
 function renderPrepProgress(tasks) {
   const members = window.TRIP_MEMBERS || ['猴','花','寧'];
@@ -387,11 +446,12 @@ function renderPrep(tasks) {
     return `<div class="empty">🧳 在「寫入_任務」表填入項目後顯示<br>
       <span style="font-size:.7rem;color:var(--muted)">分類填 待辦／行李／共用</span></div>`;
   }
-  const progress = renderPrepProgress(tasks);
+  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks);
 
   const groups = PREP_CATS.map(cat => {
     const list = tasks.filter(t => (t.category || '待辦') === cat.key)
-      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+      .filter(prepPassFilter)
+      .sort(prepSort);
     if (!list.length) return '';
     return `
       <div class="prep-group">
@@ -404,7 +464,8 @@ function renderPrep(tasks) {
 
   // 沒被分類到的（分類欄填了別的字）
   const known = PREP_CATS.map(c => c.key);
-  const others = tasks.filter(t => !known.includes(t.category || '待辦'));
+  const others = tasks.filter(t => !known.includes(t.category || '待辦'))
+    .filter(prepPassFilter).sort(prepSort);
   const otherHtml = others.length ? `
     <div class="prep-group">
       <div class="section-title">📌 其他<span style="font-size:.65rem;color:var(--muted);font-weight:400;">（${others.length}）</span></div>
@@ -419,7 +480,13 @@ function renderPrep(tasks) {
         font-family:'Lato',sans-serif;">＋ 新增準備項目</button>
     </div>`;
 
-  return progress + groups + otherHtml + addBtn;
+  const empty = (!groups.trim() && !otherHtml.trim())
+    ? `<div class="empty" style="padding:26px 16px;">${_prepView === 'todo'
+        ? (_prepWho ? `🎉 ${esc(_prepWho)} 的項目都準備好了！` : '🎉 全部都準備好了！')
+        : '沒有符合的項目'}</div>`
+    : '';
+
+  return progress + groups + otherHtml + empty + addBtn;
 }
 
 // ── 新增項目：彈窗（同記帳表單風格），直接寫回 sheet
@@ -432,6 +499,8 @@ let _prepCat = '待辦';
 let _prepOwner = '';
 let _prepPriority = 3;
 let _prepEditId = null;   // null＝新增模式，否則是正在編輯的 task.id
+let _prepView = 'todo';   // 檢視：all／todo（未完成）
+let _prepWho  = '';       // 只看某人（空＝全員）
 
 window.openAddPrep = function() {
   _prepEditId = null;

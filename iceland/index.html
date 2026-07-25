@@ -185,6 +185,20 @@
     .prep-progress-label{display:flex;gap:5px;align-items:baseline;font-size:.66rem;color:var(--muted);}
     .prep-progress-item .progress-bar{width:100%;}
 
+    /* 行前清單：檢視與成員篩選 */
+    .prep-filters{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 12px;}
+    .prep-filter-group{display:flex;align-items:center;gap:5px;}
+    .prep-filter{padding:4px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);
+      border-radius:999px;cursor:pointer;font-size:.7rem;font-family:'Lato',sans-serif;}
+    .prep-filter.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+    .prep-who{padding:3px 9px;background:transparent;border:1px solid var(--border);color:var(--muted);
+      border-radius:999px;cursor:pointer;font-size:.68rem;font-family:'Lato',sans-serif;
+      display:flex;align-items:center;line-height:1;}
+    .prep-who.on{border-color:var(--accent);background:rgba(79,195,247,.12);color:var(--accent);}
+    .prep-who-avatar{width:13px;height:22px;display:inline-block;filter:grayscale(1);opacity:.55;}
+    .prep-who-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
+    .prep-who.on .prep-who-avatar{filter:none;opacity:1;}
+
     .prep-group{margin-bottom:4px;}
     .prep-item{
       position:relative;
@@ -370,7 +384,7 @@
     .sch-filter{padding:3px 11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:999px;cursor:pointer;font-size:.68rem;font-family:'Lato',sans-serif;}
     .sch-filter.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 
-    .sch-scroll{position:relative;max-height:60vh;overflow-y:auto;padding-right:2px;
+    .sch-scroll{position:relative;max-height:72vh;overflow-y:auto;padding-right:2px;
       scrollbar-width:none;-ms-overflow-style:none;}
     .sch-scroll::-webkit-scrollbar{display:none;width:0;height:0;}
     .sch-day{margin-bottom:26px;transition:opacity .25s;}
