@@ -384,7 +384,11 @@
     if (!hasCached) window.setSyncState?.('syncing', '同步中…');
 
     try {
-      const res = await fetch(API_BASE + '?sheet=all', { cache: 'no-store', redirect: 'follow' });
+      // 20 秒沒回應就當失敗，避免 GAS 卡住時狀態永遠停在「同步中」
+      const ac = new AbortController();
+      const killer = setTimeout(() => ac.abort(), 20000);
+      const res = await fetch(API_BASE + '?sheet=all', { cache: 'no-store', redirect: 'follow', signal: ac.signal })
+        .finally(() => clearTimeout(killer));
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const all = await res.json();
       if (all.error) throw new Error(all.error);
@@ -393,8 +397,10 @@
       const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task, schedule, insurance, manual });
       window.APP_DATA = newData;
       localStorage.setItem(CACHE_KEY, JSON.stringify(window.APP_DATA));
-      window.renderAll?.();
+      // 先更新狀態列再畫面：畫面出錯時才不會一直卡在「同步中」
       window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+      try { window.renderAll?.(); }
+      catch (e) { console.error('renderAll failed', e); window.setSyncState?.('local', '⚠ 資料已同步，但畫面繪製出錯'); }
       window.__maybeOpenDeepLink?.();
 
     } catch (error) {
@@ -407,7 +413,7 @@
         window.APP_DATA = clone(window.STATIC ?? {});
         window.setSyncState?.('local', '⚠ 雲端讀取失敗，使用預設初始資料');
       }
-      window.renderAll?.();
+      try { window.renderAll?.(); } catch (e) { console.error('renderAll failed', e); }
     }
   };
 })();

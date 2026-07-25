@@ -791,6 +791,15 @@ const SCH_CATS = [
   { key:'其他', label:'其他' },
 ];
 const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '其他':'🚗' };
+
+// 「交通」分類不畫節點，畫成兩個節點之間的虛線區間：時長在軸左、方向在軸右
+// 標題開頭若是時長（2h／2小時／40min／1.5h）就拆出來，其餘當方向文字
+function schSplitDuration(title) {
+  const t = String(title || '').trim();
+  const m = t.match(/^(\d+(?:\.\d+)?\s*(?:h|hr|hrs|小時|時|min|mins|分鐘|分)|\d+\s*[:：]\s*\d+)\s*(.*)$/i);
+  if (!m) return { dur: '', text: t };
+  return { dur: m[1].replace(/\s+/g, ''), text: m[2].trim() };
+}
 let _schFilter = 'all';
 let _schActiveKey = null;   // 日期跳轉列目前選中的那天
 
@@ -1023,8 +1032,9 @@ function refreshSchJumper() {
 function renderSchDay(day, today, d, dayNum) {
   const isToday = schIsSameDay(day.d, today);
   const isPast  = !isToday && day.d < today;
-  const shown = day.items.filter(x => _schFilter === 'all' || x.category === _schFilter);
-  if (!shown.length) return '';
+  // 交通是節點之間的連接線，篩選特定分類時沒有意義，只在「全部」顯示
+  const shown = day.items.filter(x => _schFilter === 'all' ? true : x.category === _schFilter);
+  if (!shown.length || shown.every(x => x.category === '交通')) return '';
 
   return `
     <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}" data-key="${esc(day.key)}">
@@ -1046,6 +1056,20 @@ function renderSchDay(day, today, d, dayNum) {
 }
 
 function renderSchNode(x, d) {
+  // 交通：不是節點而是節點之間的區間
+  if (x.category === '交通') {
+    const { dur, text } = schSplitDuration(x.title);
+    return `
+      <div class="sch-conn">
+        <div class="sch-node-time sch-conn-dur">${esc(dur || x.time || '')}</div>
+        <div class="sch-conn-dot"><span class="sch-conn-line"></span></div>
+        <div class="sch-conn-body">
+          <span class="sch-conn-text">${esc(text || '移動')}</span>
+          ${x.note ? `<span class="sch-conn-note">${esc(x.note)}</span>` : ''}
+        </div>
+      </div>`;
+  }
+
   const isStay = x.category === '住宿';
   const stay = isStay && x._stayIndex != null ? (d.accommodation || [])[x._stayIndex] : null;
   // 活動節點：自動併入的直接帶 index；手動排的用標題比對活動表
