@@ -818,6 +818,10 @@ function renderSchDay(day, today, d, dayNum) {
 function renderSchNode(x, d) {
   const isStay = x.category === '住宿';
   const stay = isStay && x._stayIndex != null ? (d.accommodation || [])[x._stayIndex] : null;
+  // 活動節點：用標題比對活動表，找得到就能點開詳情
+  const actIndex = x.category === '活動' ? findSchActivity(x.title, d.activity) : -1;
+  const act = actIndex >= 0 ? d.activity[actIndex] : null;
+
   // 住宿：沿用帳簿住宿卡的類型判斷（sheet 有填類型就優先用）
   const pt = isStay ? placeTypeIcon(stay?.stayType || x.title || '') : null;
   const icon = isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
@@ -826,57 +830,142 @@ function renderSchNode(x, d) {
     ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
     : '';
 
-  // 住宿：標籤列（付款狀態／可否取消／付款人像素頭像）＋可展開詳細
-  let stayTags = '', detail = '';
+  // 住宿：一眼標籤列（詳情進彈窗）
+  let stayTags = '';
   if (stay) {
     let payTag;
     if (stay.paid && stay.payDate)   payTag = `<span class="tag tag-paid">${esc(stay.payDate)} 付款</span>`;
     else if (stay.paid)              payTag = `<span class="tag tag-paid">已付款</span>`;
     else if (stay.deductDate)        payTag = `<span class="tag tag-unpaid">${esc(stay.deductDate)} 扣款</span>`;
     else                             payTag = `<span class="tag tag-unpaid">未付款</span>`;
-
     stayTags = `
       <div class="sch-stay-tags">
         <span class="tag tag-person">${esc(pt.label)}</span>
         ${payTag}
-        <span class="tag ${stay.cancel ? 'tag-cancel' : 'tag-nocancel'}">${stay.cancel ? '可取消' : '不可退'}</span>
         ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
-      </div>`;
-
-    detail = `
-      <div class="sch-stay-detail" style="display:none;">
-        <div class="sch-stay-price">
-          ${stay.twd ? `
-            <span class="sch-price-per">${fmtPer(stay.twd)}</span>
-            <span class="sch-price-total">${fmt(stay.twd)} 合計</span>
-            ${stay.orig && stay.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(stay.orig, stay.cur)}</span>` : ''}
-          ` : `<span class="sch-price-per" style="color:var(--muted);font-size:.8rem;">現場付</span>`}
-          ${stay.nights ? `<span class="sch-price-orig">${stay.nights} 晚</span>` : ''}
-          ${stay.foreignFee ? `<span class="tag tag-fee">手續費 NT$${stay.foreignFee}</span>` : ''}
-        </div>
-        ${stay.address    ? `<div class="sch-kv"><span>地址</span><div>${esc(stay.address)}</div></div>` : ''}
-        ${stay.facilities ? `<div class="sch-kv"><span>設備</span><div>${esc(stay.facilities)}</div></div>` : ''}
-        ${stay.extraFee   ? `<div class="sch-kv"><span>自費</span><div>${esc(stay.extraFee)}</div></div>` : ''}
-        ${stay.bring      ? `<div class="sch-kv"><span>自備</span><div>${esc(stay.bring)}</div></div>` : ''}
-        ${stay.nearby     ? `<div class="sch-kv"><span>周邊</span><div>${esc(stay.nearby)}</div></div>` : ''}
-        ${stay.note       ? `<div class="sch-kv"><span>備註</span><div>📌 ${esc(stay.note)}</div></div>` : ''}
       </div>`;
   }
 
+  const clickable = stay ? `onclick="openSchStay(${x._stayIndex})"`
+                  : act  ? `onclick="openSchAct(${actIndex})"` : '';
+
   return `
-    <div class="sch-node cat-${esc(x.category)}${stay ? ' expandable' : ''}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}"
-      ${stay ? `onclick="this.classList.toggle('open');const el=this.querySelector('.sch-stay-detail');if(el)el.style.display=el.style.display==='none'?'block':'none';"` : ''}>
+    <div class="sch-node cat-${esc(x.category)}${clickable ? ' expandable' : ''}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}" ${clickable}>
       <div class="sch-node-time">${esc(x.time || '')}</div>
       <div class="sch-node-dot">${icon}</div>
       <div class="sch-node-body">
-        <div class="sch-node-title">${esc(x.title)}${stay ? '<span class="sch-expand">⌄</span>' : ''}</div>
+        <div class="sch-node-title">${esc(x.title)}${clickable ? '<span class="sch-expand">›</span>' : ''}</div>
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
         ${stayTags}
-        ${detail}
       </div>
       ${navBtn}
     </div>`;
+}
+
+// 標題比對活動表（完全相同或互相包含就算同一筆）
+function findSchActivity(title, activities) {
+  const t = String(title || '').trim();
+  if (!t) return -1;
+  return (activities || []).findIndex(a => {
+    const n = String(a.name || '').trim();
+    return n && (n === t || n.includes(t) || t.includes(n));
+  });
+}
+
+// ── 節點詳情彈窗 ──────────────────────────────
+function schKv(label, val) {
+  return val ? `<div class="sch-kv"><span>${label}</span><div>${esc(val)}</div></div>` : '';
+}
+
+window.openSchStay = function(i) {
+  const stay = (window.APP_DATA?.accommodation || [])[i];
+  if (!stay) return;
+  const pt = placeTypeIcon(stay.stayType || stay.name || '');
+  let payTag;
+  if (stay.paid && stay.payDate)   payTag = `<span class="tag tag-paid">${esc(stay.payDate)} 付款</span>`;
+  else if (stay.paid)              payTag = `<span class="tag tag-paid">已付款</span>`;
+  else if (stay.deductDate)        payTag = `<span class="tag tag-unpaid">${esc(stay.deductDate)} 扣款</span>`;
+  else                             payTag = `<span class="tag tag-unpaid">未付款</span>`;
+
+  openSchModal(`
+    <div class="sch-modal-head">
+      <span class="sch-modal-icon">${pt.icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="sch-modal-title">${esc(stay.name)}</div>
+        <div class="sch-modal-sub">${esc(stay.date || '')}${stay.nights ? ` · ${stay.nights} 晚` : ''}</div>
+      </div>
+    </div>
+    <div class="sch-stay-price">
+      ${stay.twd ? `
+        <span class="sch-price-per">${fmtPer(stay.twd)}</span>
+        <span class="sch-price-total">${fmt(stay.twd)} 合計</span>
+        ${stay.orig && stay.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(stay.orig, stay.cur)}</span>` : ''}
+      ` : `<span class="sch-price-per" style="color:var(--muted);font-size:.8rem;">現場付</span>`}
+      ${stay.foreignFee ? `<span class="tag tag-fee">手續費 NT$${stay.foreignFee}</span>` : ''}
+    </div>
+    <div class="sch-stay-tags" style="margin:0 0 8px;">
+      <span class="tag tag-person">${esc(pt.label)}</span>
+      ${payTag}
+      <span class="tag ${stay.cancel ? 'tag-cancel' : 'tag-nocancel'}">${stay.cancel ? '可取消' : '不可退'}</span>
+      ${stay.payer ? `<span class="sch-payer">${avatarSvg(stay.payer)}</span>` : ''}
+    </div>
+    ${schKv('地址', stay.address)}
+    ${schKv('設備', stay.facilities)}
+    ${schKv('自費', stay.extraFee)}
+    ${schKv('自備', stay.bring)}
+    ${schKv('周邊', stay.nearby)}
+    ${schKv('備註', stay.note)}
+    ${(stay.lat && stay.lng) ? `
+      <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${stay.lat},${stay.lng}','_blank')">➤ 導航到這裡</button>` : ''}
+  `);
+};
+
+window.openSchAct = function(i) {
+  const a = (window.APP_DATA?.activity || [])[i];
+  if (!a) return;
+  let payTag = a.paid ? `<span class="tag tag-paid">已付款</span>`
+             : a.payDate ? `<span class="tag tag-unpaid">${esc(a.payDate)} 前付款</span>`
+             : `<span class="tag tag-unpaid">未付款</span>`;
+  openSchModal(`
+    <div class="sch-modal-head">
+      <span class="sch-modal-icon">🎯</span>
+      <div style="flex:1;min-width:0;">
+        <div class="sch-modal-title">${a.url ? `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">${esc(a.name)}</a>` : esc(a.name)}</div>
+        <div class="sch-modal-sub">${esc(a.date || '')}${a.duration ? ` · ${esc(a.duration)}` : ''}</div>
+      </div>
+    </div>
+    <div class="sch-stay-price">
+      ${a.twd ? `
+        <span class="sch-price-per">${fmtPer(a.twd)}</span>
+        <span class="sch-price-total">${fmt(a.twd)} 合計</span>
+        ${a.orig && a.cur !== 'NT' ? `<span class="sch-price-orig">${fmtOrig(a.orig, a.cur)}</span>` : ''}
+      ` : ''}
+      ${a.foreignFee ? `<span class="tag tag-fee">手續費 NT$${a.foreignFee}</span>` : ''}
+    </div>
+    <div class="sch-stay-tags" style="margin:0 0 8px;">
+      ${payTag}
+      <span class="tag ${a.cancel ? 'tag-cancel' : 'tag-nocancel'}">${a.cancel ? '可取消' : '不可退'}</span>
+      ${a.difficulty ? `<span class="tag tag-person">難度 ${esc(a.difficulty)}</span>` : ''}
+      ${a.payer ? `<span class="sch-payer">${avatarSvg(a.payer)}</span>` : ''}
+    </div>
+    ${schKv('集合', [a.meetTime, a.meetLoc].filter(Boolean).join(' · '))}
+    ${schKv('內容', a.content)}
+    ${schKv('提供', a.included)}
+    ${schKv('不提供', a.excluded)}
+    ${schKv('自備', a.bring)}
+    ${schKv('回程地', a.returnLoc)}
+    ${schKv('備註', a.note)}
+    ${(a.lat && a.lng) ? `
+      <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${a.lat},${a.lng}','_blank')">➤ 導航到集合點</button>` : ''}
+  `);
+};
+
+function openSchModal(html) {
+  const box = document.getElementById('schModalBody');
+  if (!box) return;
+  box.innerHTML = html;
+  document.getElementById('schModal').classList.add('show');
 }
 
 window.setSchFilter = function(key) {
