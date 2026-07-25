@@ -387,7 +387,8 @@
       // 20 秒沒回應就當失敗，避免 GAS 卡住時狀態永遠停在「同步中」
       const ac = new AbortController();
       const killer = setTimeout(() => ac.abort(), 20000);
-      const res = await fetch(API_BASE + '?sheet=all', { cache: 'no-store', redirect: 'follow', signal: ac.signal })
+      // 帶時間戳，避免 Service Worker／中間層回舊資料
+      const res = await fetch(API_BASE + '?sheet=all&_=' + Date.now(), { cache: 'no-store', redirect: 'follow', signal: ac.signal })
         .finally(() => clearTimeout(killer));
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const all = await res.json();
