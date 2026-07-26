@@ -794,10 +794,16 @@ const SCH_CATS = [
 const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '補給':'🛒', '其他':'•' };
 
 // 時間顯示用：Google Sheet 的時間格會回「11:00:00」，秒數對行程沒有意義
+// 左側軌道只放時刻，一種格式。Sheet 會漏出「上午 11:00:00」這種顯示值，
+// 要把秒數與上午／下午前綴收掉，否則會折成兩行、跟時長混在一起分不出語意。
 function schTimeText(t) {
   const s = String(t || '').trim();
-  const m = s.match(/^(\d{1,2})\s*[:：]\s*(\d{2})(?:\s*[:：]\s*\d{2})?$/);
-  return m ? `${+m[1]}:${m[2]}` : s;
+  const m = s.match(/(\d{1,2})\s*[:：]\s*(\d{2})/);
+  if (!m) return s;                     // 只寫「上午」「下午」的原樣顯示
+  let h = +m[1];
+  if (/下午|晚/.test(s) && h < 12) h += 12;
+  if (/上午|早/.test(s) && h === 12) h = 0;
+  return `${h}:${m[2]}`;
 }
 
 // 「交通」分類不畫節點，畫成兩個節點之間的虛線區間：時長在軸左、方向在軸右
@@ -964,7 +970,13 @@ function parseSchTime(t) {
   const s = String(t || '').trim();
   if (!s) return 100000;
   const hm = s.match(/(\d{1,2})\s*[:：]\s*(\d{2})/);
-  if (hm) return +hm[1] * 60 + +hm[2];
+  if (hm) {
+    // Google Sheet 會顯示成「下午 2:00:00」，不補 12 小時會被排到凌晨
+    let h = +hm[1];
+    if (/下午|晚/.test(s) && h < 12) h += 12;
+    if (/上午|早/.test(s) && h === 12) h = 0;
+    return h * 60 + +hm[2];
+  }
   if (/上午|早/.test(s)) return 8 * 60;
   if (/中午/.test(s))    return 12 * 60;
   if (/下午/.test(s))    return 14 * 60;
@@ -1095,15 +1107,17 @@ function renderSchNode(x, d, sameTime) {
   // 交通：不是節點而是節點之間的區間
   if (x.category === '交通') {
     const { dur, text } = schSplitDuration(x.title);
-    // 方向寫在說明欄；標題只寫時長時，就把說明升為主要文字，不再顯示「移動」
-    const main = text || x.note || '移動';
+    // 方向寫在說明欄；標題只寫時長時，就把說明升為主要文字。沒有方向就不補
+    // 「移動」這種廢字——連續五個「移動」只是噪音。
+    const main = text || x.note || '';
     const sub  = text ? x.note : '';
     return `
       <div class="sch-conn">
         <div class="sch-conn-dot"><span class="sch-conn-line"></span></div>
-        <div class="sch-node-time sch-conn-dur">${esc(dur || x.time || '')}</div>
+        <div class="sch-node-time"></div>
         <div class="sch-conn-body">
-          <span class="sch-conn-text">${esc(main)}</span>
+          ${dur ? `<span class="sch-conn-dur">${esc(dur)}</span>` : ''}
+          ${main ? `<span class="sch-conn-text">${esc(main)}</span>` : ''}
           ${sub ? `<span class="sch-conn-note">${esc(sub)}</span>` : ''}
         </div>
       </div>`;
