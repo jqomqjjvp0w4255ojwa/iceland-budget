@@ -1103,18 +1103,10 @@ function renderSchDay(day, today, d, dayNum) {
 }
 
 // sameTime＝跟上一個節點同一個時間（例如整批市區漫遊），時間就不重複印
-// 點項目看詳情：有填網址就用網址；沒填但有座標就開 Google Maps 地點總覽頁；
-// 連座標都沒有就退回用「地點」欄搜尋——但標題本身不能單獨拿來搜，
-// 因為標題可能只是心情或行動（「抵達冰島」「退房」），不是地名，
-// 硬搜只會跳出不相關結果。沒有地點欄就乾脆不給連結。
+// 點項目看詳情：只有明確填了網址才給連結，不猜、不自動搜尋——
+// 座標已經有專屬的「導航」按鈕負責，這裡不重複做同一件事。
 function schInfoUrl(x) {
-  const url = String(x.url || '').trim();
-  if (url) return url;
-  if (x.lat && x.lng) return `https://www.google.com/maps/search/?api=1&query=${x.lat},${x.lng}`;
-  const place = String(x.place || '').trim();
-  if (!place) return '';
-  const q = [place, x.title].filter(Boolean).join(' ');
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+  return String(x.url || '').trim();
 }
 
 function renderSchNode(x, d, sameTime) {
