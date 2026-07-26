@@ -377,7 +377,12 @@
     .sch-jump-arrow{flex-shrink:0;width:24px;height:38px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;cursor:pointer;font-size:15px;line-height:1;}
     .sch-jump-arrow:active{background:var(--bg3);color:var(--text);}
     .sch-jump-arrow:disabled{opacity:.25;cursor:default;}
-    .sch-jump-scroll{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;}
+    /* 列出全部天數，靠左右滑動選：從最後一天回第一天只要拖一下 */
+    .sch-jump-scroll{flex:1;display:flex;align-items:center;gap:4px;
+      overflow-x:auto;scroll-behavior:smooth;
+      scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;}
+    .sch-jump-scroll::-webkit-scrollbar{display:none;height:0;}
+    .sch-jump-scroll .sch-jump-day{flex-shrink:0;}
 
     .sch-jump-day{
       flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;
