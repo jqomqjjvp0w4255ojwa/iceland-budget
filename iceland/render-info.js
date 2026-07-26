@@ -1103,14 +1103,18 @@ function renderSchDay(day, today, d, dayNum) {
 }
 
 // sameTime＝跟上一個節點同一個時間（例如整批市區漫遊），時間就不重複印
-// 點項目看詳情：有填網址就用網址；沒填但有座標就開 Google Maps 地點總覽頁
-// （不是導航路線）；連座標都沒有就用標題去 Google Maps 搜尋，至少看得到東西。
+// 點項目看詳情：有填網址就用網址；沒填但有座標就開 Google Maps 地點總覽頁；
+// 連座標都沒有就退回用「地點」欄搜尋——但標題本身不能單獨拿來搜，
+// 因為標題可能只是心情或行動（「抵達冰島」「退房」），不是地名，
+// 硬搜只會跳出不相關結果。沒有地點欄就乾脆不給連結。
 function schInfoUrl(x) {
   const url = String(x.url || '').trim();
   if (url) return url;
   if (x.lat && x.lng) return `https://www.google.com/maps/search/?api=1&query=${x.lat},${x.lng}`;
-  const q = [x.title, x.place].filter(Boolean).join(' ');
-  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : '';
+  const place = String(x.place || '').trim();
+  if (!place) return '';
+  const q = [place, x.title].filter(Boolean).join(' ');
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
 function renderSchNode(x, d, sameTime) {
@@ -1299,7 +1303,10 @@ window.openSchStay = function(i) {
     <div class="sch-modal-head">
       <span class="sch-modal-icon">${pt.icon}</span>
       <div style="flex:1;min-width:0;">
-        <div class="sch-modal-title"><a href="${safeUrl(schInfoUrl({lat:stay.lat,lng:stay.lng,title:stay.name,place:stay.address}))}" target="_blank" rel="noopener">${esc(stay.name)}</a></div>
+        <div class="sch-modal-title">${(() => {
+          const u = safeUrl(schInfoUrl({lat:stay.lat,lng:stay.lng,title:stay.name,place:stay.address}));
+          return u ? `<a href="${u}" target="_blank" rel="noopener">${esc(stay.name)}</a>` : esc(stay.name);
+        })()}</div>
         <div class="sch-modal-sub">${esc(stay.date || '')}${stay.nights ? ` · ${stay.nights} 晚` : ''}</div>
       </div>
     </div>
@@ -1338,7 +1345,10 @@ window.openSchAct = function(i) {
     <div class="sch-modal-head">
       <span class="sch-modal-icon">🎯</span>
       <div style="flex:1;min-width:0;">
-        <div class="sch-modal-title"><a href="${safeUrl(a.url || schInfoUrl({lat:a.lat,lng:a.lng,title:a.name,place:a.meetLoc}))}" target="_blank" rel="noopener">${esc(a.name)}</a></div>
+        <div class="sch-modal-title">${(() => {
+          const u = safeUrl(a.url || schInfoUrl({lat:a.lat,lng:a.lng,title:a.name,place:a.meetLoc}));
+          return u ? `<a href="${u}" target="_blank" rel="noopener">${esc(a.name)}</a>` : esc(a.name);
+        })()}</div>
         <div class="sch-modal-sub">${esc(a.date || '')}${a.duration ? ` · ${esc(a.duration)}` : ''}</div>
       </div>
     </div>
