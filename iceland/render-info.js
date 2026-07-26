@@ -1299,7 +1299,7 @@ window.openSchStay = function(i) {
     <div class="sch-modal-head">
       <span class="sch-modal-icon">${pt.icon}</span>
       <div style="flex:1;min-width:0;">
-        <div class="sch-modal-title">${esc(stay.name)}</div>
+        <div class="sch-modal-title"><a href="${safeUrl(schInfoUrl({lat:stay.lat,lng:stay.lng,title:stay.name,place:stay.address}))}" target="_blank" rel="noopener">${esc(stay.name)}</a></div>
         <div class="sch-modal-sub">${esc(stay.date || '')}${stay.nights ? ` · ${stay.nights} 晚` : ''}</div>
       </div>
     </div>
@@ -1338,7 +1338,7 @@ window.openSchAct = function(i) {
     <div class="sch-modal-head">
       <span class="sch-modal-icon">🎯</span>
       <div style="flex:1;min-width:0;">
-        <div class="sch-modal-title">${a.url ? `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener">${esc(a.name)}</a>` : esc(a.name)}</div>
+        <div class="sch-modal-title"><a href="${safeUrl(a.url || schInfoUrl({lat:a.lat,lng:a.lng,title:a.name,place:a.meetLoc}))}" target="_blank" rel="noopener">${esc(a.name)}</a></div>
         <div class="sch-modal-sub">${esc(a.date || '')}${a.duration ? ` · ${esc(a.duration)}` : ''}</div>
       </div>
     </div>
