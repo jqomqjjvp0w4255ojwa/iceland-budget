@@ -1175,8 +1175,13 @@ function renderSchNode(x, d, sameTime) {
   const clickable = stay ? `onclick="openSchStay(${x._stayIndex})"`
                   : act  ? `onclick="openSchAct(${actIndex})"` : '';
 
-  const time = `<div class="sch-node-time">${sameTime ? '' : esc(schTimeText(x.time))}</div>`;
-  const cls = `cat-${esc(x.category)}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}`;
+  const timeText = sameTime ? '' : schTimeText(x.time);
+  const time = `<div class="sch-node-time">${esc(timeText)}</div>`;
+  // 時間欄空著時，圓點跟標題中間會斷一段空白 → 補一條淡虛線把它們接起來。
+  // 只給主要節點（景點／住宿／活動），讓這條線本身也是層級訊號。
+  const major = ['景點', '住宿', '活動'].includes(x.category);
+  const lead = (!timeText && major) ? ' lead' : '';
+  const cls = `cat-${esc(x.category)}${lead}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}`;
 
   // 點不開的節點不做卡片：空心圓點＋一行字（景點放大、車程等縮成一行）
   if (!clickable) {
