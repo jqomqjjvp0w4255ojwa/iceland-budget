@@ -475,6 +475,8 @@
     .sch-node-title{font-size:.8rem;color:var(--text);display:flex;align-items:center;gap:5px;}
     .sch-node-place{font-size:.66rem;color:var(--muted);margin-top:2px;}
     .sch-node-note{font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.7;white-space:pre-wrap;}
+    /* 說明比標題再淡一階，才不會兩行看起來一樣重 */
+    .sch-node.plain .sch-node-note{font-size:.63rem;opacity:.72;margin-top:1px;line-height:1.5;}
     .sch-expand{font-size:.8rem;color:var(--muted);margin-left:auto;padding-left:6px;}
     .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.62rem;font-family:'Lato',sans-serif;}
     .sch-nav:active{background:rgba(79,195,247,.12);}
