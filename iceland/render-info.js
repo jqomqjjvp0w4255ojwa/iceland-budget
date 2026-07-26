@@ -1007,7 +1007,7 @@ function renderSchedule(d) {
   return jumper + filters + `
     <div class="sch-scroll" id="schScroll">${body}</div>
     <button class="sch-back-today" id="schBackToday" onclick="schScrollToToday()" style="display:none;">
-      <span id="schBackArrow">↑</span> <span id="schBackLabel">回到今日</span>
+      <span id="schBackArrow">↑</span> <span id="schBackLabel">返回</span>
     </button>`;
 }
 
@@ -1400,7 +1400,7 @@ function schBindScroll() {
   const realToday = container.querySelector('.sch-day.today');
   const todayEl = realToday || container.querySelector('.sch-day');
   if (!todayEl) { btn.style.display = 'none'; return; }
-  if (label) label.textContent = realToday ? '回到今日' : '回到 D1';
+  if (label) label.textContent = '返回';
 
   function update() {
     const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
@@ -1421,9 +1421,7 @@ function schBindScroll() {
     }
     btn.style.display = 'flex';
     // 今日在下方 → 按鈕貼底、箭頭朝下；今日在上方 → 貼頂、箭頭朝上
-    const below = diff > 0;
-    arrow.textContent = below ? '↓' : '↑';
-    btn.classList.toggle('at-top', !below);
+    arrow.textContent = diff > 0 ? '↓' : '↑';
   }
   window.removeEventListener('scroll', window._schHandler || (()=>{}));
   window._schHandler = update;
