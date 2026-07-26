@@ -190,8 +190,11 @@ function setSyncState(state,msg){
 // ── 住宿卡片渲染
 
 function renderAll(){
-  // ── 記住目前分頁，renderAll 後恢復
+  // ── 記住目前分頁與捲動位置，renderAll 後恢復
+  // 背景同步（雲端讀取完成）也會呼叫這裡，整個主畫面被整段換掉，
+  // 不補這個的話畫面就會彈回最頂端，使用者會以為「跳回首頁」。
   const _activeTab = window._activeMainTab || 'ledger';
+  const _scrollY = window.scrollY;
   const d=window.APP_DATA || window.STATIC;
   // ── 同步 tag 庫
   if (d.tagLibrary?.length) window.pxUpdateTagLibrary?.(d.tagLibrary);
@@ -428,6 +431,9 @@ function renderAll(){
       const subBtn = document.querySelector(`.tab[onclick="showTab('${_subTab}',this)"]`);
       if (subEl && subBtn) showTab(_subTab, subBtn);
     }
+    // 排在上面幾個 setTimeout(0) 之後執行，確保分頁內容都補回去了才還原捲動位置，
+    // 不然內容還沒補齊時頁面高度不夠，scrollTo 會被瀏覽器夾回不夠高的位置
+    setTimeout(() => window.scrollTo(0, _scrollY), 0);
   });
 }
 
@@ -444,7 +450,16 @@ function switchMainTab(key, btn){
   if (key === 'info') {
     setTimeout(() => {
       const el = document.getElementById('infoContent');
-      if (el && !el.innerHTML) el.innerHTML = renderInfo(window.APP_DATA || window.STATIC);
+      if (el && !el.innerHTML) {
+        el.innerHTML = renderInfo(window.APP_DATA || window.STATIC);
+        // 恢復次分頁（行前／航班／取車／日程／保險），不然背景同步重繪後
+        // 每次都跳回預設的「行前」，使用者會以為畫面跳回首頁
+        const sub = window._activeInfoTab;
+        if (sub && sub !== 'prep') {
+          const subBtn = el.querySelector(`.tab[onclick^="showInfoTab('${sub}'"]`);
+          if (subBtn) window.showInfoTab(sub, subBtn);
+        }
+      }
     }, 0);
   }
   const KEYS = ['ledger','info','map','bag'];

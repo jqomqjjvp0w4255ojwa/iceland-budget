@@ -1564,6 +1564,7 @@ function renderCarDetail(car) {
 }
 
 window.showInfoTab = function(id, btn) {
+  window._activeInfoTab = id;   // 記住次分頁，背景同步重繪後才能恢復，不會跳回「行前」
   document.querySelectorAll('[id^="infoTab-"]').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('#mainSection-info .tab').forEach(t => t.classList.remove('active'));
   document.getElementById('infoTab-'+id)?.classList.add('active');
