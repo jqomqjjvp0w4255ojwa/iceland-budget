@@ -1181,6 +1181,9 @@ function renderSchNode(x, d, sameTime) {
   // 只給主要節點（景點／住宿／活動），讓這條線本身也是層級訊號。
   const major = ['景點', '住宿', '活動'].includes(x.category);
   const lead = (!timeText && major) ? ' lead' : '';
+  // 預計停留：跟車程時長同一類資訊（要花多久），所以用同一種標籤樣式
+  const dwell = String(x.stay || '').trim()
+    ? `<span class="sch-dwell">${esc(String(x.stay).trim())}</span>` : '';
   const cls = `cat-${esc(x.category)}${lead}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}`;
 
   // 點不開的節點不做卡片：空心圓點＋一行字（景點放大、車程等縮成一行）
@@ -1192,7 +1195,7 @@ function renderSchNode(x, d, sameTime) {
         ${time}
         <div class="sch-node-body">
           <div class="sch-plain-text">
-            <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${
+            <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${dwell}${
               x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
             ${x.note ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
           </div>
@@ -1206,7 +1209,7 @@ function renderSchNode(x, d, sameTime) {
       <div class="sch-node-dot">${icon}</div>
       ${time}
       <div class="sch-node-body">
-        <div class="sch-node-title">${esc(x.title)}<span class="sch-expand">›</span></div>
+        <div class="sch-node-title">${esc(x.title)}${dwell}<span class="sch-expand">›</span></div>
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
         ${stayTags}

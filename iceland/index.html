@@ -527,8 +527,10 @@
     .sch-conn{position:relative;display:flex;align-items:center;gap:8px;
       padding:2px 8px 2px 0;margin-left:-9px;}
     /* 時長不進時間欄：它是「兩點之間要花多久」，不是「幾點做這件事」 */
-    .sch-conn-dur{color:var(--muted);font-size:.62rem;letter-spacing:.02em;
+    .sch-conn-dur,.sch-dwell{color:var(--muted);font-size:.62rem;letter-spacing:.02em;
       background:var(--bg3);border-radius:4px;padding:1px 6px;flex-shrink:0;}
+    /* 預計停留：跟車程時長同一種標籤，因為都在回答「要花多久」 */
+    .sch-dwell{margin-left:6px;font-weight:400;white-space:nowrap;}
     .sch-conn-dot{flex-shrink:0;width:18px;align-self:stretch;min-height:34px;
       display:flex;justify-content:center;background:var(--card);z-index:1;}
     .sch-conn-line{width:2px;
