@@ -1007,20 +1007,12 @@ function renderSchedule(d) {
   return jumper + filters + `
     <div class="sch-scroll" id="schScroll">${body}</div>
     <button class="sch-back-today" id="schBackToday" onclick="schScrollToToday()" style="display:none;">
-      <span id="schBackArrow">↑</span> 回到今日
+      <span id="schBackArrow">↑</span> <span id="schBackLabel">回到今日</span>
     </button>`;
 }
 
-// 日期跳轉列：只顯示選中的那天 ±2，選中置中放大、往外遞減
-// 依畫面寬度決定跳轉列左右各顯示幾天（窄機 ±2，寬螢幕最多 ±5）
-function schJumperSpan() {
-  const el = document.getElementById('schJumper') || document.getElementById('scheduleContent');
-  const w = el?.clientWidth || window.innerWidth || 360;
-  // 扣掉兩顆箭頭與間距後，每格約 52px；再換算成左右各幾格
-  const slots = Math.floor((w - 70) / 52);
-  return Math.max(2, Math.min(5, Math.floor((slots - 1) / 2)));
-}
-
+// 日期跳轉列：列出全部天數，可左右滑動，選中的那天置中放大、往外遞減。
+// 不再只渲染 ±N 天——那樣從最後一天要回到第一天得按十幾次箭頭。
 function renderSchJumper(days, today) {
   // 選中預設今天；今天不在行程內就用第一天
   if (!_schActiveKey || !days.some(x => x.key === _schActiveKey)) {
@@ -1028,20 +1020,16 @@ function renderSchJumper(days, today) {
     _schActiveKey = t ? t.key : days[0].key;
   }
   const idx = days.findIndex(x => x.key === _schActiveKey);
-  const span = schJumperSpan();
 
-  const btns = [];
-  for (let off = -span; off <= span; off++) {
-    const i = idx + off;
-    if (i < 0 || i >= days.length) continue;
-    const day = days[i];
+  const btns = days.map((day, i) => {
+    const off = i - idx;
     const isToday = schIsSameDay(day.d, today);
-    btns.push(`<button class="sch-jump-day off${Math.min(2, Math.abs(off))}${off === 0 ? ' active' : ''}${isToday ? ' today' : ''}"
+    return `<button class="sch-jump-day off${Math.min(2, Math.abs(off))}${off === 0 ? ' active' : ''}${isToday ? ' today' : ''}"
       data-key="${esc(day.key)}" onclick="schJumpTo('${esc(day.key)}')">
       <span class="sch-jump-d">D${i + 1}</span>
       <span class="sch-jump-date">${esc(day.key)}</span>
-    </button>`);
-  }
+    </button>`;
+  });
 
   return `
     <div class="sch-jumper" id="schJumper">
@@ -1063,7 +1051,17 @@ function refreshSchJumper() {
   const days = buildScheduleDays(window.APP_DATA || window.STATIC);
   if (!days.length) return;
   el.outerHTML = renderSchJumper(days, new Date());
+  centerSchJumper();
 }
+
+// 把選中的那天捲到跳轉列中央（列出全部天數後，選中的可能在畫面外）
+function centerSchJumper() {
+  const strip = document.querySelector('#schJumper .sch-jump-scroll');
+  const active = strip?.querySelector('.sch-jump-day.active');
+  if (!strip || !active) return;
+  strip.scrollLeft = active.offsetLeft - (strip.clientWidth - active.offsetWidth) / 2;
+}
+window.centerSchJumper = centerSchJumper;
 
 function renderSchDay(day, today, d, dayNum) {
   const isToday = schIsSameDay(day.d, today);
@@ -1380,9 +1378,15 @@ window.schJumpStep = function(dir) {
   schJumpTo(days[next].key);
 };
 
+// 行程還沒開始（今天不在行程內）時，基準就是第一天
+function schAnchorDay() {
+  return document.querySelector('.sch-day.today')
+      || document.querySelector('#schScroll .sch-day');
+}
+
 window.schScrollToToday = function() {
-  const today = document.querySelector('.sch-day.today');
-  if (today) schJumpTo(today.dataset.key);
+  const anchor = schAnchorDay();
+  if (anchor) schJumpTo(anchor.dataset.key);
 };
 
 // 捲動時決定「回到今日」要不要出現、箭頭朝哪（現在跟著整個頁面捲動，不是內框）
@@ -1390,9 +1394,13 @@ function schBindScroll() {
   const container = document.getElementById('schScroll');
   const btn = document.getElementById('schBackToday');
   const arrow = document.getElementById('schBackArrow');
+  const label = document.getElementById('schBackLabel');
   if (!container || !btn) return;
-  const todayEl = container.querySelector('.sch-day.today');
+  // 基準＝今日；行程還沒開始就用第一天
+  const realToday = container.querySelector('.sch-day.today');
+  const todayEl = realToday || container.querySelector('.sch-day');
   if (!todayEl) { btn.style.display = 'none'; return; }
+  if (label) label.textContent = realToday ? '回到今日' : '回到 D1';
 
   function update() {
     const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
@@ -1421,6 +1429,7 @@ function schBindScroll() {
   window._schHandler = update;
   window.addEventListener('scroll', update, { passive:true });
   update();
+  centerSchJumper();
   // 一進來就對準今日
   if (todayEl) {
     const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
