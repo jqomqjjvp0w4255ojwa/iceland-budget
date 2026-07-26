@@ -402,7 +402,8 @@
     .sch-jump-day.off1 .sch-jump-d{font-size:.76rem;}
     .sch-jump-day.off1 .sch-jump-date{font-size:.58rem;}
 
-    .sch-jump-day.off2{opacity:.4;}
+    /* 邊緣要小但仍看得清楚，不要淡到讀不出日期 */
+    .sch-jump-day.off2{opacity:.62;}
     .sch-jump-day.off2 .sch-jump-d{font-size:.64rem;}
     .sch-jump-day.off2 .sch-jump-date{font-size:.52rem;}
 
@@ -550,9 +551,8 @@
     .sch-kv span{flex:0 0 34px;color:var(--muted);}
     .sch-kv div{flex:1;color:var(--text);word-break:break-word;}
 
-    /* 頁面整條捲動後，這顆改貼在視窗底部（不再跟著小捲動框走）*/
+    /* 一律貼在視窗底部：放頂端會壓到黏頂的日期跳轉列 */
     .sch-back-today{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:none;align-items:center;gap:5px;background:var(--accent);color:#fff;border:none;border-radius:999px;padding:6px 16px;cursor:pointer;font-size:.7rem;font-family:'Lato',sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.4);z-index:50;width:max-content;}
-    .sch-back-today.at-top{bottom:auto;top:64px;}
 
     /* ══ 日程節點詳情彈窗 ══ */
     .sch-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:180;align-items:center;justify-content:center;padding:20px;}
