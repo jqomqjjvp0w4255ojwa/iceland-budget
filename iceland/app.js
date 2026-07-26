@@ -297,6 +297,7 @@
             place: row['地點'] || '',
             lat: num(row['緯度']), lng: num(row['經度']),
             stay: row['停留'] || '',
+            url: row['網址'] || '',
             order: i, _rowIndex: row._rowIndex,
           };
         })

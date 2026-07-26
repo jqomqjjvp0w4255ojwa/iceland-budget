@@ -1103,6 +1103,16 @@ function renderSchDay(day, today, d, dayNum) {
 }
 
 // sameTime＝跟上一個節點同一個時間（例如整批市區漫遊），時間就不重複印
+// 點項目看詳情：有填網址就用網址；沒填但有座標就開 Google Maps 地點總覽頁
+// （不是導航路線）；連座標都沒有就用標題去 Google Maps 搜尋，至少看得到東西。
+function schInfoUrl(x) {
+  const url = String(x.url || '').trim();
+  if (url) return url;
+  if (x.lat && x.lng) return `https://www.google.com/maps/search/?api=1&query=${x.lat},${x.lng}`;
+  const q = [x.title, x.place].filter(Boolean).join(' ');
+  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : '';
+}
+
 function renderSchNode(x, d, sameTime) {
   // 交通：不是節點而是節點之間的區間
   if (x.category === '交通') {
@@ -1125,11 +1135,12 @@ function renderSchNode(x, d, sameTime) {
 
   // 參考：不是獨立節點，是掛在前一個節點底下的小字附註（縮排、無圓點）
   if (x.category === '參考') {
-    const ref = (x.lat && x.lng)
-      ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>`
+    const info = safeUrl(schInfoUrl(x));   // safeUrl 內部已做 esc，不要重複跳脫
+    const ref = info
+      ? `<button class="sch-nav" title="查看" onclick="window.open('${info}','_blank');event.stopPropagation();">🔗</button>`
       : '';
     return `
-      <div class="sch-ref">
+      <div class="sch-ref"${info ? ` onclick="window.open('${info}','_blank')" style="cursor:pointer;"` : ''}>
         <span class="sch-ref-mark">└</span>
         <div class="sch-ref-body">
           <span class="sch-ref-title">${esc(x.title)}</span>
@@ -1187,14 +1198,17 @@ function renderSchNode(x, d, sameTime) {
   const cls = `cat-${esc(x.category)}${lead}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}`;
 
   // 點不開的節點不做卡片：空心圓點＋一行字（景點放大、車程等縮成一行）
+  // 沒有詳情彈窗（不是住宿／活動）的節點，點文字就開相關頁面（自訂網址／地圖總覽／名稱搜尋）
   if (!clickable) {
     const big = x.category === '景點';
+    const info = safeUrl(schInfoUrl(x));
+    const infoAttr = info ? ` onclick="window.open('${info}','_blank')" style="cursor:pointer;"` : '';
     return `
       <div class="sch-node plain ${cls}${big ? ' big' : ''}">
         <div class="sch-node-dot ring"></div>
         ${time}
         <div class="sch-node-body">
-          <div class="sch-plain-text">
+          <div class="sch-plain-text"${infoAttr}>
             <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${dwell}${
               x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
             ${x.note ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
