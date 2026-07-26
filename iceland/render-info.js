@@ -791,7 +791,14 @@ const SCH_CATS = [
   { key:'補給', label:'補給' },
   { key:'其他', label:'其他' },
 ];
-const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '補給':'🛒', '其他':'🚗' };
+const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '補給':'🛒', '其他':'•' };
+
+// 時間顯示用：Google Sheet 的時間格會回「11:00:00」，秒數對行程沒有意義
+function schTimeText(t) {
+  const s = String(t || '').trim();
+  const m = s.match(/^(\d{1,2})\s*[:：]\s*(\d{2})(?:\s*[:：]\s*\d{2})?$/);
+  return m ? `${+m[1]}:${m[2]}` : s;
+}
 
 // 「交通」分類不畫節點，畫成兩個節點之間的虛線區間：時長在軸左、方向在軸右
 // 標題開頭若是時長（2h／2小時／40min／1.5h）就拆出來，其餘當方向文字
@@ -927,12 +934,19 @@ function buildScheduleDays(d) {
     byDate.get(key).items.push(x);
   });
 
-  // 日期排序；同一天內：有時間的排前面（依時間），沒時間的照 sheet 順序
+  // 日期排序；同一天內依時間排。沒填時間的節點（起床、車程…）不該被丟到最後，
+  // 而是沿用「前一個有填時間的節點」的時間，留在 sheet 裡原本的位置。
   const days = [...byDate.values()].sort((a, b) => a.d - b.d);
   days.forEach(day => {
+    const seq = [...day.items].sort((a, b) => (a.order || 0) - (b.order || 0));
+    let carried = 0;   // 天的開頭還沒有任何時間 → 視為 0 點
+    seq.forEach(x => {
+      const t = parseSchTime(x.time);
+      if (t < 100000) carried = t;
+      x._sortT = carried;
+    });
     day.items.sort((a, b) => {
-      const ta = parseSchTime(a.time), tb = parseSchTime(b.time);
-      if (ta !== tb) return ta - tb;
+      if (a._sortT !== b._sortT) return a._sortT - b._sortT;
       return (a.order || 0) - (b.order || 0);
     });
     // 「參考」是掛在前一個節點底下的附註，篩選時跟著上面那個節點一起出現
@@ -1037,9 +1051,9 @@ function renderSchJumper(days, today) {
     </div>`;
 }
 
-// 元素相對捲動容器的實際位置（offsetTop 會受 offsetParent 影響，改用幾何計算）
-function schRelTop(el, scroller) {
-  return scroller.scrollTop + el.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+// 元素相對「頁面」的實際位置（時間軸已改成跟頁面一起捲動，不再有自己的捲動框）
+function schRelTop(el) {
+  return el.getBoundingClientRect().top + window.scrollY;
 }
 
 // 只重畫跳轉列（不動時間軸，避免捲動位置跳掉）
@@ -1149,7 +1163,7 @@ function renderSchNode(x, d, sameTime) {
   const clickable = stay ? `onclick="openSchStay(${x._stayIndex})"`
                   : act  ? `onclick="openSchAct(${actIndex})"` : '';
 
-  const time = `<div class="sch-node-time">${sameTime ? '' : esc(x.time || '')}</div>`;
+  const time = `<div class="sch-node-time">${sameTime ? '' : esc(schTimeText(x.time))}</div>`;
   const cls = `cat-${esc(x.category)}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}`;
 
   // 點不開的節點不做卡片：空心圓點＋一行字（景點放大、車程等縮成一行）
@@ -1351,9 +1365,10 @@ window.schJumpTo = function(key) {
   _schActiveKey = key;
   refreshSchJumper();
   const target = document.querySelector(`.sch-day[data-key="${key}"]`);
-  const scroller = document.getElementById('schScroll');
-  if (!target || !scroller) return;
-  scroller.scrollTo({ top: schRelTop(target, scroller) - 4, behavior: 'smooth' });
+  if (!target) return;
+  // 扣掉跳轉列黏頂的高度，不然目標日期的標題會被蓋住
+  const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
+  window.scrollTo({ top: schRelTop(target) - jumperH - 6, behavior: 'smooth' });
 };
 
 // ‹ › 前後一天（移動選中的那天）
@@ -1370,29 +1385,29 @@ window.schScrollToToday = function() {
   if (today) schJumpTo(today.dataset.key);
 };
 
-// 捲動時決定「回到今日」要不要出現、箭頭朝哪
+// 捲動時決定「回到今日」要不要出現、箭頭朝哪（現在跟著整個頁面捲動，不是內框）
 function schBindScroll() {
-  const scroller = document.getElementById('schScroll');
+  const container = document.getElementById('schScroll');
   const btn = document.getElementById('schBackToday');
   const arrow = document.getElementById('schBackArrow');
-  if (!scroller || !btn) return;
-  const todayEl = scroller.querySelector('.sch-day.today');
+  if (!container || !btn) return;
+  const todayEl = container.querySelector('.sch-day.today');
   if (!todayEl) { btn.style.display = 'none'; return; }
 
   function update() {
+    const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
     // 捲到哪天，跳轉列就跟著選到哪天
-    const dayEls = [...scroller.querySelectorAll('.sch-day')];
-    const cur = dayEls.filter(el => schRelTop(el, scroller) <= scroller.scrollTop + 40).pop()
+    const dayEls = [...container.querySelectorAll('.sch-day')];
+    const cur = dayEls.filter(el => schRelTop(el) <= window.scrollY + jumperH + 40).pop()
              || dayEls[0];
     if (cur && cur.dataset.key !== _schActiveKey) {
       _schActiveKey = cur.dataset.key;
       refreshSchJumper();
     }
 
-    const todayTop = schRelTop(todayEl, scroller);
-    const view = scroller.scrollTop;
-    const diff = todayTop - view;
-    if (Math.abs(diff) < scroller.clientHeight * 0.5) {
+    const todayTop = schRelTop(todayEl);
+    const diff = todayTop - window.scrollY;
+    if (Math.abs(diff) < window.innerHeight * 0.5) {
       btn.style.display = 'none';   // 今日就在視野內
       return;
     }
@@ -1400,15 +1415,17 @@ function schBindScroll() {
     // 今日在下方 → 按鈕貼底、箭頭朝下；今日在上方 → 貼頂、箭頭朝上
     const below = diff > 0;
     arrow.textContent = below ? '↓' : '↑';
-    btn.classList.toggle('at-bottom', below);
     btn.classList.toggle('at-top', !below);
   }
-  scroller.removeEventListener('scroll', scroller._schHandler || (()=>{}));
-  scroller._schHandler = update;
-  scroller.addEventListener('scroll', update, { passive:true });
+  window.removeEventListener('scroll', window._schHandler || (()=>{}));
+  window._schHandler = update;
+  window.addEventListener('scroll', update, { passive:true });
   update();
   // 一進來就對準今日
-  if (todayEl) scroller.scrollTop = schRelTop(todayEl, scroller) - 4;
+  if (todayEl) {
+    const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
+    window.scrollTo({ top: schRelTop(todayEl) - jumperH - 6 });
+  }
 }
 window.schBindScroll = schBindScroll;
 

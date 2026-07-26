@@ -371,7 +371,9 @@
     .prep-more{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 8px;line-height:1;}
 
     /* ══ 日程時間軸 ══ */
-    .sch-jumper{display:flex;align-items:center;gap:4px;margin:4px 0 10px;}
+    /* 跳轉列黏在頂端：長列表往下滑時，跳日期的工具仍在手邊 */
+    .sch-jumper{display:flex;align-items:center;gap:4px;margin:0 0 10px;
+      position:sticky;top:0;z-index:6;background:var(--card);padding:4px 0;}
     .sch-jump-arrow{flex-shrink:0;width:24px;height:38px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;cursor:pointer;font-size:15px;line-height:1;}
     .sch-jump-arrow:active{background:var(--bg3);color:var(--text);}
     .sch-jump-arrow:disabled{opacity:.25;cursor:default;}
@@ -406,7 +408,8 @@
     .sch-filter{padding:3px 11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:999px;cursor:pointer;font-size:.68rem;font-family:'Lato',sans-serif;}
     .sch-filter.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 
-    .sch-scroll{position:relative;max-height:72vh;overflow-y:auto;padding-right:2px;
+    /* 不再自成一個小捲動框：整條時間軸跟著頁面捲動，才不會有被關在小窗裡的擠迫感 */
+    .sch-scroll{position:relative;padding-right:2px;
       scrollbar-width:none;-ms-overflow-style:none;}
     .sch-scroll::-webkit-scrollbar{display:none;width:0;height:0;}
     .sch-day{margin-bottom:26px;transition:opacity .25s;}
@@ -416,7 +419,8 @@
     /* 日期＝時間軸上的站點：左右延伸橫線，把軸切成一段一段 */
     .sch-day-head{
       display:flex;align-items:center;gap:8px;
-      margin-bottom:10px;position:sticky;top:0;z-index:3;
+      /* 黏在跳轉列下面，不是頁面最頂端，兩層才不會疊在一起 */
+      margin-bottom:10px;position:sticky;top:46px;z-index:3;
       background:var(--card);padding:6px 0 7px;
     }
     .sch-day-line{flex:1;height:1px;background:var(--border);}
@@ -471,6 +475,8 @@
     .sch-node-title{font-size:.8rem;color:var(--text);display:flex;align-items:center;gap:5px;}
     .sch-node-place{font-size:.66rem;color:var(--muted);margin-top:2px;}
     .sch-node-note{font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.7;white-space:pre-wrap;}
+    /* 說明比標題再淡一階，才不會兩行看起來一樣重 */
+    .sch-node.plain .sch-node-note{font-size:.63rem;opacity:.72;margin-top:1px;line-height:1.5;}
     .sch-expand{font-size:.8rem;color:var(--muted);margin-left:auto;padding-left:6px;}
     .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.62rem;font-family:'Lato',sans-serif;}
     .sch-nav:active{background:rgba(79,195,247,.12);}
@@ -539,9 +545,9 @@
     .sch-kv span{flex:0 0 34px;color:var(--muted);}
     .sch-kv div{flex:1;color:var(--text);word-break:break-word;}
 
-    .sch-back-today{position:sticky;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:5px;background:var(--accent);color:#fff;border:none;border-radius:999px;padding:6px 16px;cursor:pointer;font-size:.7rem;font-family:'Lato',sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.4);z-index:5;width:max-content;}
-    .sch-back-today.at-bottom{bottom:10px;margin-top:-34px;}
-    .sch-back-today.at-top{top:10px;margin-bottom:-34px;}
+    /* 頁面整條捲動後，這顆改貼在視窗底部（不再跟著小捲動框走）*/
+    .sch-back-today{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:none;align-items:center;gap:5px;background:var(--accent);color:#fff;border:none;border-radius:999px;padding:6px 16px;cursor:pointer;font-size:.7rem;font-family:'Lato',sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.4);z-index:50;width:max-content;}
+    .sch-back-today.at-top{bottom:auto;top:64px;}
 
     /* ══ 日程節點詳情彈窗 ══ */
     .sch-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:180;align-items:center;justify-content:center;padding:20px;}
