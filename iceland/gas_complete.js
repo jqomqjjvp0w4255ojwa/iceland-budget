@@ -75,7 +75,7 @@ function setupManualSheet() {
 //   分類：景點／住宿／活動／其他（住宿列可留空，會自動從住宿表帶入）
 //   時間：填了就顯示，沒填就按列的順序排
 var SCHEDULE_HEADER = [
-  '日期','時間','分類','標題','說明','地點','緯度','經度'
+  '日期','時間','分類','標題','說明','地點','緯度','經度','停留'
 ];
 
 // ── 一次性：建立日程表（在編輯器選這個函式按執行）──
@@ -101,12 +101,12 @@ function setupScheduleSheet() {
 
 function applyScheduleValidation_(sheet) {
   var last = Math.max(sheet.getMaxRows(), 200);
-  // C 分類：景點／住宿／活動／其他
+  // C 分類：交通＝節點間的區間、參考＝掛在上一個節點下的附註、補給＝超市加油
   sheet.getRange(2, 3, last - 1, 1).setDataValidation(
     SpreadsheetApp.newDataValidation()
-      .requireValueInList(['景點', '住宿', '活動', '其他'], true)
+      .requireValueInList(['景點', '住宿', '活動', '補給', '交通', '參考', '其他'], true)
       .setAllowInvalid(false).build());
-  var widths = [80, 70, 70, 220, 320, 180, 90, 90];
+  var widths = [80, 70, 70, 220, 320, 180, 90, 90, 80];
   for (var c = 0; c < widths.length; c++) sheet.setColumnWidth(c + 1, widths[c]);
 }
 
@@ -386,6 +386,7 @@ function readScheduleSheet(sheet) {
       place:    r[5] || '',
       lat:      parseFloat(r[6]) || 0,
       lng:      parseFloat(r[7]) || 0,
+      stay:     r[8] || '',         // 預計停留時間（30min／1h30min），留空＝不顯示
       order:    i,                  // sheet 原始順序（沒填時間時用它排）
       _rowIndex: i + 1,
     });
