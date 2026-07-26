@@ -1007,7 +1007,7 @@ function renderSchedule(d) {
   return jumper + filters + `
     <div class="sch-scroll" id="schScroll">${body}</div>
     <button class="sch-back-today" id="schBackToday" onclick="schScrollToToday()" style="display:none;">
-      <span id="schBackArrow">↑</span> 回到今日
+      <span id="schBackArrow">↑</span> <span id="schBackLabel">回到今日</span>
     </button>`;
 }
 
@@ -1378,9 +1378,15 @@ window.schJumpStep = function(dir) {
   schJumpTo(days[next].key);
 };
 
+// 行程還沒開始（今天不在行程內）時，基準就是第一天
+function schAnchorDay() {
+  return document.querySelector('.sch-day.today')
+      || document.querySelector('#schScroll .sch-day');
+}
+
 window.schScrollToToday = function() {
-  const today = document.querySelector('.sch-day.today');
-  if (today) schJumpTo(today.dataset.key);
+  const anchor = schAnchorDay();
+  if (anchor) schJumpTo(anchor.dataset.key);
 };
 
 // 捲動時決定「回到今日」要不要出現、箭頭朝哪（現在跟著整個頁面捲動，不是內框）
@@ -1388,9 +1394,13 @@ function schBindScroll() {
   const container = document.getElementById('schScroll');
   const btn = document.getElementById('schBackToday');
   const arrow = document.getElementById('schBackArrow');
+  const label = document.getElementById('schBackLabel');
   if (!container || !btn) return;
-  const todayEl = container.querySelector('.sch-day.today');
+  // 基準＝今日；行程還沒開始就用第一天
+  const realToday = container.querySelector('.sch-day.today');
+  const todayEl = realToday || container.querySelector('.sch-day');
   if (!todayEl) { btn.style.display = 'none'; return; }
+  if (label) label.textContent = realToday ? '回到今日' : '回到 D1';
 
   function update() {
     const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
