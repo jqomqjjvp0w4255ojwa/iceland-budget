@@ -1343,9 +1343,37 @@ function schedSeq(a, b) {
 // 路線：單一顏色的虛線（不再逐段拆濃淡＋插點，那樣元素太多反而亂）。
 // 方向只在整條路線的頭尾各標一個記號：空心圈＝起點、實心點＝終點，
 // 「今天從哪出發、在哪結束」才是真正有用的資訊，不用每一段都交代方向。
+// 每段路都彎成一點弧度（固定往行進方向左側凸），不是直線硬連。
+// 好處是同一條路來回走時，去程跟回程的凸向自動相反，兩條線會自己
+// 分開，不會整條疊在一起看不出走了兩趟；不重疊的路段也只是多一點弧度，
+// 不影響閱讀。用二次貝茲曲線取樣點，不需要真實方位角，高緯度也不會算歪。
+function bowSegment(p1, p2, bowFrac, steps) {
+  const [y1, x1] = p1, [y2, x2] = p2;
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  // 方向向量 (dy,dx) 逆時針轉 90 度＝ (-dx,dy)，當作彎曲的控制點偏移方向
+  const cx = mx - (y2 - y1) * bowFrac;
+  const cy = my + (x2 - x1) * bowFrac;
+  const out = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const y = (1 - t) ** 2 * y1 + 2 * (1 - t) * t * cy + t ** 2 * y2;
+    const x = (1 - t) ** 2 * x1 + 2 * (1 - t) * t * cx + t ** 2 * x2;
+    out.push([y, x]);
+  }
+  return out;
+}
+function bowRoute(pts, bowFrac = 0.12, steps = 10) {
+  if (pts.length < 2) return pts;
+  let out = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    out = out.concat(bowSegment(pts[i], pts[i + 1], bowFrac, steps).slice(1));
+  }
+  return out;
+}
+
 function makeRoute(pts, light, dark, dash) {
   const g = L.layerGroup();
-  g.addLayer(L.polyline(pts, {
+  g.addLayer(L.polyline(bowRoute(pts), {
     color: dark, weight: 2.5, dashArray: dash, opacity: 0.85, interactive: false,
   }));
   g.addLayer(L.marker(pts[0], {
