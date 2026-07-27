@@ -14,7 +14,7 @@ window.TW_CONFIG = {
   cacheKey:     'cached_taiwan_diary',
 
   // ── Google Apps Script API（部署 gas_taiwan.js 後填入 /exec 網址）
-  apiBase: 'https://script.google.com/macros/s/AKfycbzvFvX06MVhOQBzQaGLFChR_JW47rLSFu0gyY-Fxmw2XIYUA7pMobf_AhzAKIEyxXPU/exec',
+  apiBase: 'https://script.google.com/macros/s/AKfycbx9ICAywHzRJkM10gLcQWwAPr2gu2cvEVKXnTnl-3SlDyVLfKLIASEjzeaPYBf_gd_Z/exec',
 
   // ── Cloudflare R2 圖片上傳 Worker（與冰島版共用）
   r2Worker: 'https://worker-little-field-805c.xfish7.workers.dev',
