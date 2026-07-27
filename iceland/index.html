@@ -454,6 +454,12 @@
     .sch-day.today .sch-day-line{background:linear-gradient(90deg,transparent,var(--accent));}
     .sch-day.today .sch-day-line:last-child{background:linear-gradient(90deg,var(--accent),transparent);}
 
+    /* 每日摘要：旅途中要的是「今天還剩多久」，一眼掃過的數字列 */
+    .sch-day-sum{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:center;
+      margin:-4px 0 10px;padding:5px 10px;background:var(--bg3);
+      border-radius:8px;font-size:.64rem;color:var(--muted);letter-spacing:.02em;}
+    .sch-sum-item{white-space:nowrap;}
+
     .sch-nodes{border-left:2px solid var(--border);margin-left:14px;padding-left:0;padding-top:2px;}
     .sch-node{position:relative;display:flex;align-items:flex-start;gap:8px;padding:4px 8px 4px 0;margin-left:-9px;}
     .sch-node.expandable{cursor:pointer;}

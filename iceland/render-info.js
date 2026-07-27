@@ -1075,6 +1075,55 @@ function centerSchJumper() {
 }
 window.centerSchJumper = centerSchJumper;
 
+// 「2h13min」「45min」「1.5h」「30」「30~45min」「1h~2h」→ 分鐘數
+// 區間寫法取前面那個數（保守估，不要讓摘要看起來比實際更嚇人）
+function schDurMin(s) {
+  const t = String(s || '').trim();
+  if (!t) return 0;
+  const head = t.split(/[~～-]/)[0];      // 區間只取前段
+  let min = 0, matched = false;
+  const h = head.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|小時|時)/i);
+  if (h) { min += parseFloat(h[1]) * 60; matched = true; }
+  const m = head.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|分鐘|分)/i);
+  if (m) { min += parseFloat(m[1]); matched = true; }
+  if (!matched) {
+    const bare = head.match(/^(\d+(?:\.\d+)?)$/);
+    // 「1.5~2h」的單位長在後半段，被切掉了 → 要回頭看整串決定是時還是分
+    if (bare) min = parseFloat(bare[1]) * (/h|hr|小時|時/i.test(t) ? 60 : 1);
+  }
+  return Math.round(min);
+}
+
+function schFmtMin(min) {
+  if (!min) return '';
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? (m ? `${h}h${m}m` : `${h}h`) : `${m}m`;
+}
+
+// 一天的摘要：車程／停點數／停留總計／入住時間
+// 資料全部來自已填欄位，不需要額外維護
+function schDaySummary(items) {
+  let drive = 0, dwell = 0, stops = 0, checkin = '';
+  items.forEach(x => {
+    if (x.category === '交通') {
+      drive += schDurMin(schSplitDuration(x.title).dur);
+      return;
+    }
+    dwell += schDurMin(x.stay);
+    if (x.category === '景點' || x.category === '活動') stops++;
+    if (x.category === '住宿' && !checkin) {
+      // 入住時間優先看時間欄，沒有就從說明裡撈第一個時刻（「16:00~22:00」）
+      checkin = schTimeText(x.time) || (String(x.note || '').match(/(\d{1,2}[:：]\d{2})/) || [])[1] || '';
+    }
+  });
+  const parts = [];
+  if (drive)   parts.push(`<span class="sch-sum-item">🚗 ${schFmtMin(drive)}</span>`);
+  if (stops)   parts.push(`<span class="sch-sum-item">📍 ${stops} 站</span>`);
+  if (dwell)   parts.push(`<span class="sch-sum-item">⏱ ${schFmtMin(dwell)}</span>`);
+  if (checkin) parts.push(`<span class="sch-sum-item">🛏 ${esc(checkin)}</span>`);
+  return parts.length ? `<div class="sch-day-sum">${parts.join('')}</div>` : '';
+}
+
 function renderSchDay(day, today, d, dayNum) {
   const isToday = schIsSameDay(day.d, today);
   const isPast  = !isToday && day.d < today;
@@ -1096,6 +1145,7 @@ function renderSchDay(day, today, d, dayNum) {
         </div>
         <span class="sch-day-line"></span>
       </div>
+      ${_schFilter === 'all' ? schDaySummary(day.items) : ''}
       <div class="sch-nodes">
         ${shown.map((x, i) => renderSchNode(x, d, i > 0 && x.time && x.time === shown[i - 1].time)).join('')}
       </div>
