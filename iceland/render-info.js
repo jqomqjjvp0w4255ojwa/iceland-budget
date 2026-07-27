@@ -1001,6 +1001,7 @@ function renderSchedule(d) {
     <div class="sch-filters">
       ${SCH_CATS.map(c => `<button class="sch-filter${_schFilter===c.key?' on':''}"
         onclick="setSchFilter('${c.key}')">${c.label}</button>`).join('')}
+      <button class="sch-filter sch-foldall" id="schFoldAll" onclick="toggleSchFoldAll()">全部收合</button>
     </div>`;
 
   // 有內容的日子之間若隔了空白天，插一段「空 N 天」的虛線軸
@@ -1075,6 +1076,58 @@ function centerSchJumper() {
 }
 window.centerSchJumper = centerSchJumper;
 
+// 「2h13min」「45min」「1.5h」「30」「30~45min」「1h~2h」→ 分鐘數
+// 區間寫法取前面那個數（保守估，不要讓摘要看起來比實際更嚇人）
+function schDurMin(s) {
+  const t = String(s || '').trim();
+  if (!t) return 0;
+  const head = t.split(/[~～-]/)[0];      // 區間只取前段
+  let min = 0, matched = false;
+  const h = head.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|小時|時)/i);
+  if (h) { min += parseFloat(h[1]) * 60; matched = true; }
+  const m = head.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|分鐘|分)/i);
+  if (m) { min += parseFloat(m[1]); matched = true; }
+  if (!matched) {
+    const bare = head.match(/^(\d+(?:\.\d+)?)$/);
+    // 「1.5~2h」的單位長在後半段，被切掉了 → 要回頭看整串決定是時還是分
+    if (bare) min = parseFloat(bare[1]) * (/h|hr|小時|時/i.test(t) ? 60 : 1);
+  }
+  return Math.round(min);
+}
+
+function schFmtMin(min) {
+  if (!min) return '';
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? (m ? `${h}h${m}m` : `${h}h`) : `${m}m`;
+}
+
+// 一天的摘要：車程／停點數／停留總計／入住時間
+// 資料全部來自已填欄位，不需要額外維護
+function schDaySummary(items) {
+  let drive = 0, dwell = 0, stops = 0, checkin = '';
+  items.forEach(x => {
+    if (x.category === '交通') {
+      drive += schDurMin(schSplitDuration(x.title).dur);
+      return;
+    }
+    dwell += schDurMin(x.stay);
+    if (x.category === '景點' || x.category === '活動') stops++;
+    if (x.category === '住宿' && !checkin) {
+      // 入住時間優先看時間欄，沒有就從說明裡撈第一個時刻（「16:00~22:00」）
+      checkin = schTimeText(x.time) || (String(x.note || '').match(/(\d{1,2}[:：]\d{2})/) || [])[1] || '';
+    }
+  });
+  const parts = [];
+  if (drive)   parts.push(`<span class="sch-sum-item">🚗 ${schFmtMin(drive)}</span>`);
+  if (stops)   parts.push(`<span class="sch-sum-item">📍 ${stops} 站</span>`);
+  if (dwell)   parts.push(`<span class="sch-sum-item">⏱ ${schFmtMin(dwell)}</span>`);
+  if (checkin) parts.push(`<span class="sch-sum-item">🛏 ${esc(checkin)}</span>`);
+  return parts.length ? `<div class="sch-day-sum">${parts.join('')}</div>` : '';
+}
+
+// 收合狀態：記日期 key，重繪後仍保留
+const _schFolded = new Set();
+
 function renderSchDay(day, today, d, dayNum) {
   const isToday = schIsSameDay(day.d, today);
   const isPast  = !isToday && day.d < today;
@@ -1083,34 +1136,68 @@ function renderSchDay(day, today, d, dayNum) {
     : (x.category === _schFilter || x._parentCat === _schFilter));
   if (!shown.length || shown.every(x => x.category === '交通' || x.category === '參考')) return '';
 
+  const folded = _schFolded.has(day.key);
+
   return `
-    <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}" data-key="${esc(day.key)}">
-      <div class="sch-day-head">
+    <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}${folded ? ' folded' : ''}" data-key="${esc(day.key)}">
+      <div class="sch-day-head" onclick="toggleSchDay('${esc(day.key)}')">
         <span class="sch-day-line"></span>
         <div class="sch-day-badge">
           <div class="sch-day-title">
             <span class="sch-day-num">第 ${dayNum} 天</span>
             ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
+            <span class="sch-fold-btn" title="${folded ? '展開' : '收合'}">${folded ? '＋' : '－'}</span>
           </div>
           <div class="sch-day-sub">${esc(day.key)}（${schWeekday(day.d)}）</div>
         </div>
         <span class="sch-day-line"></span>
       </div>
+      ${_schFilter === 'all' ? schDaySummary(day.items) : ''}
       <div class="sch-nodes">
         ${shown.map((x, i) => renderSchNode(x, d, i > 0 && x.time && x.time === shown[i - 1].time)).join('')}
       </div>
     </div>`;
 }
 
+window.toggleSchDay = function(key) {
+  const el = document.querySelector(`.sch-day[data-key="${key}"]`);
+  if (!el) return;
+  const folded = !_schFolded.has(key);
+  if (folded) _schFolded.add(key); else _schFolded.delete(key);
+  el.classList.toggle('folded', folded);
+  const btn = el.querySelector('.sch-fold-btn');
+  if (btn) { btn.textContent = folded ? '＋' : '－'; btn.title = folded ? '展開' : '收合'; }
+  updateSchFoldAllBtn();
+};
+
+// 全部收合／展開：只操作目前畫面上有的日子
+window.toggleSchFoldAll = function() {
+  const days = [...document.querySelectorAll('#schScroll .sch-day')];
+  if (!days.length) return;
+  const expandAll = days.some(el => _schFolded.has(el.dataset.key));  // 有收合的就全展開
+  days.forEach(el => {
+    const key = el.dataset.key;
+    if (expandAll) _schFolded.delete(key); else _schFolded.add(key);
+    el.classList.toggle('folded', !expandAll);
+    const btn = el.querySelector('.sch-fold-btn');
+    if (btn) { btn.textContent = expandAll ? '－' : '＋'; btn.title = expandAll ? '收合' : '展開'; }
+  });
+  updateSchFoldAllBtn();
+};
+
+function updateSchFoldAllBtn() {
+  const btn = document.getElementById('schFoldAll');
+  if (!btn) return;
+  const days = [...document.querySelectorAll('#schScroll .sch-day')];
+  const anyFolded = days.some(el => _schFolded.has(el.dataset.key));
+  btn.textContent = anyFolded ? '全部展開' : '全部收合';
+}
+
 // sameTime＝跟上一個節點同一個時間（例如整批市區漫遊），時間就不重複印
-// 點項目看詳情：有填網址就用網址；沒填但有座標就開 Google Maps 地點總覽頁
-// （不是導航路線）；連座標都沒有就用標題去 Google Maps 搜尋，至少看得到東西。
+// 點項目看詳情：只有明確填了網址才給連結，不猜、不自動搜尋——
+// 座標已經有專屬的「導航」按鈕負責，這裡不重複做同一件事。
 function schInfoUrl(x) {
-  const url = String(x.url || '').trim();
-  if (url) return url;
-  if (x.lat && x.lng) return `https://www.google.com/maps/search/?api=1&query=${x.lat},${x.lng}`;
-  const q = [x.title, x.place].filter(Boolean).join(' ');
-  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : '';
+  return String(x.url || '').trim();
 }
 
 function renderSchNode(x, d, sameTime) {
@@ -1299,7 +1386,10 @@ window.openSchStay = function(i) {
     <div class="sch-modal-head">
       <span class="sch-modal-icon">${pt.icon}</span>
       <div style="flex:1;min-width:0;">
-        <div class="sch-modal-title"><a href="${safeUrl(schInfoUrl({lat:stay.lat,lng:stay.lng,title:stay.name,place:stay.address}))}" target="_blank" rel="noopener">${esc(stay.name)}</a></div>
+        <div class="sch-modal-title">${(() => {
+          const u = safeUrl(schInfoUrl({lat:stay.lat,lng:stay.lng,title:stay.name,place:stay.address}));
+          return u ? `<a href="${u}" target="_blank" rel="noopener">${esc(stay.name)}</a>` : esc(stay.name);
+        })()}</div>
         <div class="sch-modal-sub">${esc(stay.date || '')}${stay.nights ? ` · ${stay.nights} 晚` : ''}</div>
       </div>
     </div>
@@ -1338,7 +1428,10 @@ window.openSchAct = function(i) {
     <div class="sch-modal-head">
       <span class="sch-modal-icon">🎯</span>
       <div style="flex:1;min-width:0;">
-        <div class="sch-modal-title"><a href="${safeUrl(a.url || schInfoUrl({lat:a.lat,lng:a.lng,title:a.name,place:a.meetLoc}))}" target="_blank" rel="noopener">${esc(a.name)}</a></div>
+        <div class="sch-modal-title">${(() => {
+          const u = safeUrl(a.url || schInfoUrl({lat:a.lat,lng:a.lng,title:a.name,place:a.meetLoc}));
+          return u ? `<a href="${u}" target="_blank" rel="noopener">${esc(a.name)}</a>` : esc(a.name);
+        })()}</div>
         <div class="sch-modal-sub">${esc(a.date || '')}${a.duration ? ` · ${esc(a.duration)}` : ''}</div>
       </div>
     </div>
@@ -1400,6 +1493,8 @@ window.schJumpTo = function(key) {
   refreshSchJumper();
   const target = document.querySelector(`.sch-day[data-key="${key}"]`);
   if (!target) return;
+  // 跳過去的那天如果是收合的，順手展開——不然點了等於什麼都沒發生
+  if (_schFolded.has(key)) toggleSchDay(key);
   // 扣掉跳轉列黏頂的高度，不然目標日期的標題會被蓋住
   const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
   window.scrollTo({ top: schRelTop(target) - jumperH - 6, behavior: 'smooth' });
@@ -1464,6 +1559,7 @@ function schBindScroll() {
   window.addEventListener('scroll', update, { passive:true });
   update();
   centerSchJumper();
+  updateSchFoldAllBtn();
   // 一進來就對準今日
   if (todayEl) {
     const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
@@ -1562,6 +1658,7 @@ function renderCarDetail(car) {
 }
 
 window.showInfoTab = function(id, btn) {
+  window._activeInfoTab = id;   // 記住次分頁，背景同步重繪後才能恢復，不會跳回「行前」
   document.querySelectorAll('[id^="infoTab-"]').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('#mainSection-info .tab').forEach(t => t.classList.remove('active'));
   document.getElementById('infoTab-'+id)?.classList.add('active');
