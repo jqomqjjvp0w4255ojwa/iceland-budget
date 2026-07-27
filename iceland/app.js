@@ -362,6 +362,33 @@
   }
   window.__maybeOpenDeepLink = maybeOpenDeepLink;
 
+  // 寫入本地快取；容量爆掉時改存精簡版（丟掉最肥的原始表格資料，
+  // 那些只有畫面重繪時才需要，離線時保留統計與行程比較重要）
+  function saveCache(data) {
+    try {
+      const json = JSON.stringify(data);
+      localStorage.setItem(CACHE_KEY, json);
+      window.__cacheBytes = json.length;
+      return true;
+    } catch (e) {
+      console.warn('快取寫入失敗，改存精簡版', e);
+      try {
+        const slim = { ...data };
+        delete slim.raw; delete slim.cells;
+        (slim.expenses || []).forEach(x => { delete x.svg; delete x.svgGrid; });
+        const json = JSON.stringify(slim);
+        localStorage.setItem(CACHE_KEY, json);
+        window.__cacheBytes = json.length;
+        return true;
+      } catch (e2) {
+        console.error('精簡版快取也寫不進去，離線資料將停留在舊版本', e2);
+        window.setSyncState?.('cloud', '☁ 已同步（本地快取已滿，離線時會看到舊資料）');
+        return false;
+      }
+    }
+  }
+  window.__saveCache = saveCache;
+
   window.__syncIcelandBudgetFromSheets = async function () {
     // 還有離線記帳未送出時，先送佇列再同步，避免雲端舊資料覆蓋本地新增
     if (window.getPendingCount?.() > 0) {
@@ -399,7 +426,9 @@
 
       const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task, schedule, insurance, manual });
       window.APP_DATA = newData;
-      localStorage.setItem(CACHE_KEY, JSON.stringify(window.APP_DATA));
+      // 寫快取失敗不能連帶讓整次同步失敗——否則會掉進 catch 把剛拿到的新資料
+      // 換回舊快取，畫面就永遠停在某個時間點的舊數字。
+      saveCache(window.APP_DATA);
       // 先更新狀態列再畫面：畫面出錯時才不會一直卡在「同步中」
       window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
       try { window.renderAll?.(); }
