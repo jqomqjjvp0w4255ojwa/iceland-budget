@@ -313,12 +313,20 @@ body{
   background:#58b0e8;border:2px solid #fff;
   box-shadow:0 0 0 1px rgba(0,0,0,.25);
 }
-.sched-pin.cat-住宿{background:#7c6df0;}
-.sched-pin.cat-活動{background:#f0a03c;}
-.sched-pin.cat-補給{background:#9aa4b2;}
-.sched-pin.cat-其他{background:#9aa4b2;}
 .sched-pin.ref{
   width:6px;height:6px;border-width:1px;background:#8fc8e8;box-shadow:none;
+}
+.sched-emoji{
+  font-size:18px;line-height:1;text-align:center;
+  filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));
+}
+/* 路線方向箭頭：CSS 三角形，旋轉角度由 bearing 算出（0deg＝朝北） */
+.route-arrow{
+  width:0;height:0;margin:2px 0 0 2px;
+  border-left:4px solid transparent;
+  border-right:4px solid transparent;
+  border-bottom:8px solid currentColor;
+  filter:drop-shadow(0 0 1px rgba(0,0,0,.5));
 }
 .tag-stay{background:#1e3a4a;color:#80c0e0;border:1px solid #356a88;}
 .tag-expense{background:#1e4030;color:#8ad8a8;border:1px solid #357a52;}
@@ -901,8 +909,15 @@ let SCHED_DAYS = [];     // [{key:'9/17', dayNum:4, d:Date}] 只含有座標的�
 const SCHED_MAIN_CATS = ['景點', '住宿', '活動', '補給', '其他'];
 const SCHED_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '補給':'🛒', '參考':'·', '其他':'🚗' };
 
+// 參考點是附屬層級：縮小看全局時不顯示，放大到一定倍率才浮出來
+// （手動勾選「參考點」圖層可強制顯示，當作覆寫）
+const REF_ZOOM = 10;
 function schedItems() {
-  return SCHED.filter(x => x.isRef ? filters.ref : filters.sched);
+  return SCHED.filter(x => {
+    if (!x.isRef) return filters.sched;
+    if (!filters.sched) return false;
+    return filters.ref || map.getZoom() >= REF_ZOOM;
+  });
 }
 
 // 地圖上所有項目（打卡 + 消費 + 住宿 + 日程）
@@ -1206,10 +1221,32 @@ function itemTs(it) {
 
 // 打卡時間序連線
 let trailLine = null;
+// 路線方向：每段中點放一個小箭頭，朝向下一個點
+// （不用 PolylineDecorator 外掛，離線時也要能顯示）
+function makeArrows(pts, color) {
+  const g = L.layerGroup();
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [y1, x1] = pts[i], [y2, x2] = pts[i + 1];
+    // 經度差要乘上 cos(緯度) 才是實際距離比例，否則高緯度的箭頭會歪掉
+    const latRad = (y1 + y2) / 2 * Math.PI / 180;
+    const deg = Math.atan2((x2 - x1) * Math.cos(latRad), y2 - y1) * 180 / Math.PI;
+    g.addLayer(L.marker([(y1 + y2) / 2, (x1 + x2) / 2], {
+      interactive: false,
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="route-arrow" style="transform:rotate(${deg}deg);border-bottom-color:${color};"></div>`,
+        iconSize: [12, 12], iconAnchor: [6, 6],
+      }),
+    }));
+  }
+  return g;
+}
+
 // 計畫路線：選定某一天時，把那天的主要節點照試算表順序連起來（虛線）
-let planLine = null;
+let planLine = null, planArrows = null;
 function renderPlanLine() {
-  if (planLine) { map.removeLayer(planLine); planLine = null; }
+  if (planLine)   { map.removeLayer(planLine);   planLine = null; }
+  if (planArrows) { map.removeLayer(planArrows); planArrows = null; }
   if (!dayFilter || !filters.sched) return;
   const pts = SCHED
     .filter(x => x.dayNum === dayFilter && !x.isRef)
@@ -1219,10 +1256,13 @@ function renderPlanLine() {
   planLine = L.polyline(pts, {
     color:'#58b0e8', weight:2.5, dashArray:'7,5', opacity:0.85,
   }).addTo(map);
+  planArrows = makeArrows(pts, '#58b0e8').addTo(map);
 }
 
+let trailArrows = null;
 function renderTrail(visible) {
-  if (trailLine) { map.removeLayer(trailLine); trailLine = null; }
+  if (trailLine)   { map.removeLayer(trailLine);   trailLine = null; }
+  if (trailArrows) { map.removeLayer(trailArrows); trailArrows = null; }
   if (!filters.trail) return;
   // 打卡＋消費一起連線（圖層取消勾選消費時自然不參與）
   const pts = visible
@@ -1233,6 +1273,7 @@ function renderTrail(visible) {
   trailLine = L.polyline(pts, {
     color:'#d8a838', weight:2, dashArray:'2,6', opacity:0.8,
   }).addTo(map);
+  trailArrows = makeArrows(pts, '#d8a838').addTo(map);
 }
 
 function renderMarkers() {
@@ -1267,10 +1308,7 @@ function renderMarkers() {
     if (item.type === 'stay') return;   // 住宿 marker 上面已畫
     if (item.type === 'sched') {        // 計畫節點：分類圖示，不用成員小人
       const m2 = L.marker([item.lat, item.lng], {
-        icon: L.divIcon({
-          html:`<div class="sched-pin cat-${item.category}${item.isRef ? ' ref' : ''}"></div>`,
-          className:'', iconSize:item.isRef?[8,8]:[15,15], iconAnchor:item.isRef?[4,4]:[7.5,7.5],
-        }),
+        icon: schedIcon(item),
         fallbackIcon: SCHED_ICONS[item.category] || '📍',
         memberColor:'#58b0e8', svgData:null,
       }).bindPopup(() => buildSchedPopup(item), { className:'px-popup', maxWidth:250, closeButton:false });
@@ -1303,6 +1341,23 @@ function typeMeta(t) {
        : t==='expense' ? { label:'消費', tag:'tag-expense', icon:'💰' }
        : t==='sched'   ? { label:'行程', tag:'tag-sched', icon:'📅' }
        : { label:'打卡', tag:'tag-checkin', icon:'🐾' };
+}
+
+// 計畫節點圖示：景點用純色圓點（數量最多，用 emoji 會滿版干擾），
+// 其他類別維持辨識度較高的 emoji
+function schedIcon(item) {
+  if (item.isRef) {
+    return L.divIcon({ html:`<div class="sched-pin ref"></div>`, className:'',
+                       iconSize:[8,8], iconAnchor:[4,4] });
+  }
+  if (item.category === '景點') {
+    return L.divIcon({ html:`<div class="sched-pin"></div>`, className:'',
+                       iconSize:[15,15], iconAnchor:[7.5,7.5] });
+  }
+  return L.divIcon({
+    html:`<div class="sched-emoji">${SCHED_ICONS[item.category] || '📍'}</div>`,
+    className:'', iconSize:[24,24], iconAnchor:[12,12],
+  });
 }
 
 // 計畫節點的 popup：唯讀，只顯示行程資訊 + 導航／連結
