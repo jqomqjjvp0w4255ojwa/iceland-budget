@@ -507,8 +507,7 @@ function renderPrep(allTasks) {
   }
   const gates = renderPrepGates(allTasks);
   const tasks = allTasks.filter(prepGateVisible);
-  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks) + gates
-    + `<div class="prep-criteria">★ 評分基準：<b>當地買不買得到</b>——★5＝買不到也補不了（護照/藥/睡袋），★1–2＝冰島隨處可買</div>`;
+  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks) + gates;
 
   const groups = PREP_CATS.map(cat => {
     const list = tasks.filter(t => (t.category || '待辦') === cat.key)
