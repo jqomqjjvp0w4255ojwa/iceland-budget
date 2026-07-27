@@ -179,6 +179,8 @@ body{
   color:var(--muted);cursor:pointer;padding:3px 8px;font-family:inherit;line-height:1.1;
 }
 .day-chip.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.day-chip.today{border-color:var(--gold);color:var(--gold);}
+.day-chip.today.on{color:#fff;}
 .day-chip .d-num{font-size:11px;font-weight:700;}
 .day-chip .d-date{font-size:8px;opacity:.8;}
 .day-chip.all{padding:6px 9px;font-size:10px;}
@@ -320,12 +322,25 @@ body{
   font-size:18px;line-height:1;text-align:center;
   filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));
 }
+/* 路線圖例 */
+.route-legend{
+  position:absolute;left:12px;bottom:16px;z-index:550;
+  display:flex;gap:10px;align-items:center;
+  background:var(--panel);border:2px solid var(--border);border-radius:var(--radius);
+  padding:4px 9px;font-family:var(--px);font-size:8px;color:var(--text);
+  box-shadow:2px 2px 0 rgba(0,0,0,0.3);
+}
+.route-legend span{display:flex;align-items:center;gap:4px;}
+.lg-line{width:16px;height:0;border-top:2px dashed #58b0e8;display:inline-block;}
+.lg-line.real{border-top-style:dotted;border-top-color:#d8a838;}
+
 /* 預覽模式：只留地圖本身，其餘操作介面全部收起來 */
 body.preview .topbar,
 body.preview .card-drawer,
 body.preview .map-fab,
 body.preview .day-bar,
 body.preview .time-bar,
+body.preview .route-legend,
 body.preview .layers-menu{display:none !important;}
 body.preview #map{top:0 !important;height:100% !important;}
 
@@ -700,6 +715,12 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
       <div class="day-scroll" id="dayScroll"></div>
     </div>
 
+    <!-- 路線圖例：只在選定某一天、兩種線可能同時出現時才顯示 -->
+    <div class="route-legend" id="routeLegend" style="display:none;">
+      <span><i class="lg-line plan"></i>計畫</span>
+      <span><i class="lg-line real"></i>實際</span>
+    </div>
+
     <!-- 打卡按鈕 -->
     <div class="map-fab checkin" id="checkinFab">
       <button class="fab-btn primary" onclick="openCheckin()" title="打卡" aria-label="打卡">
@@ -938,6 +959,7 @@ function schedParseDate(s, year) {
 }
 
 let SCHED_RAW = [];
+let _dayAutoDone = false;   // 只在第一次載入時自動跳到今天
 
 async function loadSchedule() {
   const gasBase = TRIP_CONFIG.apiBase || '';
@@ -1004,11 +1026,23 @@ function buildSched() {
         };
       });
 
-    // 日期列只列出「有座標可看」的日子
-    const usable = new Set(SCHED.map(x => x.dayKey));
-    SCHED_DAYS = dayOrder.filter(x => usable.has(x.key));
+    // 日期列列出全部行程日：沒座標的日子也要能選，
+    // 否則那天的打卡／消費就沒有辦法單獨看
+    SCHED_DAYS = dayOrder;
+
+    // 旅途中預設就停在今天：打開地圖最想知道的是「今天要去哪」
+    if (!_dayAutoDone) {
+      _dayAutoDone = true;
+      const now = new Date();
+      const today = SCHED_DAYS.find(x =>
+        x.d.getFullYear() === now.getFullYear() &&
+        x.d.getMonth() === now.getMonth() &&
+        x.d.getDate() === now.getDate());
+      if (today) { dayFilter = today.dayNum; }
+    }
 
     buildDayBar();
+    renderStayLine();
     renderMarkers();
   } catch(e) { console.warn('日程資料載入失敗', e); }
 }
@@ -1409,6 +1443,9 @@ function renderMarkers() {
 
   renderTrail(visible);
   renderPlanLine();
+  // 圖例只在真的兩條線都畫得出來時才出現，平常不佔畫面
+  const lg = document.getElementById('routeLegend');
+  if (lg) lg.style.display = (planLine && trailLine) ? 'flex' : 'none';
   renderCards();
 }
 
@@ -1543,7 +1580,8 @@ function getVisible() {
     // 日程項目的開關由 schedItems() 依 sched/ref 決定，這裡不再查 filters
     if (item.type !== 'sched' && !filters[item.type]) return false;
     if (currentTab !== 'all' && item.type !== currentTab) return false;
-    if (memberFilter && item.who !== memberFilter) return false;
+    // 成員篩選只針對「誰做的」紀錄；計畫節點沒有歸屬，不該因此消失
+    if (memberFilter && item.type !== 'sched' && item.who !== memberFilter) return false;
     if (timeFilterTs && itemTs(item) > timeFilterTs) return false;
     if (dayFilter !== null) {
       // 計畫項目比對第幾天；打卡／消費比對實際發生日期
@@ -1573,12 +1611,22 @@ function buildDayBar() {
   if (!bar || !box) return;
   if (!SCHED_DAYS.length) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
-  box.innerHTML = SCHED_DAYS.map(x => `
-    <button class="day-chip${dayFilter === x.dayNum ? ' on' : ''}" onclick="setDayFilter(${x.dayNum})">
+  const now = new Date();
+  box.innerHTML = SCHED_DAYS.map(x => {
+    const isToday = x.d.getFullYear() === now.getFullYear()
+                 && x.d.getMonth() === now.getMonth()
+                 && x.d.getDate() === now.getDate();
+    return `
+    <button class="day-chip${dayFilter === x.dayNum ? ' on' : ''}${isToday ? ' today' : ''}"
+            onclick="setDayFilter(${x.dayNum})">
       <span class="d-num">D${x.dayNum}</span>
       <span class="d-date">${esc(x.key)}</span>
-    </button>`).join('');
+    </button>`;
+  }).join('');
   document.getElementById('dayAll').classList.toggle('on', dayFilter === null);
+  // 選中的那天捲進視野，不然選了看不到自己選在哪
+  const on = box.querySelector('.day-chip.on') || box.querySelector('.day-chip.today');
+  if (on) box.scrollLeft = on.offsetLeft - (box.clientWidth - on.offsetWidth) / 2;
 }
 
 function setDayFilter(n) {
