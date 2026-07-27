@@ -534,23 +534,22 @@
       width:11px;height:11px;background:var(--card);
       border:2px solid var(--border);margin-top:9px;margin-left:2px;flex-shrink:0;
     }
+    .sch-node.plain.cat-補給 .sch-node-dot.ring{border-color:rgba(158,166,182,.5);}
+    .sch-node.plain.cat-其他 .sch-node-dot.ring{border-color:rgba(158,166,182,.5);}
     .sch-node.plain.big .sch-node-dot.ring{border-color:rgba(78,195,121,.75);width:13px;height:13px;margin-left:1px;}
-    /* 圖示＋標題永遠同一行：只有這兩個項目，不會被別的東西擠到換行 */
-    .sch-node-line{display:flex;align-items:flex-start;gap:5px;min-width:0;}
-    .sch-line-icon{font-size:.7rem;flex-shrink:0;line-height:1.5;}
-    .sch-line-title{font-size:.72rem;color:var(--muted);flex:1;min-width:0;line-height:1.5;}
+
+    /* 標題＋停留時間同一行：標題靠左、時間靠右，不再用 emoji 當前綴——
+       圓點顏色已經在講分類了，圖示是重複資訊，白白佔掉標題的空間 */
+    .sch-node-line{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+    .sch-line-title{font-size:.72rem;color:var(--muted);flex:1 1 auto;min-width:6em;line-height:1.5;}
     /* 其他＝要做的事（退房、取車、集合），比補給重要，拉到中間層 */
     .sch-node.plain.cat-其他 .sch-line-title{font-size:.84rem;color:var(--text);opacity:.9;}
-    .sch-node.plain.cat-其他 .sch-line-icon{font-size:.78rem;}
-    /* 次要資訊固定在第二行，跟標題對齊縮排（不擠在標題那行搶位置） */
-    .sch-line-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;
-      margin:2px 0 0 calc(.7rem + 5px);}
-    .sch-line-place{font-size:.63rem;color:var(--muted);opacity:.75;min-width:0;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    /* 停留時間貼右側；跟車程時長是同一種標籤樣式，用 .sch-dwell 統一 */
+    .sch-node-line .sch-dwell{margin-left:auto;flex-shrink:0;}
+    /* 地點是次要資訊，放標題下面獨立一行，不再跟時間擠在同一排 */
+    .sch-line-place{font-size:.63rem;color:var(--muted);opacity:.75;margin-top:2px;}
     /* 景點：整條時間軸上最大的字 */
     .sch-node.plain.big .sch-line-title{font-size:.95rem;color:var(--text);font-weight:600;letter-spacing:.02em;}
-    .sch-node.plain.big .sch-line-icon{font-size:.85rem;}
-    .sch-node.plain.big .sch-line-meta{margin-left:calc(.85rem + 5px);}
     .sch-node.plain.big .sch-node-body{padding-top:4px;}
 
     /* 交通：兩個節點之間的虛線區間，時長在軸左、方向在軸右 */
