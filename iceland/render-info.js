@@ -986,6 +986,19 @@ function parseSchTime(t) {
   return 100000;
 }
 
+// 天數編號跟地圖同一套規則：D1＝抵達冰島那天，出發／轉機日是 D0
+// （兩邊叫法不一致的話，「今天 D4」在行程表跟地圖會指到不同天）
+function schDayNums(days) {
+  const arr = window.TRIP_CONFIG?.dates?.arrive ? new Date(window.TRIP_CONFIG.dates.arrive) : null;
+  let base = 0;
+  if (arr) {
+    const i = days.findIndex(x =>
+      x.d.getMonth() === arr.getUTCMonth() && x.d.getDate() === arr.getUTCDate());
+    if (i >= 0) base = i;
+  }
+  return days.map((_, i) => i - base + 1);
+}
+
 function renderSchedule(d) {
   const days = buildScheduleDays(d);
   if (!days.length) {
@@ -1004,9 +1017,10 @@ function renderSchedule(d) {
     </div>`;
 
   // 有內容的日子之間若隔了空白天，插一段「空 N 天」的虛線軸
+  const nums = schDayNums(days);
   let body = '', prevDay = null;
   days.forEach((day, i) => {
-    const html = renderSchDay(day, today, d, i + 1);
+    const html = renderSchDay(day, today, d, nums[i]);
     if (!html) return;
     if (prevDay) {
       const gap = Math.round((day.d - prevDay.d) / 86400000) - 1;
@@ -1032,13 +1046,14 @@ function renderSchJumper(days, today) {
     _schActiveKey = t ? t.key : days[0].key;
   }
   const idx = days.findIndex(x => x.key === _schActiveKey);
+  const nums = schDayNums(days);
 
   const btns = days.map((day, i) => {
     const off = i - idx;
     const isToday = schIsSameDay(day.d, today);
     return `<button class="sch-jump-day off${Math.min(2, Math.abs(off))}${off === 0 ? ' active' : ''}${isToday ? ' today' : ''}"
       data-key="${esc(day.key)}" onclick="schJumpTo('${esc(day.key)}')">
-      <span class="sch-jump-d">D${i + 1}</span>
+      <span class="sch-jump-d">D${nums[i]}</span>
       <span class="sch-jump-date">${esc(day.key)}</span>
     </button>`;
   });

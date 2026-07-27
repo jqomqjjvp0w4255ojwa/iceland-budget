@@ -309,14 +309,15 @@ body{
 }
 .tag-checkin{background:#4a2a32;color:#f0a0b0;border:1px solid #7a4050;}
 .tag-sched{background:#1c3a4a;color:#60c8e8;border:1px solid #30647a;}
-/* 計畫節點：純色圓點，不用 emoji，避免一堆圖示在地圖上互相干擾 */
+/* 計畫節點：純色圓點。旁邊都是 emoji pin，圓點要夠重才不會被吃掉 */
 .sched-pin{
-  width:11px;height:11px;border-radius:50%;
-  background:#58b0e8;border:2px solid #fff;
-  box-shadow:0 0 0 1px rgba(0,0,0,.25);
+  width:15px;height:15px;border-radius:50%;
+  background:#1e88d0;border:3px solid #fff;
+  box-shadow:0 0 0 1.5px rgba(0,0,0,.45), 1px 1px 2px rgba(0,0,0,.35);
 }
 .sched-pin.ref{
-  width:9px;height:9px;background:#8fc8e8;
+  width:11px;height:11px;border-width:2px;
+  background:#5fb8e8;box-shadow:0 0 0 1px rgba(0,0,0,.4);
 }
 .sched-emoji{
   font-size:18px;line-height:1;text-align:center;
@@ -331,8 +332,9 @@ body{
   box-shadow:2px 2px 0 rgba(0,0,0,0.3);
 }
 .route-legend span{display:flex;align-items:center;gap:4px;}
-.lg-line{width:16px;height:0;border-top:2px dashed #58b0e8;display:inline-block;}
-.lg-line.real{border-top-style:dotted;border-top-color:#d8a838;}
+.lg-line{width:18px;height:3px;display:inline-block;border-radius:2px;
+  background:linear-gradient(90deg,#a8d8f0,#2f8fd0);}
+.lg-line.real{background:linear-gradient(90deg,#efdcae,#c08a10);}
 
 /* 預覽模式：只留地圖本身，其餘操作介面全部收起來 */
 body.preview .topbar,
@@ -961,15 +963,27 @@ function schedParseDate(s, year) {
 let SCHED_RAW = [];
 let _dayAutoDone = false;   // 只在第一次載入時自動跳到今天
 
+// 日程離線快取：地圖最需要行程圖層的場景就是荒野沒訊號的時候，
+// 所以先用上次存的立刻畫，抓到新的再覆蓋（跟主頁 localStorage 快取同一套思路）
+const SCHED_CACHE_KEY = 'cached_iceland_schedule';
+
 async function loadSchedule() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(SCHED_CACHE_KEY) || 'null');
+    if (Array.isArray(cached) && cached.length) { SCHED_RAW = cached; buildSched(); }
+  } catch(e) { /* 快取壞了就當沒有 */ }
+
   const gasBase = TRIP_CONFIG.apiBase || '';
   if (!gasBase) return;
   try {
     const res = await fetch(gasBase + '?sheet=schedule&_=' + Date.now(), { cache:'no-store' });
     const data = await res.json();
-    SCHED_RAW = Array.isArray(data.schedule) ? data.schedule : [];
+    const rows = Array.isArray(data.schedule) ? data.schedule : [];
+    if (!rows.length) return;   // 伺服器回空的不覆蓋快取，離線資料比沒有好
+    SCHED_RAW = rows;
+    try { localStorage.setItem(SCHED_CACHE_KEY, JSON.stringify(rows)); } catch(e) {}
     buildSched();
-  } catch(e) { console.warn('日程資料載入失敗', e); }
+  } catch(e) { console.warn('日程載入失敗，使用快取資料', e); }
 }
 
 // 住宿座標要等住宿表載入才補得齊，所以兩邊載完都呼叫這裡重建一次
@@ -1026,9 +1040,10 @@ function buildSched() {
         };
       });
 
-    // 日期列列出全部行程日：沒座標的日子也要能選，
-    // 否則那天的打卡／消費就沒有辦法單獨看
-    SCHED_DAYS = dayOrder;
+    // 日期列列出全部「在冰島」的日子：沒座標的也要能選，
+    // 否則那天的打卡／消費就沒辦法單獨看。抵達前（D0 以前）不列，
+    // 那幾天人還在飛機上，對這張地圖沒有意義。
+    SCHED_DAYS = dayOrder.filter(x => x.dayNum >= 1);
 
     // 旅途中預設就停在今天：打開地圖最想知道的是「今天要去哪」
     if (!_dayAutoDone) {
@@ -1103,14 +1118,10 @@ function stayOnDay(s, dayNum) {
     });
 }
 
+// 住宿連線已由計畫路線取代（全覽時本來就會把整趟行程串起來，
+// 只連住宿反而讓人以為那就是行程順序），這裡只負責清掉舊圖層。
 function renderStayLine() {
   if (stayLine) { map.removeLayer(stayLine); stayLine = null; }
-  // 選定某一天時改看當天的計畫路線，整趟住宿連線會變成干擾
-  if (!filters.stay || dayFilter !== null || STAYS.length < 2) return;
-  stayLine = L.polyline(
-    STAYS.map(s=>[s.lat,s.lng]),
-    { color:'#6a8aa8', weight:2, dashArray:'6,4', opacity:0.7 }
-  ).addTo(map);
 }
 
 // Cluster group
@@ -1330,20 +1341,24 @@ function schedSeq(a, b) {
   return ta !== tb ? ta - tb : (a.order || 0) - (b.order || 0);
 }
 
-// 路線方向：在每段靠近「終點」的位置放一個小圓點。
-// 不用三角箭頭是因為旋轉角度得自己算方位角，高緯度容易算歪，
-// 指錯方向比不指方向更糟；圓點靠哪一端本身就說明了去向。
-function makeArrows(pts, color) {
+// 路線方向：每段拆成兩截，前段淡、後段濃，中間放一個圓點當分界。
+// 顏色由淡到濃就是行進方向——不用算方位角，高緯度也不會畫歪。
+function makeRoute(pts, light, dark, dash) {
   const g = L.layerGroup();
   for (let i = 0; i < pts.length - 1; i++) {
     const [y1, x1] = pts[i], [y2, x2] = pts[i + 1];
-    // 取 75% 處：靠近下一站，一眼看得出是往那個方向走
-    const p = [y1 + (y2 - y1) * 0.75, x1 + (x2 - x1) * 0.75];
-    g.addLayer(L.marker(p, {
+    const mid = [y1 + (y2 - y1) * 0.55, x1 + (x2 - x1) * 0.55];
+    g.addLayer(L.polyline([pts[i], mid], {
+      color: light, weight: 2, dashArray: dash, opacity: 0.55, interactive: false,
+    }));
+    g.addLayer(L.polyline([mid, pts[i + 1]], {
+      color: dark, weight: 3, dashArray: dash, opacity: 0.95, interactive: false,
+    }));
+    g.addLayer(L.marker(mid, {
       interactive: false,
       icon: L.divIcon({
         className: '',
-        html: `<div class="route-dot" style="background:${color};"></div>`,
+        html: `<div class="route-dot" style="background:${dark};"></div>`,
         iconSize: [8, 8], iconAnchor: [4, 4],
       }),
     }));
@@ -1351,27 +1366,22 @@ function makeArrows(pts, color) {
   return g;
 }
 
-// 計畫路線：選定某一天時，把那天的主要節點照試算表順序連起來（虛線）
-let planLine = null, planArrows = null;
+// 計畫路線：選某一天＝那天的行程順序；選「全部」＝整趟依日期串起來
+let planLine = null;
 function renderPlanLine() {
-  if (planLine)   { map.removeLayer(planLine);   planLine = null; }
-  if (planArrows) { map.removeLayer(planArrows); planArrows = null; }
-  if (dayFilter === null || !filters.sched) return;
+  if (planLine) { map.removeLayer(planLine); planLine = null; }
+  if (!filters.sched) return;
   const pts = SCHED
-    .filter(x => x.dayNum === dayFilter && !x.isRef)
-    .sort(schedSeq)
+    .filter(x => !x.isRef && (dayFilter === null || x.dayNum === dayFilter))
+    .filter(x => dayFilter !== null || x.dayNum >= 1)   // 全覽時不畫出發日
+    .sort((a, b) => (a.dayNum - b.dayNum) || schedSeq(a, b))
     .map(x => [x.lat, x.lng]);
   if (pts.length < 2) return;
-  planLine = L.polyline(pts, {
-    color:'#58b0e8', weight:2.5, dashArray:'7,5', opacity:0.85,
-  }).addTo(map);
-  planArrows = makeArrows(pts, '#58b0e8').addTo(map);
+  planLine = makeRoute(pts, '#a8d8f0', '#2f8fd0', '7,5').addTo(map);
 }
 
-let trailArrows = null;
 function renderTrail(visible) {
   if (trailLine)   { map.removeLayer(trailLine);   trailLine = null; }
-  if (trailArrows) { map.removeLayer(trailArrows); trailArrows = null; }
   if (!filters.trail) return;
   // 打卡＋消費一起連線（圖層取消勾選消費時自然不參與）
   const pts = visible
@@ -1379,10 +1389,7 @@ function renderTrail(visible) {
     .sort((a,b) => itemTs(a) - itemTs(b))
     .map(it => [it.lat, it.lng]);
   if (pts.length < 2) return;
-  trailLine = L.polyline(pts, {
-    color:'#d8a838', weight:2, dashArray:'2,6', opacity:0.8,
-  }).addTo(map);
-  trailArrows = makeArrows(pts, '#d8a838').addTo(map);
+  trailLine = makeRoute(pts, '#efdcae', '#c08a10', '2,6').addTo(map);
 }
 
 function renderMarkers() {
@@ -1399,7 +1406,14 @@ function renderMarkers() {
           className:'', iconSize:[26,26], iconAnchor:[13,13],
         }),
         fallbackIcon:'🏠', memberColor:'#6a8aa8', svgData:null,
-      }).bindPopup(`<div class="popup-inner"><div class="popup-header"><div class="popup-icon">🏠</div><div class="popup-title">${esc(s.name)}</div></div><div class="popup-note">${esc(s.date)}</div></div>`, {className:'px-popup', maxWidth:240, closeButton:false});
+      }).bindPopup(`<div class="popup-inner">
+        <div class="popup-header"><div class="popup-icon">🏠</div><div class="popup-title">${esc(s.name)}</div></div>
+        <div class="popup-note">${esc(s.date)}</div>
+        <div class="popup-actions">
+          <button class="popup-action-btn" onclick="openSchedCard('住宿','${esc(s.name)}','${esc(s.date)}')">📋 詳細</button>
+          <button class="popup-action-btn" onclick="window.open('https://maps.google.com/?q=${s.lat},${s.lng}','_blank')">➤ 導航</button>
+        </div>
+      </div>`, {className:'px-popup', maxWidth:250, closeButton:false});
       markers[s.id] = m;
       clusterGroup.addLayer(m);
     });
@@ -1415,6 +1429,9 @@ function renderMarkers() {
   );
   visible.forEach(item => {
     if (item.type === 'stay') return;   // 住宿 marker 上面已畫
+    // 日程表的住宿列跟住宿表指同一間，只留住宿表那顆，免得同一點疊兩個 marker
+    // （這裡不畫，但它仍留在 SCHED 裡供路線計算使用）
+    if (item.type === 'sched' && item.category === '住宿') return;
     if (item.type === 'sched') {        // 計畫節點：分類圖示，不用成員小人
       const m2 = L.marker([item.lat, item.lng], {
         icon: schedIcon(item),
@@ -1461,11 +1478,11 @@ function typeMeta(t) {
 function schedIcon(item) {
   if (item.isRef) {
     return L.divIcon({ html:`<div class="sched-pin ref"></div>`, className:'',
-                       iconSize:[13,13], iconAnchor:[6.5,6.5] });
+                       iconSize:[15,15], iconAnchor:[7.5,7.5] });
   }
   if (item.category === '景點') {
     return L.divIcon({ html:`<div class="sched-pin"></div>`, className:'',
-                       iconSize:[15,15], iconAnchor:[7.5,7.5] });
+                       iconSize:[21,21], iconAnchor:[10.5,10.5] });
   }
   return L.divIcon({
     html:`<div class="sched-emoji">${SCHED_ICONS[item.category] || '📍'}</div>`,
@@ -1627,6 +1644,17 @@ function buildDayBar() {
   // 選中的那天捲進視野，不然選了看不到自己選在哪
   const on = box.querySelector('.day-chip.on') || box.querySelector('.day-chip.today');
   if (on) box.scrollLeft = on.offsetLeft - (box.clientWidth - on.offsetWidth) / 2;
+
+  // 滑鼠滾輪＝橫向捲動（不然桌機上只能用拖的，很難滑到頭尾）
+  if (!box._wheelBound) {
+    box._wheelBound = true;
+    box.addEventListener('wheel', (e) => {
+      const d = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (!d) return;
+      e.preventDefault();
+      box.scrollLeft += d;
+    }, { passive:false });
+  }
 }
 
 function setDayFilter(n) {
@@ -2411,20 +2439,34 @@ async function loadExpenses() {
 }
 
 // 地圖初次載入：一次拿齊打卡＋消費＋住宿（GAS 冷啟動只等一次）
+// 打卡／消費／住宿也一樣先吃快取再更新：沒訊號時打開地圖，
+// 至少看得到上次同步的足跡，而不是一張空地圖
+const MAPDATA_CACHE_KEY = 'cached_iceland_mapdata';
+
+function applyMapData(data) {
+  if (Array.isArray(data.checkins)) applyCheckins(data.checkins);
+  if (Array.isArray(data.expenses)) applyExpenses(data.expenses);
+  if (Array.isArray(data.stays)) {
+    STAYS = data.stays.map((st, i) => ({ id:'s'+i, ...st }));
+    renderStayLine();
+    buildSched();          // 住宿座標到齊，重建日程把住宿站補回路線
+  }
+  renderMarkers();
+}
+
 async function loadMapData() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(MAPDATA_CACHE_KEY) || 'null');
+    if (cached) applyMapData(cached);
+  } catch(e) { /* 快取壞了就當沒有 */ }
+
   const gasBase = TRIP_CONFIG.apiBase || '';
   if (!gasBase) return;
   try {
     const res = await fetch(gasBase + '?sheet=mapdata', { cache:'no-store' });
     const data = await res.json();
-    if (Array.isArray(data.checkins)) applyCheckins(data.checkins);
-    if (Array.isArray(data.expenses)) applyExpenses(data.expenses);
-    if (Array.isArray(data.stays)) {
-      STAYS = data.stays.map((st, i) => ({ id:'s'+i, ...st }));
-      renderStayLine();
-      buildSched();          // 住宿座標到齊，重建日程把住宿站補回路線
-    }
-    renderMarkers();
+    applyMapData(data);
+    try { localStorage.setItem(MAPDATA_CACHE_KEY, JSON.stringify(data)); } catch(e) {}
   } catch(e) {
     console.warn('地圖資料載入失敗，改逐項載入', e);
     loadCheckins(); loadExpenses(); loadStays();
@@ -2445,7 +2487,7 @@ async function loadMapData() {
   map.setView([lat, lng], 12);
   L.marker([lat, lng], {
     icon: L.divIcon({ html:`<div class="sched-pin"></div>`, className:'',
-                      iconSize:[15,15], iconAnchor:[7.5,7.5] }),
+                      iconSize:[21,21], iconAnchor:[10.5,10.5] }),
   }).addTo(map);
 })();
 
