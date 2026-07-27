@@ -1256,7 +1256,8 @@ function renderSchNode(x, d, sameTime) {
   const icon = x._flight ? '✈️' : isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
 
   const navBtn = (x.lat && x.lng)
-    ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤ 導航</button>`
+    ? `<button class="sch-nav" title="看位置" onclick="openSchMapPreview(${x.lat},${x.lng},'${esc(String(x.title||'').replace(/'/g,''))}');event.stopPropagation();">◎ 位置</button>`
+    + `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤ 導航</button>`
     : '';
 
   // 住宿：一眼標籤列（詳情進彈窗）
@@ -1377,6 +1378,40 @@ function schPriceBar(o) {
       </div>
     </div>`;
 }
+
+// ── 行程頁點「位置」→ 就地彈出小地圖，不跳去地圖分頁
+window.openSchMapPreview = function(lat, lng, title) {
+  const src = `map.html?preview=1&lat=${lat}&lng=${lng}`;
+  openSchModal(`
+    <div class="sch-modal-head">
+      <span class="sch-modal-icon">◎</span>
+      <div style="flex:1;min-width:0;">
+        <div class="sch-modal-title">${esc(title || '位置')}</div>
+        <div class="sch-modal-sub">${(+lat).toFixed(4)}, ${(+lng).toFixed(4)}</div>
+      </div>
+    </div>
+    <iframe src="${src}" class="sch-map-frame" loading="lazy"></iframe>
+    <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${lat},${lng}','_blank')">➤ 導航到這裡</button>
+  `);
+};
+
+// ── 地圖（iframe）點日程 pin → 在主頁面開對應的住宿／活動卡
+// 地圖那邊只知道標題與日期，索引要在這裡查，因為完整資料在 APP_DATA
+window.addEventListener('message', (e) => {
+  const msg = e.data;
+  if (!msg || msg.source !== 'iceland-map') return;
+  const d = window.APP_DATA || window.STATIC || {};
+  const norm = s => String(s || '').trim();
+  const like = (a, b) => a && b && (a === b || a.includes(b) || b.includes(a));
+
+  if (msg.action === 'openStay') {
+    const i = (d.accommodation || []).findIndex(s => like(norm(s.name), norm(msg.title)));
+    if (i >= 0) window.openSchStay(i);
+  } else if (msg.action === 'openAct') {
+    const i = (d.activity || []).findIndex(a => like(norm(a.name), norm(msg.title)));
+    if (i >= 0) window.openSchAct(i);
+  }
+});
 
 window.openSchStay = function(i) {
   const stay = (window.APP_DATA?.accommodation || [])[i];
