@@ -154,6 +154,29 @@ body{
 .style-opt.on .layer-check::after{content:'●';font-size:7px;}
 
 /* ── 時間軸滑桿 */
+/* 日期列：橫向捲動，視覺語言比照日程頁的 D1–D15 跳轉列 */
+.day-bar{
+  position:absolute;left:12px;right:12px;top:12px;
+  z-index:600;display:flex;align-items:center;gap:6px;
+  background:var(--panel);border:2px solid var(--border);
+  border-radius:var(--radius);padding:5px 7px;
+  box-shadow:2px 2px 0 rgba(0,0,0,0.3);
+}
+.day-scroll{
+  flex:1;display:flex;align-items:center;gap:4px;overflow-x:auto;
+  scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;
+}
+.day-scroll::-webkit-scrollbar{display:none;height:0;}
+.day-chip{
+  flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;
+  background:transparent;border:1px solid var(--border2);border-radius:6px;
+  color:var(--muted);cursor:pointer;padding:3px 8px;font-family:inherit;line-height:1.1;
+}
+.day-chip.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.day-chip .d-num{font-size:11px;font-weight:700;}
+.day-chip .d-date{font-size:8px;opacity:.8;}
+.day-chip.all{padding:6px 9px;font-size:10px;}
+
 .time-bar{
   position:absolute;left:12px;right:12px;bottom:16px;
   z-index:600;
@@ -277,7 +300,17 @@ body{
   font-family:var(--px);white-space:nowrap;
 }
 .tag-checkin{background:#4a2a32;color:#f0a0b0;border:1px solid #7a4050;}
-.tag-wish{background:#4a3c1c;color:#e8c060;border:1px solid #7a6430;}
+.tag-sched{background:#1c3a4a;color:#60c8e8;border:1px solid #30647a;}
+/* 計畫節點：跟打卡的小人區隔開，用半透明淡藍圓底表示「還沒發生」 */
+.sched-pin{
+  font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:50%;
+  background:rgba(88,176,232,.18);border:1.5px dashed #58b0e8;
+}
+.sched-pin.ref{
+  width:18px;height:18px;font-size:9px;
+  background:rgba(88,176,232,.10);border-style:dotted;border-width:1px;
+}
 .tag-stay{background:#1e3a4a;color:#80c0e0;border:1px solid #356a88;}
 .tag-expense{background:#1e4030;color:#8ad8a8;border:1px solid #357a52;}
 .diary-date{font-size:8px;color:var(--muted);}
@@ -625,15 +658,22 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
     <div class="layers-menu" id="layersMenu">
       <div class="layers-section">顯示項目</div>
       <div class="layer-opt on" id="lo-checkin" onclick="toggleFilter('checkin')"><span class="layer-check"></span>🐾 打卡</div>
-      <div class="layer-opt on" id="lo-wish" onclick="toggleFilter('wish')"><span class="layer-check"></span>💗 想去</div>
       <div class="layer-opt on" id="lo-stay" onclick="toggleFilter('stay')"><span class="layer-check"></span>🏠 住宿</div>
       <div class="layer-opt on" id="lo-expense" onclick="toggleFilter('expense')"><span class="layer-check"></span>💰 消費</div>
       <div class="layer-opt on" id="lo-trail" onclick="toggleFilter('trail')"><span class="layer-check"></span>〰 足跡連線</div>
+      <div class="layer-opt on" id="lo-sched" onclick="toggleFilter('sched')"><span class="layer-check"></span>📅 行程</div>
+      <div class="layer-opt" id="lo-ref" onclick="toggleFilter('ref')"><span class="layer-check"></span>└ 參考點</div>
       <div class="layer-opt" id="lo-timebar" onclick="toggleTimeBar()"><span class="layer-check"></span>⏳ 時間軸</div>
       <div class="layers-section">地圖風格</div>
       <div class="layer-opt style-opt on" id="ls-retro" onclick="setMapStyle('retro')"><span class="layer-check"></span>復古</div>
       <div class="layer-opt style-opt" id="ls-light" onclick="setMapStyle('light')"><span class="layer-check"></span>明亮</div>
       <div class="layer-opt style-opt" id="ls-dark" onclick="setMapStyle('dark')"><span class="layer-check"></span>暗色</div>
+    </div>
+
+    <!-- 日期列：選一天＝只看那天的行程與足跡，並畫出當天路線 -->
+    <div class="day-bar" id="dayBar" style="display:none;">
+      <button class="day-chip all on" id="dayAll" onclick="setDayFilter(null)">全部</button>
+      <div class="day-scroll" id="dayScroll"></div>
     </div>
 
     <!-- 打卡按鈕 -->
@@ -678,7 +718,6 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
         <div class="step-label"><div class="step-num">1</div>選擇類型</div>
         <div class="type-row" id="typeRow">
           <button class="type-chip on" data-type="checkin" onclick="selectType('checkin')">🐾 打卡</button>
-          <button class="type-chip" data-type="wish" onclick="selectType('wish')">💗 想去</button>
           <button class="type-chip" data-type="stay" onclick="selectType('stay')">🏠 住宿</button>
         </div>
       </div>
@@ -837,13 +876,76 @@ function stayItems() {
     note: '', time: '',
   }));
 }
-// 地圖上所有項目（打卡 + 消費 + 住宿）
-function allItems() { return checkins.concat(expenses, stayItems()); }
+// ── 日程（計畫）資料：從「日程」表讀，有座標的才上地圖
+// 主要節點＝景點/住宿/活動/補給；參考點是附屬層級，另外用圖層開關控制
+let SCHED = [];          // [{id,type:'sched',dayNum,dayKey,category,title,note,place,lat,lng,stay,url,isRef}]
+let SCHED_DAYS = [];     // [{key:'9/17', dayNum:4, d:Date}] 只含有座標的日子
+
+const SCHED_MAIN_CATS = ['景點', '住宿', '活動', '補給', '其他'];
+const SCHED_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '補給':'🛒', '參考':'·', '其他':'🚗' };
+
+function schedItems() {
+  return SCHED.filter(x => x.isRef ? filters.ref : filters.sched);
+}
+
+// 地圖上所有項目（打卡 + 消費 + 住宿 + 日程）
+function allItems() { return checkins.concat(expenses, stayItems(), schedItems()); }
+
+// 「9/17」→ Date（行程都在同一年，年份取自 config 的出發日）
+function schedParseDate(s, year) {
+  const m = String(s || '').match(/(\d{1,2})\s*[\/月-]\s*(\d{1,2})/);
+  return m ? new Date(year, +m[1] - 1, +m[2]) : null;
+}
+
+async function loadSchedule() {
+  const gasBase = TRIP_CONFIG.apiBase || '';
+  if (!gasBase) return;
+  try {
+    const res = await fetch(gasBase + '?sheet=schedule&_=' + Date.now(), { cache:'no-store' });
+    const data = await res.json();
+    const rows = Array.isArray(data.schedule) ? data.schedule : [];
+    const year = new Date(TRIP_CONFIG.dates?.depart || Date.now()).getFullYear();
+
+    // 先算出每個日期是第幾天（依日期排序，不管有沒有座標）
+    const dayOrder = [];
+    rows.forEach(r => {
+      const d = schedParseDate(r.date, year);
+      if (d && !dayOrder.some(x => x.key === r.date)) dayOrder.push({ key:r.date, d });
+    });
+    dayOrder.sort((a,b) => a.d - b.d);
+    dayOrder.forEach((x, i) => { x.dayNum = i + 1; });
+    const dayMap = Object.fromEntries(dayOrder.map(x => [x.key, x]));
+
+    SCHED = rows
+      .filter(r => r.lat && r.lng)
+      .map((r, i) => {
+        const day = dayMap[r.date] || {};
+        return {
+          id: 'sch' + i, type: 'sched', who: '',
+          dayNum: day.dayNum || 0, dayKey: r.date,
+          category: r.category || '其他',
+          isRef: r.category === '參考',
+          name: r.title, title: r.title, note: r.note || '', place: r.place || '',
+          lat: r.lat, lng: r.lng, stayTime: r.stay || '', url: r.url || '',
+          date: r.date, time: r.time || '',
+          order: r.order || i,
+        };
+      });
+
+    // 日期列只列出「有座標可看」的日子
+    const usable = new Set(SCHED.map(x => x.dayKey));
+    SCHED_DAYS = dayOrder.filter(x => usable.has(x.key));
+
+    buildDayBar();
+    renderMarkers();
+  } catch(e) { console.warn('日程資料載入失敗', e); }
+}
 
 // ══════════════════════════════════════════
 //  狀態
 // ══════════════════════════════════════════
-let filters = { checkin:true, wish:true, stay:true, expense:true, trail:true };
+let filters = { checkin:true, stay:true, expense:true, trail:true, sched:true, ref:false };
+let dayFilter = null;   // 只看第 N 天（null＝全部）
 let members = TRIP_CONFIG.members || [];
 let drawerOpen = false;
 let currentTab = 'all';
@@ -959,7 +1061,6 @@ function showQuickTag(latlng) {
       <div style="font-size:8px;color:var(--muted);margin-bottom:6px;">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
       <div style="display:flex;gap:6px;">
         <button class="popup-action-btn" onclick="quickAdd('checkin',${lat},${lng})">🐾 打卡</button>
-        <button class="popup-action-btn" onclick="quickAdd('wish',${lat},${lng})">💗 想去</button>
       </div>
     </div>
   `).openOn(map);
@@ -1036,9 +1137,9 @@ function makeMarkerIcon(item, zoom, labeled) {
   }
 
   // 想去/住宿 → 固定圖示
-  if (item.type==='wish' || item.type==='stay') {
+  if (item.type==='stay') {
     return L.divIcon({
-      html:`<div style="font-size:${zoom>=7?22:16}px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">${item.type==='wish'?'💗':'🏠'}</div>`,
+      html:`<div style="font-size:${zoom>=7?22:16}px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));">🏠</div>`,
       className:'', iconSize:[28,28], iconAnchor:[14,14],
     });
   }
@@ -1075,6 +1176,21 @@ function itemTs(it) {
 
 // 打卡時間序連線
 let trailLine = null;
+// 計畫路線：選定某一天時，把那天的主要節點照試算表順序連起來（虛線）
+let planLine = null;
+function renderPlanLine() {
+  if (planLine) { map.removeLayer(planLine); planLine = null; }
+  if (!dayFilter || !filters.sched) return;
+  const pts = SCHED
+    .filter(x => x.dayNum === dayFilter && !x.isRef)
+    .sort((a,b) => a.order - b.order)
+    .map(x => [x.lat, x.lng]);
+  if (pts.length < 2) return;
+  planLine = L.polyline(pts, {
+    color:'#58b0e8', weight:2.5, dashArray:'7,5', opacity:0.85,
+  }).addTo(map);
+}
+
 function renderTrail(visible) {
   if (trailLine) { map.removeLayer(trailLine); trailLine = null; }
   if (!filters.trail) return;
@@ -1119,6 +1235,19 @@ function renderMarkers() {
   );
   visible.forEach(item => {
     if (item.type === 'stay') return;   // 住宿 marker 上面已畫
+    if (item.type === 'sched') {        // 計畫節點：分類圖示，不用成員小人
+      const m2 = L.marker([item.lat, item.lng], {
+        icon: L.divIcon({
+          html:`<div class="sched-pin${item.isRef ? ' ref' : ''}">${SCHED_ICONS[item.category] || '📍'}</div>`,
+          className:'', iconSize:item.isRef?[18,18]:[26,26], iconAnchor:item.isRef?[9,9]:[13,13],
+        }),
+        fallbackIcon: SCHED_ICONS[item.category] || '📍',
+        memberColor:'#58b0e8', svgData:null,
+      }).bindPopup(() => buildSchedPopup(item), { className:'px-popup', maxWidth:250, closeButton:false });
+      markers[item.id] = m2;
+      clusterGroup.addLayer(m2);
+      return;
+    }
     const icon = makeMarkerIcon(item, zoom, labeledIds.has(item.id));
     const m = getMemberByName(item.who);
     const marker = L.marker([item.lat, item.lng], {
@@ -1128,21 +1257,41 @@ function renderMarkers() {
       svgData: item.svgData,
       svgGrid: item.svgGrid || 16,
       spriteHtml: (item.type==='checkin'||item.type==='expense') ? spriteSvg(m) : null,
-      fallbackIcon: item.type==='wish' ? '💗' : item.type==='stay' ? '🏠' : m.icon,
+      fallbackIcon: item.type==='stay' ? '🏠' : m.icon,
     }).bindPopup(() => buildPopupContent(item), { className:'px-popup', maxWidth:240, closeButton:false });
     markers[item.id] = marker;
     clusterGroup.addLayer(marker);
   });
 
   renderTrail(visible);
+  renderPlanLine();
   renderCards();
 }
 
 function typeMeta(t) {
-  return t==='wish'    ? { label:'想去', tag:'tag-wish', icon:'💗' }
-       : t==='stay'    ? { label:'住宿', tag:'tag-stay', icon:'🏠' }
+  return t==='stay'    ? { label:'住宿', tag:'tag-stay', icon:'🏠' }
        : t==='expense' ? { label:'消費', tag:'tag-expense', icon:'💰' }
+       : t==='sched'   ? { label:'行程', tag:'tag-sched', icon:'📅' }
        : { label:'打卡', tag:'tag-checkin', icon:'🐾' };
+}
+
+// 計畫節點的 popup：唯讀，只顯示行程資訊 + 導航／連結
+function buildSchedPopup(x) {
+  const meta = [x.time, x.stayTime && ('停留 ' + x.stayTime)].filter(Boolean).join(' · ');
+  return `<div class="popup-inner">
+    <div class="popup-header">
+      <div class="popup-icon">${SCHED_ICONS[x.category] || '📍'}</div>
+      <div class="popup-title">${esc(x.title)}</div>
+    </div>
+    <div class="popup-meta"><span class="tag tag-sched">D${x.dayNum} ${esc(x.dayKey)}</span>${
+      meta ? `<span class="popup-time">${esc(meta)}</span>` : ''}</div>
+    ${x.place ? `<div class="popup-note">📍 ${esc(x.place)}</div>` : ''}
+    ${x.note ? `<div class="popup-note">${esc(x.note)}</div>` : ''}
+    <div class="popup-actions">
+      <button class="popup-action-btn" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank')">➤ 導航</button>
+      ${/^https?:\/\//i.test(x.url) ? `<button class="popup-action-btn" onclick="window.open('${esc(x.url)}','_blank')">🔗 詳情</button>` : ''}
+    </div>
+  </div>`;
 }
 
 function itemImgHtml(item) {
@@ -1197,9 +1346,9 @@ function buildPopupContent(item) {
 const TABS = [
   { key:'all', label:'全部' },
   { key:'checkin', label:'打卡' },
-  { key:'wish', label:'想去' },
   { key:'stay', label:'住宿' },
   { key:'expense', label:'消費' },
+  { key:'sched', label:'行程' },
 ];
 
 function buildTabs() {
@@ -1218,12 +1367,56 @@ function setTab(key) {
 
 function getVisible() {
   return allItems().filter(item => {
-    if (!filters[item.type]) return false;
+    // 日程項目的開關由 schedItems() 依 sched/ref 決定，這裡不再查 filters
+    if (item.type !== 'sched' && !filters[item.type]) return false;
     if (currentTab !== 'all' && item.type !== currentTab) return false;
     if (memberFilter && item.who !== memberFilter) return false;
     if (timeFilterTs && itemTs(item) > timeFilterTs) return false;
+    if (dayFilter) {
+      // 計畫項目比對第幾天；打卡／消費比對實際發生日期
+      if (item.type === 'sched') { if (item.dayNum !== dayFilter) return false; }
+      else if (!isItemOnDay(item, dayFilter)) return false;
+    }
     return true;
   });
+}
+
+// 打卡／消費是否發生在第 N 天（用該天的日期比對時間戳）
+function isItemOnDay(item, dayNum) {
+  const day = SCHED_DAYS.find(x => x.dayNum === dayNum);
+  if (!day) return false;
+  const ts = itemTs(item);
+  if (!ts) return false;
+  const t = new Date(ts);
+  return t.getFullYear() === day.d.getFullYear()
+      && t.getMonth() === day.d.getMonth()
+      && t.getDate() === day.d.getDate();
+}
+
+// ── 日期列
+function buildDayBar() {
+  const bar = document.getElementById('dayBar');
+  const box = document.getElementById('dayScroll');
+  if (!bar || !box) return;
+  if (!SCHED_DAYS.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  box.innerHTML = SCHED_DAYS.map(x => `
+    <button class="day-chip${dayFilter === x.dayNum ? ' on' : ''}" onclick="setDayFilter(${x.dayNum})">
+      <span class="d-num">D${x.dayNum}</span>
+      <span class="d-date">${esc(x.key)}</span>
+    </button>`).join('');
+  document.getElementById('dayAll').classList.toggle('on', !dayFilter);
+}
+
+function setDayFilter(n) {
+  dayFilter = (dayFilter === n) ? null : n;
+  buildDayBar();
+  renderMarkers();
+  // 選了某一天就把畫面帶到那天的範圍，不用自己找
+  if (dayFilter) {
+    const pts = SCHED.filter(x => x.dayNum === dayFilter && !x.isRef).map(x => [x.lat, x.lng]);
+    if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding:[60,60], maxZoom:11 });
+  }
 }
 
 // ══════════════════════════════════════════
@@ -2022,6 +2215,7 @@ buildTopbarMembers();
 buildTabs();
 renderMarkers();
 loadMapData();
+loadSchedule();
 // 修正容器尺寸計算延遲導致 tile 不載入
 setTimeout(() => map.invalidateSize(), 200);
 </script>
