@@ -332,9 +332,8 @@ body{
   box-shadow:2px 2px 0 rgba(0,0,0,0.3);
 }
 .route-legend span{display:flex;align-items:center;gap:4px;}
-.lg-line{width:18px;height:3px;display:inline-block;border-radius:2px;
-  background:linear-gradient(90deg,#a8d8f0,#2f8fd0);}
-.lg-line.real{background:linear-gradient(90deg,#efdcae,#c08a10);}
+.lg-line{width:18px;height:3px;display:inline-block;border-radius:2px;background:#2f8fd0;}
+.lg-line.real{background:#c08a10;}
 
 /* 預覽模式：只留地圖本身，其餘操作介面全部收起來 */
 body.preview .topbar,
@@ -346,12 +345,10 @@ body.preview .route-legend,
 body.preview .layers-menu{display:none !important;}
 body.preview #map{top:0 !important;height:100% !important;}
 
-/* 路線方向：小圓點放在每段 75% 處，靠近下一站那頭 */
-.route-dot{
-  width:6px;height:6px;border-radius:50%;
-  border:1px solid rgba(255,255,255,.75);
-  box-shadow:0 0 1px rgba(0,0,0,.5);
-}
+/* 路線頭尾記號：空心圈＝起點，實心點＝終點 */
+.route-end{width:12px;height:12px;border-radius:50%;}
+.route-end.start{background:#fff;border:2.5px solid;}
+.route-end.finish{border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);}
 .tag-stay{background:#1e3a4a;color:#80c0e0;border:1px solid #356a88;}
 .tag-expense{background:#1e4030;color:#8ad8a8;border:1px solid #357a52;}
 .diary-date{font-size:8px;color:var(--muted);}
@@ -1343,26 +1340,30 @@ function schedSeq(a, b) {
 
 // 路線方向：每段拆成兩截，前段淡、後段濃，中間放一個圓點當分界。
 // 顏色由淡到濃就是行進方向——不用算方位角，高緯度也不會畫歪。
+// 路線：單一顏色的虛線（不再逐段拆濃淡＋插點，那樣元素太多反而亂）。
+// 方向只在整條路線的頭尾各標一個記號：空心圈＝起點、實心點＝終點，
+// 「今天從哪出發、在哪結束」才是真正有用的資訊，不用每一段都交代方向。
 function makeRoute(pts, light, dark, dash) {
   const g = L.layerGroup();
-  for (let i = 0; i < pts.length - 1; i++) {
-    const [y1, x1] = pts[i], [y2, x2] = pts[i + 1];
-    const mid = [y1 + (y2 - y1) * 0.55, x1 + (x2 - x1) * 0.55];
-    g.addLayer(L.polyline([pts[i], mid], {
-      color: light, weight: 2, dashArray: dash, opacity: 0.55, interactive: false,
-    }));
-    g.addLayer(L.polyline([mid, pts[i + 1]], {
-      color: dark, weight: 3, dashArray: dash, opacity: 0.95, interactive: false,
-    }));
-    g.addLayer(L.marker(mid, {
-      interactive: false,
-      icon: L.divIcon({
-        className: '',
-        html: `<div class="route-dot" style="background:${dark};"></div>`,
-        iconSize: [8, 8], iconAnchor: [4, 4],
-      }),
-    }));
-  }
+  g.addLayer(L.polyline(pts, {
+    color: dark, weight: 2.5, dashArray: dash, opacity: 0.85, interactive: false,
+  }));
+  g.addLayer(L.marker(pts[0], {
+    interactive: false,
+    icon: L.divIcon({
+      className: '',
+      html: `<div class="route-end start" style="border-color:${dark};"></div>`,
+      iconSize: [12, 12], iconAnchor: [6, 6],
+    }),
+  }));
+  g.addLayer(L.marker(pts[pts.length - 1], {
+    interactive: false,
+    icon: L.divIcon({
+      className: '',
+      html: `<div class="route-end finish" style="background:${dark};"></div>`,
+      iconSize: [12, 12], iconAnchor: [6, 6],
+    }),
+  }));
   return g;
 }
 
