@@ -12,21 +12,41 @@
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lato:wght@300;400;700&family=Silkscreen&display=swap" rel="stylesheet" /></noscript>
   <style>
+    /* ── 夜色（預設）：極光下的冰島 */
     :root {
       --bg:#07111f; --bg2:#0d1f35; --bg3:#112540; --card:#0f2240;
       --border:#1e3a5f; --accent:#4fc3f7; --accent2:#81d4fa;
       --gold:#f0c040; --green:#4caf6e; --red:#e05555;
       --text:#e8f4fd; --muted:#7eb3d4;
       --aurora1:#00e5cc; --aurora2:#7c4dff; --aurora3:#ff6e40;
+      --glow1:rgba(0,229,204,.07); --glow2:rgba(124,77,255,.06); --glow3:rgba(79,195,247,.05);
     }
+
+    /* ── 白天：冰河與淺色岩層 */
+    :root[data-theme="day"] {
+      --bg:#eef3f8; --bg2:#e2ebf3; --bg3:#d8e4ef; --card:#ffffff;
+      --border:#c2d4e4; --accent:#0d7fb8; --accent2:#3a9dd0;
+      --gold:#c08a1a; --green:#2e8b57; --red:#c0392b;
+      --text:#16293d; --muted:#5b7691;
+      --aurora1:#0d9488; --aurora2:#6d4bc7; --aurora3:#d1552a;
+      --glow1:rgba(13,148,136,.06); --glow2:rgba(109,75,199,.05); --glow3:rgba(13,127,184,.05);
+    }
+    .theme-btn{
+      background:var(--bg3);border:1px solid var(--border);color:var(--text);
+      border-radius:999px;padding:3px 9px;cursor:pointer;font-size:.8rem;
+      line-height:1.4;transition:background .15s,border-color .15s;
+    }
+    .theme-btn:hover{border-color:var(--accent);}
+    .theme-btn:active{transform:translateY(1px);}
+
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;min-height:100vh;overflow-x:hidden;}
     body::before{
       content:'';position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:0;
       background:
-        radial-gradient(ellipse 80% 40% at 20% 10%,rgba(0,229,204,.07) 0%,transparent 60%),
-        radial-gradient(ellipse 60% 30% at 80% 5%,rgba(124,77,255,.06) 0%,transparent 55%),
-        radial-gradient(ellipse 50% 20% at 50% 0%,rgba(79,195,247,.05) 0%,transparent 50%);
+        radial-gradient(ellipse 80% 40% at 20% 10%,var(--glow1) 0%,transparent 60%),
+        radial-gradient(ellipse 60% 30% at 80% 5%,var(--glow2) 0%,transparent 55%),
+        radial-gradient(ellipse 50% 20% at 50% 0%,var(--glow3) 0%,transparent 50%);
     }
     .container{max-width:680px;margin:0 auto;padding:0 16px 80px;position:relative;z-index:1;}
     
@@ -155,6 +175,89 @@
     .offline-badge.show{display:block;}
     .empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:.9rem;}
     .section-title{font-family:'Cinzel',serif;font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:18px 0 9px;display:flex;align-items:center;gap:10px;}
+
+    /* ══ 行前準備清單：小人勾選 ══ */
+    .prep-progress{display:flex;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:6px;}
+    .prep-progress-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;}
+    .prep-progress-avatar{width:18px;height:31px;flex-shrink:0;filter:grayscale(1);opacity:.4;transition:filter .3s,opacity .3s;}
+    .prep-progress-avatar.done{filter:none;opacity:1;}
+    .prep-progress-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
+    .prep-progress-label{display:flex;gap:5px;align-items:baseline;font-size:.66rem;color:var(--muted);}
+    .prep-progress-item .progress-bar{width:100%;}
+
+    /* 行前清單：檢視與成員篩選 */
+    .prep-filters{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 12px;}
+    .prep-filter-group{display:flex;align-items:center;gap:5px;}
+    .prep-filter{padding:4px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);
+      border-radius:999px;cursor:pointer;font-size:.7rem;font-family:'Lato',sans-serif;}
+    .prep-filter.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+    .prep-who{padding:3px 9px;background:transparent;border:1px solid var(--border);color:var(--muted);
+      border-radius:999px;cursor:pointer;font-size:.68rem;font-family:'Lato',sans-serif;
+      display:flex;align-items:center;line-height:1;}
+    .prep-who.on{border-color:var(--accent);background:rgba(79,195,247,.12);color:var(--accent);}
+    .prep-who-avatar{width:13px;height:22px;display:inline-block;filter:grayscale(1);opacity:.55;}
+    .prep-who-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
+    .prep-who.on .prep-who-avatar{filter:none;opacity:1;}
+
+    .prep-gate{display:flex;align-items:center;flex-wrap:wrap;gap:8px;
+      background:var(--bg3);border:1px dashed var(--border);border-radius:8px;
+      padding:9px 11px;margin-bottom:12px;}
+    .prep-gate-q{font-size:.72rem;color:var(--text);font-weight:600;}
+    .prep-gate-btns{display:flex;gap:5px;}
+    .prep-gate-btn{padding:3px 13px;border:1px solid var(--border);background:transparent;
+      color:var(--muted);border-radius:6px;cursor:pointer;font-size:.7rem;
+      font-family:'Lato',sans-serif;transition:.2s;}
+    .prep-gate-btn.on{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600;}
+    .prep-gate-hint{flex-basis:100%;font-size:.62rem;color:var(--muted);line-height:1.5;}
+
+    .prep-group{margin-bottom:4px;}
+    .prep-item{
+      position:relative;
+      display:flex;align-items:center;gap:10px;
+      background:var(--card);border:1px solid var(--border);border-radius:8px;
+      padding:10px 26px 10px 12px;margin-bottom:7px;
+      transition:opacity .25s,border-color .25s;
+    }
+    /* 重要度 5 且未完成＝不帶就完蛋，整列標紅提醒 */
+    .prep-item.critical{
+      border-left:3px solid var(--red);
+      background:linear-gradient(90deg,rgba(224,85,85,.08),transparent 55%);
+    }
+    .prep-item.critical .prep-name{font-weight:700;}
+    .prep-stars.critical{color:var(--red);}
+    .prep-item.all-done{opacity:.55;border-color:rgba(78,195,121,.4);}
+    .prep-item.all-done .prep-name{text-decoration:line-through;text-decoration-color:var(--muted);}
+    .prep-main{flex:1;min-width:0;}
+    .prep-name{font-size:.82rem;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+    .prep-stars{font-size:.6rem;color:var(--gold);letter-spacing:1px;}
+    .prep-note{font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.5;}
+    .prep-owner{font-size:.66rem;color:var(--accent2);margin-top:3px;}
+
+    .prep-avatars{display:flex;gap:4px;flex-shrink:0;}
+    .prep-avatar{
+      width:26px;height:38px;padding:2px;
+      background:transparent;border:1.5px dashed var(--border);border-radius:6px;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      filter:grayscale(1);opacity:.32;
+      transition:filter .25s,opacity .25s,border-color .25s,transform .12s;
+      touch-action:manipulation;
+    }
+    .prep-avatar svg{width:100%;height:100%;image-rendering:pixelated;}
+    .prep-avatar:active{transform:translateY(1px);}
+    .prep-avatar.done{
+      filter:none;opacity:1;
+      border-style:solid;border-color:rgba(78,195,121,.65);
+      background:rgba(78,195,121,.1);
+    }
+    .prep-avatar.dim{opacity:.14;}
+    .prep-avatar.dim.done{opacity:1;}
+    /* 勾選瞬間的小跳動 */
+    .prep-avatar.pop{animation:prepPop .26s ease;}
+    @keyframes prepPop{
+      0%{transform:translateY(0) scale(1);}
+      45%{transform:translateY(-5px) scale(1.14);}
+      100%{transform:translateY(0) scale(1);}
+    }
     .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
     .total-bar{background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--border);border-radius:11px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
     .total-bar-label{font-size:.75rem;color:var(--muted);}
@@ -258,6 +361,268 @@
     .px-btn-cancel{flex:1;background:#c8d8a8;border:none;border-right:2px solid #2a4a1a;padding:12px;font-family:'Silkscreen',monospace;font-size:8px;color:#2a4a1a;cursor:pointer;}
     .px-btn-cancel:hover{background:#a8c888;}
     .px-btn-submit{flex:2;background:#2a4a1a;border:none;padding:12px;font-family:'Silkscreen',monospace;font-size:8px;color:#c8d8a8;cursor:pointer;letter-spacing:1px;}
+    .px-chip-row{display:flex;gap:6px;flex-wrap:wrap;}
+    .px-chip{background:#f8fce8;border:2px solid #2a4a1a;color:#2a4a1a;font-family:'Silkscreen',monospace;font-size:10px;padding:6px 12px;cursor:pointer;letter-spacing:.5px;}
+    .px-chip.on{background:#2a4a1a;color:#c8d8a8;}
+    .prep-more{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 8px;line-height:1;}
+
+    /* ══ 日程時間軸 ══ */
+    /* 跳轉列黏在頂端：長列表往下滑時，跳日期的工具仍在手邊 */
+    .sch-jumper{display:flex;align-items:center;gap:4px;margin:0 0 10px;
+      position:sticky;top:0;z-index:6;background:var(--card);padding:4px 0;}
+    .sch-jump-arrow{flex-shrink:0;width:24px;height:38px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;cursor:pointer;font-size:15px;line-height:1;}
+    .sch-jump-arrow:active{background:var(--bg3);color:var(--text);}
+    .sch-jump-arrow:disabled{opacity:.25;cursor:default;}
+    /* 列出全部天數，靠左右滑動選：從最後一天回第一天只要拖一下 */
+    .sch-jump-scroll{flex:1;display:flex;align-items:center;gap:4px;
+      overflow-x:auto;scroll-behavior:smooth;
+      scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;}
+    .sch-jump-scroll::-webkit-scrollbar{display:none;height:0;}
+    .sch-jump-scroll .sch-jump-day{flex-shrink:0;}
+
+    .sch-jump-day{
+      flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;
+      background:transparent;border:1px solid transparent;border-radius:8px;
+      color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;
+      padding:4px 8px;transition:all .18s ease;
+    }
+    .sch-jump-d{font-family:'Cinzel',serif;line-height:1.1;}
+    .sch-jump-date{line-height:1.1;opacity:.75;}
+
+    /* 距離選中越遠越小越淡 */
+    .sch-jump-day.off0{padding:6px 13px;border-color:var(--accent);background:rgba(var(--accent-rgb,224,96,96),.1);color:var(--accent);}
+    .sch-jump-day.off0 .sch-jump-d{font-size:.95rem;font-weight:700;}
+    .sch-jump-day.off0 .sch-jump-date{font-size:.66rem;opacity:1;}
+
+    .sch-jump-day.off1{opacity:.72;}
+    .sch-jump-day.off1 .sch-jump-d{font-size:.76rem;}
+    .sch-jump-day.off1 .sch-jump-date{font-size:.58rem;}
+
+    /* 邊緣要小但仍看得清楚，不要淡到讀不出日期 */
+    .sch-jump-day.off2{opacity:.62;}
+    .sch-jump-day.off2 .sch-jump-d{font-size:.64rem;}
+    .sch-jump-day.off2 .sch-jump-date{font-size:.52rem;}
+
+    /* 今天：未選中時用金色點出來 */
+    .sch-jump-day.today:not(.off0) .sch-jump-d{color:var(--gold);}
+
+    .sch-filters{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;}
+    .sch-filter{padding:3px 11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:999px;cursor:pointer;font-size:.68rem;font-family:'Lato',sans-serif;}
+    .sch-filter.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+    /* 不再自成一個小捲動框：整條時間軸跟著頁面捲動，才不會有被關在小窗裡的擠迫感 */
+    .sch-scroll{position:relative;padding-right:2px;
+      scrollbar-width:none;-ms-overflow-style:none;}
+    .sch-scroll::-webkit-scrollbar{display:none;width:0;height:0;}
+    .sch-day{margin-bottom:26px;transition:opacity .25s;}
+    .sch-day:last-child{margin-bottom:8px;}
+    .sch-day.past{opacity:.42;}
+
+    /* 日期＝時間軸上的站點：左右延伸橫線，把軸切成一段一段 */
+    .sch-day-head{
+      display:flex;align-items:center;gap:8px;
+      /* 黏在跳轉列下面，不是頁面最頂端，兩層才不會疊在一起 */
+      margin-bottom:10px;position:sticky;top:46px;z-index:3;
+      background:var(--card);padding:6px 0 7px;
+    }
+    .sch-day-line{flex:1;height:1px;background:var(--border);}
+    .sch-day-badge{
+      flex-shrink:0;text-align:center;
+      padding:3px 14px;border:1px solid var(--border);border-radius:999px;
+      background:var(--bg3);
+    }
+    /* 白天模式：淺底上膠囊框顯得突兀，改為純文字＋兩側橫線 */
+    :root[data-theme="day"] .sch-day-badge{
+      border:none;background:transparent;padding:2px 12px;
+    }
+    :root[data-theme="day"] .sch-day.today .sch-day-badge{
+      background:transparent;
+      border-bottom:2px solid var(--accent);border-radius:0;
+    }
+    .sch-day-title{display:flex;align-items:center;justify-content:center;gap:6px;}
+    .sch-day-num{font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);letter-spacing:.05em;line-height:1.2;}
+    .sch-day-sub{font-size:.6rem;color:var(--muted);line-height:1.3;}
+    .sch-today-tag{font-size:.58rem;background:var(--accent);color:#fff;padding:1px 6px;border-radius:999px;}
+
+    /* 今天：站點整個亮起來 */
+    .sch-day.today .sch-day-badge{border-color:var(--accent);background:rgba(224,96,96,.08);}
+    .sch-day.today .sch-day-num{color:var(--accent);}
+    .sch-day.today .sch-day-line{background:linear-gradient(90deg,transparent,var(--accent));}
+    .sch-day.today .sch-day-line:last-child{background:linear-gradient(90deg,var(--accent),transparent);}
+
+    /* 收合：點日期標題整天收起來，只留摘要，長行程才掃得完 */
+    .sch-day-head{cursor:pointer;}
+    .sch-fold-btn{font-size:.7rem;color:var(--muted);line-height:1;
+      width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;
+      border:1px solid var(--border);border-radius:4px;flex-shrink:0;}
+    .sch-day.folded .sch-nodes{display:none;}
+    .sch-day.folded{margin-bottom:12px;}
+    .sch-foldall{margin-left:auto;}
+
+    /* 每日摘要：旅途中要的是「今天還剩多久」，一眼掃過的數字列 */
+    .sch-day-sum{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:center;
+      margin:-4px 0 10px;padding:5px 10px;background:var(--bg3);
+      border-radius:8px;font-size:.64rem;color:var(--muted);letter-spacing:.02em;}
+    .sch-sum-item{white-space:nowrap;}
+
+    .sch-nodes{border-left:2px solid var(--border);margin-left:14px;padding-left:0;padding-top:2px;}
+    .sch-node{position:relative;display:flex;align-items:flex-start;gap:8px;padding:4px 8px 4px 0;margin-left:-9px;}
+    .sch-node.expandable{cursor:pointer;}
+    /* 時刻軌道：只放時刻，有填的才是錨點，所以給它比內文更強的存在感 */
+    .sch-node-time{flex-shrink:0;width:40px;text-align:left;font-size:.66rem;
+      color:var(--text);opacity:.75;font-weight:600;padding-top:9px;letter-spacing:.02em;
+      position:relative;}
+    /* 沒有時刻的主要節點：用一條淡虛線把圓點接到標題，視線不會斷在空白裡 */
+    .sch-node.lead .sch-node-time::before{
+      content:'';position:absolute;left:-2px;right:4px;top:14px;height:1px;
+      background:repeating-linear-gradient(90deg,var(--border) 0 2px,transparent 2px 5px);
+      opacity:.7;
+    }
+    .sch-node-dot{flex-shrink:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--card);border:1px solid var(--border);border-radius:50%;z-index:1;margin-top:5px;}
+    .sch-node.cat-住宿 .sch-node-dot{border-color:rgba(79,195,247,.6);}
+    .sch-node.cat-活動 .sch-node-dot{border-color:rgba(255,167,38,.6);}
+    .sch-node.cat-景點 .sch-node-dot{border-color:rgba(78,195,121,.6);}
+    .sch-node.cat-補給 .sch-node-dot{border-color:rgba(158,166,182,.5);}
+    /* 內容框起來：卡片＋分類色左邊條，與圓點同色系 */
+    .sch-node-body{
+      flex:1;min-width:0;
+      background:var(--bg3);
+      border:1px solid var(--border);
+      border-left:3px solid var(--border);
+      border-radius:8px;
+      padding:7px 10px 8px;
+    }
+    .sch-node.cat-景點 .sch-node-body{border-left-color:rgba(78,195,121,.55);}
+    .sch-node.cat-住宿 .sch-node-body{border-left-color:rgba(79,195,247,.55);}
+    .sch-node.cat-活動 .sch-node-body{border-left-color:rgba(255,167,38,.55);}
+    .sch-node.cat-其他 .sch-node-body{border-left-color:rgba(158,166,182,.45);}
+    .sch-node.cat-補給 .sch-node-body{border-left-color:rgba(158,166,182,.45);}
+    .sch-node.expandable .sch-node-body:active{background:var(--card);border-color:var(--muted);}
+    .sch-node-title{font-size:.8rem;color:var(--text);display:flex;align-items:center;gap:5px;}
+    .sch-node-place{font-size:.66rem;color:var(--muted);margin-top:2px;}
+    .sch-node-note{font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.7;white-space:pre-wrap;}
+    /* 說明比標題再淡一階，才不會兩行看起來一樣重 */
+    .sch-node.plain .sch-node-note{font-size:.63rem;opacity:.72;margin-top:1px;line-height:1.5;}
+    .sch-expand{font-size:.8rem;color:var(--muted);margin-left:auto;padding-left:6px;}
+    .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.62rem;font-family:'Lato',sans-serif;}
+    .sch-nav:active{background:rgba(79,195,247,.12);}
+    .sch-node-actions{display:flex;margin-top:6px;}
+
+    /* 點不開的節點：不做卡片，一行字＋空心圓點 */
+    /* 文字自成一群靠左，導航鈕靠右對齊，不要卡在文字下面變成散落的碎片 */
+    .sch-node.plain .sch-node-body{
+      background:transparent;border:none;border-left:none;
+      padding:6px 0 6px 4px;
+      display:flex;align-items:center;gap:10px;
+    }
+    .sch-plain-text{flex:1;min-width:0;}
+    .sch-node-dot.ring{
+      width:11px;height:11px;background:var(--card);
+      border:2px solid var(--border);margin-top:9px;margin-left:2px;
+    }
+    .sch-node.plain.big .sch-node-dot.ring{border-color:rgba(78,195,121,.75);width:13px;height:13px;margin-left:1px;}
+    .sch-node-line{display:flex;align-items:baseline;gap:5px;min-width:0;}
+    .sch-line-icon{font-size:.7rem;flex-shrink:0;}
+    .sch-line-title{font-size:.72rem;color:var(--muted);}
+    /* 其他＝要做的事（退房、取車、集合），比補給重要，拉到中間層 */
+    .sch-node.plain.cat-其他 .sch-line-title{font-size:.84rem;color:var(--text);opacity:.9;}
+    .sch-node.plain.cat-其他 .sch-line-icon{font-size:.78rem;}
+    .sch-line-place{font-size:.63rem;color:var(--muted);opacity:.75;min-width:0;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    /* 景點：整條時間軸上最大的字 */
+    .sch-node.plain.big .sch-line-title{font-size:.95rem;color:var(--text);font-weight:600;letter-spacing:.02em;}
+    .sch-node.plain.big .sch-line-icon{font-size:.85rem;}
+    .sch-node.plain.big .sch-node-body{padding-top:4px;}
+
+    /* 交通：兩個節點之間的虛線區間，時長在軸左、方向在軸右 */
+    .sch-conn{position:relative;display:flex;align-items:center;gap:8px;
+      padding:2px 8px 2px 0;margin-left:-9px;}
+    /* 時長不進時間欄：它是「兩點之間要花多久」，不是「幾點做這件事」 */
+    .sch-conn-dur,.sch-dwell{color:var(--muted);font-size:.62rem;letter-spacing:.02em;
+      background:var(--bg3);border-radius:4px;padding:1px 6px;flex-shrink:0;}
+    /* 預計停留：跟車程時長同一種標籤，因為都在回答「要花多久」 */
+    .sch-dwell{margin-left:6px;font-weight:400;white-space:nowrap;}
+    .sch-conn-dot{flex-shrink:0;width:18px;align-self:stretch;min-height:34px;
+      display:flex;justify-content:center;background:var(--card);z-index:1;}
+    .sch-conn-line{width:2px;
+      background:repeating-linear-gradient(var(--border) 0 3px,transparent 3px 8px);}
+    .sch-conn-body{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+    .sch-car{image-rendering:pixelated;display:block;flex-shrink:0;opacity:.85;}
+    .sch-conn-text{font-size:.66rem;color:var(--muted);}
+    .sch-conn-note{font-size:.6rem;color:var(--muted);opacity:.7;}
+
+    /* 參考：掛在前一個節點下的附註，縮排、比景點小一號、不佔時間軸圓點 */
+    .sch-ref{display:flex;align-items:flex-start;gap:5px;
+      margin:1px 0 3px 62px;padding:1px 8px 1px 0;}
+    .sch-ref-mark{color:var(--border);font-size:.6rem;line-height:1.5;flex-shrink:0;}
+    .sch-ref-body{flex:1;min-width:0;}
+    .sch-ref-title{font-size:.7rem;color:var(--muted);}
+    .sch-ref-place{font-size:.6rem;color:var(--muted);opacity:.65;margin-left:5px;}
+    .sch-ref-note{font-size:.62rem;color:var(--muted);opacity:.8;line-height:1.6;margin-top:1px;}
+    .sch-ref .sch-nav{padding:1px 6px;font-size:.58rem;align-self:center;}
+
+    /* 沒有行程的日子：虛線帶過 */
+    .sch-gap{display:flex;align-items:center;gap:9px;margin:0 0 6px 14px;padding:2px 0;}
+    .sch-gap-dots{width:2px;height:26px;margin-left:-1px;flex-shrink:0;
+      background:repeating-linear-gradient(var(--border) 0 3px,transparent 3px 7px);}
+    .sch-gap-text{font-size:.62rem;color:var(--muted);opacity:.65;}
+
+    .sch-stay-tags{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:5px;}
+    .sch-payer{display:inline-flex;align-items:center;height:20px;}
+    .sch-payer svg{height:20px;width:auto;image-rendering:pixelated;}
+    .sch-node.stay-paid .sch-node-dot{border-color:rgba(78,195,121,.75);}
+    .sch-node.stay-unpaid .sch-node-dot{border-color:rgba(255,167,38,.65);}
+
+
+    .sch-stay-detail{margin-top:7px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;}
+    .sch-kv{display:flex;gap:8px;font-size:.68rem;padding:3px 0;line-height:1.6;}
+    .sch-kv span{flex:0 0 34px;color:var(--muted);}
+    .sch-kv div{flex:1;color:var(--text);word-break:break-word;}
+
+    /* 一律貼在視窗底部：放頂端會壓到黏頂的日期跳轉列 */
+    .sch-back-today{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:none;align-items:center;gap:5px;background:var(--accent);color:#fff;border:none;border-radius:999px;padding:6px 16px;cursor:pointer;font-size:.7rem;font-family:'Lato',sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.4);z-index:50;width:max-content;}
+
+    /* ══ 日程節點詳情彈窗 ══ */
+    .sch-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:180;align-items:center;justify-content:center;padding:20px;}
+    .sch-modal-overlay.show{display:flex;}
+    .sch-modal-box{position:relative;background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:400px;max-height:80vh;overflow-y:auto;padding:16px 16px 14px;scrollbar-width:none;}
+    .sch-modal-box::-webkit-scrollbar{display:none;}
+    .sch-modal-close{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px 8px;}
+    .sch-modal-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;padding-right:26px;}
+    .sch-modal-icon{font-size:1.6rem;line-height:1.15;flex-shrink:0;}
+    .sch-modal-title{font-size:1rem;color:var(--text);line-height:1.45;font-weight:600;}
+    .sch-modal-title a{color:inherit;text-decoration:underline;text-decoration-color:var(--border);text-underline-offset:3px;}
+    .sch-modal-sub{font-size:.68rem;color:var(--muted);margin-top:3px;}
+
+    /* 價格＝視覺重心 */
+    .sch-price{padding:10px 0 11px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:11px;}
+    .sch-price-main{font-family:'Cinzel',serif;font-size:1.4rem;color:var(--gold);line-height:1.15;}
+    .sch-price-sub{font-size:.66rem;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+    .sch-fee{background:var(--bg3);border:1px solid var(--border);border-radius:999px;padding:1px 8px;color:var(--gold);}
+
+    .sch-tagrow{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:13px;}
+
+    /* 集合資訊：行程當天最關鍵，獨立highlight */
+    .sch-meet{display:flex;align-items:baseline;gap:9px;background:rgba(79,195,247,.08);border-left:3px solid var(--accent);
+      border-radius:0 7px 7px 0;padding:9px 12px;margin-bottom:13px;font-size:.8rem;color:var(--text);}
+    .sch-meet-label{font-size:.63rem;color:var(--accent);letter-spacing:.1em;flex-shrink:0;}
+
+    /* 資訊區塊：標籤在上、內容佔滿寬度 */
+    .sch-block{margin-bottom:13px;}
+    .sch-block-label{font-size:.63rem;color:var(--muted);letter-spacing:.12em;margin-bottom:5px;}
+    .sch-block-body{font-size:.78rem;color:var(--text);line-height:1.85;word-break:break-word;}
+    .sch-block.warn{background:rgba(240,192,64,.07);border-left:3px solid var(--gold);border-radius:0 7px 7px 0;padding:9px 12px;}
+    .sch-block.warn .sch-block-label{color:var(--gold);}
+    .sch-block.warn .sch-block-body{font-size:.74rem;}
+
+    /* 清單型內容 → chips，掃視比長句快 */
+    .sch-chips{display:flex;flex-wrap:wrap;gap:5px;}
+    .sch-chip{font-size:.7rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);
+      border-radius:999px;padding:3px 10px;line-height:1.5;}
+
+    .sch-modal-nav{width:100%;margin-top:14px;padding:11px;background:transparent;border:1px solid var(--accent2);color:var(--accent2);border-radius:8px;cursor:pointer;font-size:.75rem;font-family:'Lato',sans-serif;}
+    .sch-modal-nav:active{background:rgba(79,195,247,.1);}
+    .prep-more:active{color:var(--text);}
     .px-btn-submit:hover{background:#3a6a2a;}
     .px-btn-submit:disabled{background:#888;cursor:not-allowed;}
     .px-divider{border:none;border-top:1px solid #2a4a1a;margin:10px 0;}
@@ -374,6 +739,29 @@
   </style>
 </head>
 <body>
+<script>
+  // 主題：夜色（預設）／白天，記住上次選擇；越早執行越不會閃爍
+  (function(){
+    var t = localStorage.getItem('theme');
+    if (t === 'day') document.documentElement.setAttribute('data-theme', 'day');
+  })();
+  function toggleTheme(){
+    var root = document.documentElement;
+    var isDay = root.getAttribute('data-theme') === 'day';
+    if (isDay) { root.removeAttribute('data-theme'); localStorage.setItem('theme','night'); }
+    else       { root.setAttribute('data-theme','day'); localStorage.setItem('theme','day'); }
+    syncThemeBtn();
+  }
+  function syncThemeBtn(){
+    var b = document.getElementById('themeBtn');
+    if (!b) return;
+    var isDay = document.documentElement.getAttribute('data-theme') === 'day';
+    // 顯示「點了會切到哪」：白天模式時顯示月亮（可切回夜色）
+    b.textContent = isDay ? '🌙' : '☀';
+    b.title = isDay ? '切換為夜色配色' : '切換為白天配色';
+  }
+  document.addEventListener('DOMContentLoaded', syncThemeBtn);
+</script>
 <div class="offline-badge" id="offlineBadge">📵 離線模式</div>
 <!-- 低調通往台灣版的小門 -->
 <a href="../taiwan/" title="🍉" style="position:fixed;top:10px;right:10px;z-index:3000;font-size:14px;text-decoration:none;opacity:.35;filter:saturate(.7);">🍉</a>
@@ -384,6 +772,7 @@
     <div class="subtitle">Iceland · September 2026</div>
     <div class="sync-bar">
       <span class="sync-status" id="syncStatus">載入中…</span>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切換日夜配色">🌙</button>
       <button class="sync-btn" id="syncBtn" onclick="manualSync()" title="點擊同步雲端資料">
         <span class="dot dot-local" id="syncDot"></span>
         <span class="sync-icon" id="syncIcon">☁</span>
@@ -400,11 +789,14 @@
         <div id="pxWeatherWind" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.75);border:2px solid #ffcc00;font-family:'Silkscreen',monospace;font-size:8px;color:#ffcc00;padding:3px 7px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
           <span id="pxWeather">⏳ 連線中</span>
           <span id="pxWind" style="color:#7eb3d4;border-top:1px solid #444;padding-top:2px;width:100%;text-align:right;">💨 —</span>
+          <span id="pxSun" style="color:#ffe066;border-top:1px solid #444;padding-top:2px;width:100%;text-align:right;"></span>
         </div>
-        <div id="pxTimes" style="position:absolute;bottom:20%;left:6px;right:6px;display:flex;justify-content:space-between;font-family:'Silkscreen',monospace;font-size:11px;color:#fff;z-index:20;text-shadow:1px 1px 0 #000;pointer-events:none">
+        <!-- 國際時間／座標：貼在馬路上，無外框，避開車與角色 -->
+        <div id="pxTimes" style="position:absolute;bottom:3%;left:8px;display:flex;flex-direction:column;gap:1px;font-family:'Silkscreen',monospace;font-size:9px;color:#fff;z-index:20;pointer-events:none;text-shadow:1px 1px 0 #000,-1px 1px 0 #000,1px -1px 0 #000,-1px -1px 0 #000;">
           <span id="pxTimeTW">🇹🇼 --:--</span>
           <span id="pxTimeIS">🇮🇸 --:--</span>
         </div>
+        <span id="pxGps" style="display:none;position:absolute;bottom:3%;right:8px;font-family:'Silkscreen',monospace;font-size:9px;color:#fff;z-index:20;pointer-events:none;text-shadow:1px 1px 0 #000,-1px 1px 0 #000,1px -1px 0 #000,-1px -1px 0 #000;"></span>
         <div id="pxCountdown" style="position:absolute;top:10%;left:0;right:0;text-align:center;font-family:'Silkscreen',monospace;font-size:10px;color:#fff;z-index:20;text-shadow:1px 1px 0 #000,0 0 8px rgba(255,255,255,0.5);pointer-events:none;line-height:2;"></div>
 
         <div id="pxCarEl" style="position:absolute;bottom:14%;left:2%;transform:translateX(-50%);z-index:9;image-rendering:pixelated;transition:left .8s steps(12);">
@@ -623,6 +1015,7 @@
             <div class="px-repay-picker-list" id="pxRepayToList"></div>
           </div>
         </div>
+
       </div>
       <div class="px-field">
         <label class="px-label">▸ 金額（NT$）*</label>
@@ -976,5 +1369,50 @@ window.pxResetQty = function() {
 })();
 </script>
 
+
+
+<!-- 行前準備：新增項目彈窗 -->
+<div class="px-modal-overlay" id="pxModalPrep" onclick="closePxModalOutside(event,'pxModalPrep')">
+  <div class="px-modal-box">
+    <div class="px-modal-header">
+      <span id="pxModalPrepTitle">▶ 新增準備項目</span>
+      <button onclick="cancelPxModal('pxModalPrep')">✕ 取消</button>
+    </div>
+    <div class="px-form">
+      <div class="px-field">
+        <label class="px-label">▸ 項目名稱 *</label>
+        <input class="px-input" type="text" id="prepName" placeholder="例如：換冰島克朗" style="font-size:16px;" autocomplete="off" oninput="pxCheckPrepSubmit()">
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 分類</label>
+        <div class="px-chip-row" id="prepCatBtns"></div>
+      </div>
+      <div class="px-field" id="prepOwnerField">
+        <label class="px-label">▸ 誰需要（不選＝全員都要）</label>
+        <div class="px-chip-row" id="prepOwnerBtns"></div>
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 重要度</label>
+        <div class="px-chip-row" id="prepPriorityBtns"></div>
+      </div>
+      <div class="px-field">
+        <label class="px-label">▸ 說明（可不填）</label>
+        <input class="px-input" type="text" id="prepNote" placeholder="補充備註…" style="font-size:16px;" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:8px;padding:4px 0 8px;">
+        <button id="pxBtnPrepDelete" onclick="deletePrepModal()" style="display:none;background:#5a1a1a;border:none;padding:12px 14px;font-family:'Silkscreen',monospace;font-size:8px;color:#e8c8c8;cursor:pointer;letter-spacing:1px;">🗑 刪除</button>
+        <button class="px-btn-submit" id="pxBtnPrep" onclick="submitPrepModal()" disabled style="flex:1;">[ 加入清單 ]</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 日程節點詳情彈窗（住宿／活動） -->
+<div class="sch-modal-overlay" id="schModal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="sch-modal-box">
+    <button class="sch-modal-close" onclick="document.getElementById('schModal').classList.remove('show')">✕</button>
+    <div id="schModalBody"></div>
+  </div>
+</div>
 </body>
 </html>

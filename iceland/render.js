@@ -7,6 +7,88 @@
 // ══════════════════════════════════════════════════════════
 
 // ── 住宿類型圖示判斷
+// ══════════════════════════════════════════════════════════
+//  手冊：資訊（讀「手冊」表）＋ 工具（靜態教學）
+// ══════════════════════════════════════════════════════════
+const MANUAL_CAT_ICONS = { '實用資訊':'💡', '緊急聯絡':'🆘', '購物補給':'🛒', '交通':'🚗', '其他':'📌' };
+
+function renderManualPage(d) {
+  const info = d.manualInfo || [];
+
+  // ── 資訊區：依分類分組
+  let infoHtml = '';
+  if (!info.length) {
+    infoHtml = `<div class="empty">💡 在「手冊」表填入旅遊情報後顯示<br>
+      <span style="font-size:.7rem;color:var(--muted)">欄位：分類／標題／內容／連結</span></div>`;
+  } else {
+    const groups = new Map();
+    info.forEach(x => {
+      const cat = x.category || '其他';
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat).push(x);
+    });
+    infoHtml = [...groups.entries()].map(([cat, rows]) => `
+      <div class="section-title">${MANUAL_CAT_ICONS[cat] || '📌'} ${esc(cat)}</div>
+      ${rows.map(r => `
+        <div class="card" style="padding:11px 14px;margin-bottom:8px;">
+          <div style="font-size:.8rem;color:var(--text);margin-bottom:3px;">${esc(r.title)}</div>
+          ${r.content ? `<div style="font-size:.7rem;color:var(--muted);line-height:1.8;white-space:pre-wrap;">${esc(r.content)}</div>` : ''}
+          ${safeUrl(r.url) ? `<a href="${safeUrl(r.url)}" target="_blank" rel="noopener"
+            style="display:inline-block;margin-top:5px;font-size:.68rem;color:var(--accent2);">🔗 開啟連結 ›</a>` : ''}
+        </div>`).join('')}
+    `).join('');
+  }
+
+  // ── 工具區：靜態教學（不吃資料）
+  const toolsHtml = `
+    <div class="section-title">🔧 工具</div>
+    <div class="card" style="padding:12px 14px;margin-bottom:8px;">
+      <div style="font-size:.8rem;color:var(--text);margin-bottom:4px;">📲 把小帳加到手機桌面</div>
+      <div style="font-size:.7rem;color:var(--muted);line-height:1.9;">
+        <b>iPhone</b>：Safari 開本站 → 分享 <span style="border:1px solid var(--border);border-radius:3px;padding:0 4px;">⎋</span> → 「加入主畫面」<br>
+        <b>Android</b>：Chrome 開本站 → 右上 ⋮ → 「加到主畫面」<br>
+        加入後像 App 一樣全螢幕開啟，斷網也能看快取資料
+      </div>
+    </div>
+    <div class="card" style="padding:12px 14px;margin-bottom:8px;">
+      <div style="font-size:.8rem;color:var(--text);margin-bottom:4px;">🗺 下載離線地圖（出發前務必做）</div>
+      <div style="font-size:.7rem;color:var(--muted);line-height:1.9;">
+        冰島郊區常沒訊號，先把整島地圖抓下來：<br>
+        <b>Google Maps</b>：搜尋「Iceland」→ 下方地名列 → 「下載離線地圖」→ 框住全島<br>
+        （離線導航可用，約 300–400MB，建議連 Wi-Fi 下載）
+      </div>
+      <a href="https://support.google.com/maps/answer/6291838" target="_blank" rel="noopener"
+        style="display:inline-block;margin-top:5px;font-size:.68rem;color:var(--accent2);">🔗 官方教學 ›</a>
+    </div>
+    <div class="card" style="padding:12px 14px;margin-bottom:8px;">
+      <div style="font-size:.8rem;color:var(--text);margin-bottom:4px;">🌦 冰島官方即時資訊</div>
+      <div style="font-size:.7rem;color:var(--muted);line-height:1.9;">
+        出發每天早上看一眼再上路：
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+        <a href="https://safetravel.is" target="_blank" rel="noopener" style="font-size:.68rem;color:var(--accent2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;">SafeTravel 安全警示</a>
+        <a href="https://umferdin.is/en" target="_blank" rel="noopener" style="font-size:.68rem;color:var(--accent2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;">路況地圖</a>
+        <a href="https://en.vedur.is" target="_blank" rel="noopener" style="font-size:.68rem;color:var(--accent2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;">氣象局（風/極光）</a>
+      </div>
+    </div>`;
+
+  return `
+    <div class="tabs" style="margin-top:4px;">
+      <button class="tab active" onclick="showBagTab('info',this)">💡 資訊</button>
+      <button class="tab" onclick="showBagTab('tools',this)">🔧 工具</button>
+    </div>
+    <div id="bagTab-info" class="section active">${infoHtml}</div>
+    <div id="bagTab-tools" class="section">${toolsHtml}</div>
+  `;
+}
+
+window.showBagTab = function(id, btn) {
+  document.querySelectorAll('[id^="bagTab-"]').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#mainSection-bag .tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('bagTab-' + id)?.classList.add('active');
+  btn.classList.add('active');
+};
+
 function placeTypeIcon(name){
   const n=name.toLowerCase();
   if(n.includes('camp')||n.includes('camping')||n.includes('tjaldsv')||n.includes('þakgil')||n.includes('野營')||n.includes('營'))return{icon:'⛺',label:'營地'};
@@ -54,6 +136,19 @@ let dataSource='local'; // 'local'|'cloud'|'syncing'|'offline'
 // ── 格式化
 function fmt(n){if(!n||isNaN(n))return'—';return'NT$ '+Math.round(n).toLocaleString('zh-TW');}
 
+// ── 文字跳脫（Sheet 內容進 innerHTML 前用）
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// 只允許 http/https 連結，擋掉 javascript: 之類的協定
+function safeUrl(u){
+  const s = String(u ?? '').trim();
+  return /^https?:\/\//i.test(s) ? esc(s) : '';
+}
+window.esc = esc;
+window.safeUrl = safeUrl;
+
 // ── 角色頭像（靜態第1格，從 window.SPRITES 讀取）
 const _avatarCache = {};
 function avatarSvg(name) {
@@ -95,8 +190,11 @@ function setSyncState(state,msg){
 // ── 住宿卡片渲染
 
 function renderAll(){
-  // ── 記住目前分頁，renderAll 後恢復
+  // ── 記住目前分頁與捲動位置，renderAll 後恢復
+  // 背景同步（雲端讀取完成）也會呼叫這裡，整個主畫面被整段換掉，
+  // 不補這個的話畫面就會彈回最頂端，使用者會以為「跳回首頁」。
   const _activeTab = window._activeMainTab || 'ledger';
+  const _scrollY = window.scrollY;
   const d=window.APP_DATA || window.STATIC;
   // ── 同步 tag 庫
   if (d.tagLibrary?.length) window.pxUpdateTagLibrary?.(d.tagLibrary);
@@ -297,7 +395,7 @@ function renderAll(){
           <div id="accomContent">${renderAccom(d.accommodation)}</div>
         </div>
         <div id="car" class="section"><div id="carContent">${renderTransport(d)}</div></div>
-        <div id="activity" class="section"><div class="empty">🚧 施工中，敬請期待</div></div>
+        <div id="activity" class="section"><div id="activityContent">${renderActivity(d.activity)}</div></div>
         <div id="daily" class="section"><div id="dailyContent">${renderDaily(d.expenses||[])}</div></div>
         <div id="insurance" class="section"><div id="insuranceContent"><div class="empty">🛡 保險資訊填入後顯示</div></div></div>
         <div id="repay" class="section"><div id="repayContent">${renderRepay(d.repayHistory||[], d.split||{})}</div></div>
@@ -313,7 +411,7 @@ function renderAll(){
           loading="lazy"
         ></iframe>
       </div>
-      <div id="mainSection-bag"  style="display:none"><div class="empty">📖 手冊頁面施工中</div></div>
+      <div id="mainSection-bag"  style="display:none"><div id="bagContent">${renderManualPage(d)}</div></div>
     </div>
   `;
 
@@ -333,6 +431,9 @@ function renderAll(){
       const subBtn = document.querySelector(`.tab[onclick="showTab('${_subTab}',this)"]`);
       if (subEl && subBtn) showTab(_subTab, subBtn);
     }
+    // 排在上面幾個 setTimeout(0) 之後執行，確保分頁內容都補回去了才還原捲動位置，
+    // 不然內容還沒補齊時頁面高度不夠，scrollTo 會被瀏覽器夾回不夠高的位置
+    setTimeout(() => window.scrollTo(0, _scrollY), 0);
   });
 }
 
@@ -349,7 +450,16 @@ function switchMainTab(key, btn){
   if (key === 'info') {
     setTimeout(() => {
       const el = document.getElementById('infoContent');
-      if (el && !el.innerHTML) el.innerHTML = renderInfo(window.APP_DATA || window.STATIC);
+      if (el && !el.innerHTML) {
+        el.innerHTML = renderInfo(window.APP_DATA || window.STATIC);
+        // 恢復次分頁（行前／航班／取車／日程／保險），不然背景同步重繪後
+        // 每次都跳回預設的「行前」，使用者會以為畫面跳回首頁
+        const sub = window._activeInfoTab;
+        if (sub && sub !== 'prep') {
+          const subBtn = el.querySelector(`.tab[onclick^="showInfoTab('${sub}'"]`);
+          if (subBtn) window.showInfoTab(sub, subBtn);
+        }
+      }
     }, 0);
   }
   const KEYS = ['ledger','info','map','bag'];

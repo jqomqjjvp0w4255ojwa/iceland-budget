@@ -3,7 +3,7 @@
     "https://script.google.com/macros/s/AKfycbxv7Z69Jer0CL03X51DkmAbflI8D8kFDKVKngxBehU2_IDW8R-TftT0kdzs4u4QIf7r/exec";
   const CACHE_KEY = (window.TRIP_CONFIG && window.TRIP_CONFIG.cacheKey) || 'cached_iceland_budget';
   window._GAS_BASE = API_BASE;
-  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷" };
+  const SHEET_MAP = { overview: "總覽", accommodation: "住宿", car: "租車", activity: "活動", split: "寫入_分帳", lines: "台詞", flight: "航班", expense: "寫入_一般開銷", task: "寫入_任務", schedule: "日程", insurance: "保險", manual: "手冊" };
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
@@ -41,7 +41,7 @@
     return fallback;
   }
 
-  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense }) {
+  function transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task, schedule, insurance, manual }) {
 
     const oCells = overview?.cells ?? [];
     const iskRow = oCells.find(r => r.includes('ISK')) || [];
@@ -77,6 +77,14 @@
         deductDate: pick(row, ['扣款日', '扣款日期'], ''),
         foreignFee: num(pick(row, ['海外手續費', '手續費'])),
         note:       pick(row, ['備註'], ''),
+        lat:        num(pick(row, ['lat', '緯度'])),
+        lng:        num(pick(row, ['lng', ' lng', '經度'])),
+        address:    pick(row, ['地址'], ''),
+        stayType:   pick(row, ['類型', '住宿類型'], ''),
+        facilities: pick(row, ['提供設備', '設備'], ''),
+        extraFee:   pick(row, ['自費項目'], ''),
+        bring:      pick(row, ['需自備', '自備與注意', '注意事項'], ''),
+        nearby:     pick(row, ['周邊景點'], ''),
       }))
       .filter(item => item.name);
 
@@ -177,6 +185,38 @@
         tags:       String(row['標籤'] ?? '').trim(),
       }));
 
+    const activityRows = cellsToRows(activity);
+    const activityData = activityRows
+      .filter(row => String(row['活動地點'] ?? '').trim() !== '')
+      .map(row => ({
+        name:       pick(row, ['活動地點'], ''),
+        url:        pick(row, ['網址'], ''),
+        date:       pick(row, ['日期'], ''),
+        meetTime:   pick(row, ['集合時間'], ''),
+        meetLoc:    pick(row, ['集合地點'], ''),
+        cur:        String(pick(row, ['幣別'], 'NT')).replace(/\.$/, '').replace(/^EU$/, 'EUR').replace(/^ISK$/, 'ISK').replace(/^NT$/, 'NT'),
+        orig:       num(pick(row, ['價格'])),
+        twd:        num(pick(row, ['換算台幣'])),
+        cancel:     yes(pick(row, ['可取消?'])),
+        payDate:    pick(row, ['付款期限/時間'], ''),
+        payer:      pick(row, ['付款人'], ''),
+        paid:       yes(pick(row, ['已付款?'])),
+        foreignFee: num(pick(row, ['海外手續費'])),
+        perPerson:  num(pick(row, ['每人負擔'])),
+        note:       pick(row, ['備註'], ''),
+        advance:    Object.fromEntries((window.TRIP_MEMBERS||['猴','花','寧']).map(m=>[m, num(row[m+'代墊'])])),
+        lat:        num(pick(row, ['lat'])),
+        lng:        num(pick(row, ['lng'])),
+        content:    pick(row, ['活動內容'], ''),
+        location:   pick(row, ['地點'], ''),
+        included:   pick(row, ['提供'], ''),
+        excluded:   pick(row, ['不提供'], ''),
+        difficulty: pick(row, ['難度'], ''),
+        bring:      pick(row, ['自備項目'], ''),
+        duration:   pick(row, ['時間長度'], ''),
+        returnLoc:  pick(row, ['回程地'], ''),
+      }));
+
     const flightRows = cellsToRows(flight);
     const flightByTicket = {};
     flightRows.forEach(row => {
@@ -223,6 +263,69 @@
     });
 
     const flights = Object.values(flightByTicket);
+    // ── 行前準備清單（GAS 回傳已是物件陣列）
+    const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+    let tasks = Array.isArray(task?.tasks) ? task.tasks : [];
+    if (!tasks.length && task?.cells) {
+      // 相容：GAS 還沒更新時，用通用轉換讀
+      tasks = cellsToRows(task, true)
+        .filter(row => String(row['項目名稱'] ?? '').trim() !== '')
+        .map(row => ({
+          id: row['項目ID'] || '', category: row['分類'] || '待辦',
+          name: row['項目名稱'], priority: num(row['重要度']),
+          note: row['說明'] || '', owner: row['負責人'] || '',
+          done: Object.fromEntries(members.map(m => [m, yes(row[m + '狀態'])])),
+          updated: row['最後更新'] || '', _rowIndex: row._rowIndex,
+        }));
+    }
+
+    // ── 日程時間軸（GAS 回傳已是物件陣列）
+    let scheduleData = Array.isArray(schedule?.schedule) ? schedule.schedule : [];
+    if (!scheduleData.length && schedule?.cells) {
+      // 相容：GAS 還沒更新時用通用轉換讀
+      let lastDate = '';
+      scheduleData = cellsToRows(schedule, true)
+        .map((row, i) => {
+          const d = String(row['日期'] ?? '').trim();
+          if (d) lastDate = d;
+          return {
+            date: d || lastDate,
+            time: row['時間'] || '',
+            category: row['分類'] || '其他',
+            title: String(row['標題'] ?? '').trim(),
+            note: row['說明'] || '',
+            place: row['地點'] || '',
+            lat: num(row['緯度']), lng: num(row['經度']),
+            stay: row['停留'] || '',
+            url: row['網址'] || '',
+            order: i, _rowIndex: row._rowIndex,
+          };
+        })
+        .filter(x => x.title && x.date);
+    }
+
+    // ── 保險（一列＝一個理賠項目）
+    const insuranceData = cellsToRows(insurance)
+      .filter(row => String(row['保險公司'] ?? row['理賠項目'] ?? '').trim() !== '')
+      .map(row => ({
+        company: pick(row, ['保險公司'], ''),
+        plan:    pick(row, ['方案'], ''),
+        item:    pick(row, ['理賠項目'], ''),
+        amount:  pick(row, ['理賠金額'], ''),
+        method:  pick(row, ['理賠方法'], ''),
+        note:    pick(row, ['備註'], ''),
+      }));
+
+    // ── 手冊資訊
+    const manualData = cellsToRows(manual)
+      .filter(row => String(row['標題'] ?? '').trim() !== '')
+      .map(row => ({
+        category: pick(row, ['分類'], '其他'),
+        title:    pick(row, ['標題'], ''),
+        content:  pick(row, ['內容'], ''),
+        url:      pick(row, ['連結'], ''),
+      }));
+
     const totalFlightTWD = flights.reduce((s, f) => s + (f.totalTWD || 0), 0);
     const tagLibrary = (expense?.tagLibrary || []).filter(Boolean);
 
@@ -230,8 +333,10 @@
       exchangeISK, exchangeEUR, exchangeUSD, expenseCategories, budgetPerPerson, tagLibrary,
       car: carData,
       accommodation: accom.length ? accom : clone(window.STATIC?.accommodation ?? []),
-      activity: cellsToRows(activity),
+      activity: activityData,
       expenses, split: splitData, dialogLines, flights, totalFlightTWD, repayHistory,
+      tasks, schedule: scheduleData,
+      insurance: insuranceData, manualInfo: manualData,
     };
   }
 
@@ -257,6 +362,33 @@
   }
   window.__maybeOpenDeepLink = maybeOpenDeepLink;
 
+  // 寫入本地快取；容量爆掉時改存精簡版（丟掉最肥的原始表格資料，
+  // 那些只有畫面重繪時才需要，離線時保留統計與行程比較重要）
+  function saveCache(data) {
+    try {
+      const json = JSON.stringify(data);
+      localStorage.setItem(CACHE_KEY, json);
+      window.__cacheBytes = json.length;
+      return true;
+    } catch (e) {
+      console.warn('快取寫入失敗，改存精簡版', e);
+      try {
+        const slim = { ...data };
+        delete slim.raw; delete slim.cells;
+        (slim.expenses || []).forEach(x => { delete x.svg; delete x.svgGrid; });
+        const json = JSON.stringify(slim);
+        localStorage.setItem(CACHE_KEY, json);
+        window.__cacheBytes = json.length;
+        return true;
+      } catch (e2) {
+        console.error('精簡版快取也寫不進去，離線資料將停留在舊版本', e2);
+        window.setSyncState?.('cloud', '☁ 已同步（本地快取已滿，離線時會看到舊資料）');
+        return false;
+      }
+    }
+  }
+  window.__saveCache = saveCache;
+
   window.__syncIcelandBudgetFromSheets = async function () {
     // 還有離線記帳未送出時，先送佇列再同步，避免雲端舊資料覆蓋本地新增
     if (window.getPendingCount?.() > 0) {
@@ -281,17 +413,26 @@
     if (!hasCached) window.setSyncState?.('syncing', '同步中…');
 
     try {
-      const res = await fetch(API_BASE + '?sheet=all', { cache: 'no-store', redirect: 'follow' });
+      // 20 秒沒回應就當失敗，避免 GAS 卡住時狀態永遠停在「同步中」
+      const ac = new AbortController();
+      const killer = setTimeout(() => ac.abort(), 20000);
+      // 帶時間戳，避免 Service Worker／中間層回舊資料
+      const res = await fetch(API_BASE + '?sheet=all&_=' + Date.now(), { cache: 'no-store', redirect: 'follow', signal: ac.signal })
+        .finally(() => clearTimeout(killer));
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const all = await res.json();
       if (all.error) throw new Error(all.error);
-      const { overview, accommodation, car, activity, split, lines, flight, expense } = all;
+      const { overview, accommodation, car, activity, split, lines, flight, expense, task, schedule, insurance, manual } = all;
 
-      const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense });
+      const newData = transformData({ overview, accommodation, car, activity, split, lines, flight, expense, task, schedule, insurance, manual });
       window.APP_DATA = newData;
-      localStorage.setItem(CACHE_KEY, JSON.stringify(window.APP_DATA));
-      window.renderAll?.();
+      // 寫快取失敗不能連帶讓整次同步失敗——否則會掉進 catch 把剛拿到的新資料
+      // 換回舊快取，畫面就永遠停在某個時間點的舊數字。
+      saveCache(window.APP_DATA);
+      // 先更新狀態列再畫面：畫面出錯時才不會一直卡在「同步中」
       window.setSyncState?.('cloud', '☁ 雲端同步：' + new Date().toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+      try { window.renderAll?.(); }
+      catch (e) { console.error('renderAll failed', e); window.setSyncState?.('local', '⚠ 資料已同步，但畫面繪製出錯'); }
       window.__maybeOpenDeepLink?.();
 
     } catch (error) {
@@ -304,7 +445,7 @@
         window.APP_DATA = clone(window.STATIC ?? {});
         window.setSyncState?.('local', '⚠ 雲端讀取失敗，使用預設初始資料');
       }
-      window.renderAll?.();
+      try { window.renderAll?.(); } catch (e) { console.error('renderAll failed', e); }
     }
   };
 })();

@@ -293,7 +293,7 @@ function renderInfo(d) {
       <button class="tab" onclick="showInfoTab('insurance',this)">🛡 保險</button>
     </div>
     <div id="infoTab-prep" class="section active">
-      <div class="empty">🧳 行前準備清單（建置中）</div>
+      <div id="prepContent">${renderPrep(d.tasks)}</div>
     </div>
     <div id="infoTab-flight" class="section">
       ${renderInfoFlights(d.flights)}
@@ -302,13 +302,1319 @@ function renderInfo(d) {
       ${renderCarDetail(d.car)}
     </div>
     <div id="infoTab-schedule" class="section">
-      <div class="empty">📅 日程 sheet 填入後顯示</div>
+      <div id="scheduleContent">${renderSchedule(d)}</div>
     </div>
     <div id="infoTab-insurance" class="section">
-      <div class="empty">🛡 保險資訊填入後顯示</div>
+      ${renderInsurance(d.insurance)}
     </div>
 
   `;
+}
+
+// ══════════════════════════════════════════════════════════
+//  行前準備清單：勾選＝該成員的像素小人亮起來站上去
+// ══════════════════════════════════════════════════════════
+const PREP_CATS = [
+  { key:'待辦', icon:'📋', label:'出發前待辦' },
+  { key:'行李', icon:'🎒', label:'行李打包' },
+  { key:'共用', icon:'🤝', label:'共用裝備分工' },
+];
+
+// 一個成員的小人：未完成灰階半透明，完成後彩色站好
+function prepAvatar(task, member, dim) {
+  const done = !!task.done?.[member];
+  const disabled = dim && !done;      // 不適用於這個人，不列入進度
+  const title = disabled
+    ? `${member}：不需要（此項為 ${esc(task.owner)}）`
+    : `${member}${done ? '：已準備好' : '：還沒'}`;
+  return `<button class="prep-avatar${done ? ' done' : ''}${disabled ? ' dim' : ''}"
+    title="${esc(title)}"
+    onclick="togglePrep('${esc(task.id)}','${esc(member)}',this);event.stopPropagation();">
+    ${avatarSvg(member)}
+  </button>`;
+}
+
+// 這個項目適不適用於某成員：負責人欄留空＝全員；填了（可逗號分隔多人）＝只有那些人
+function taskAppliesTo(task, member) {
+  const owner = String(task.owner || '').trim();
+  if (!owner) return true;
+  return owner.split(/[,，、\s]+/).filter(Boolean).includes(member);
+}
+
+// ── 條件項目：說明欄寫 #if:key，只有回答「是」時才出現在清單裡
+const PREP_GATES = [
+  {
+    key: 'etias',
+    q: '2026 年 ETIAS 新制上路了嗎？',
+    yes: '已上路：出發前要線上申請',
+    no:  '還沒上路：免簽直接入境，不用辦',
+  },
+];
+
+function prepGateState() {
+  try { return JSON.parse(localStorage.getItem('prepGates') || '{}'); }
+  catch (e) { return {}; }
+}
+function prepGateOn(key) { return prepGateState()[key] === 'yes'; }
+
+window.setPrepGate = function(key, val) {
+  const s = prepGateState();
+  s[key] = val;
+  try { localStorage.setItem('prepGates', JSON.stringify(s)); } catch (e) {}
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(window.APP_DATA?.tasks || []);
+};
+
+// 這筆項目綁在哪個條件上（沒綁回傳 null）
+function taskGateKey(task) {
+  const m = String(task.note || '').match(/#if:([a-z0-9_]+)/i);
+  return m ? m[1].toLowerCase() : null;
+}
+// 顯示用說明：把 #if:xxx 標記拿掉
+function taskNoteText(task) {
+  return String(task.note || '').replace(/#if:[a-z0-9_]+/ig, '').trim();
+}
+// 條件沒成立的項目整個不參與清單與進度計算
+function prepGateVisible(task) {
+  const k = taskGateKey(task);
+  return !k || prepGateOn(k);
+}
+
+function renderPrepGates(allTasks) {
+  const s = prepGateState();
+  const used = PREP_GATES.filter(g => (allTasks || []).some(t => taskGateKey(t) === g.key));
+  if (!used.length) return '';
+  return used.map(g => {
+    const v = s[g.key] || 'no';
+    const hidden = (allTasks || []).filter(t => taskGateKey(t) === g.key).length;
+    return `<div class="prep-gate">
+      <div class="prep-gate-q">${esc(g.q)}</div>
+      <div class="prep-gate-btns">
+        <button class="prep-gate-btn${v === 'no' ? ' on' : ''}" onclick="setPrepGate('${esc(g.key)}','no')">否</button>
+        <button class="prep-gate-btn${v === 'yes' ? ' on' : ''}" onclick="setPrepGate('${esc(g.key)}','yes')">是</button>
+      </div>
+      <div class="prep-gate-hint">${esc(v === 'yes' ? g.yes : g.no)}${
+        v === 'yes' ? '' : `（已收起 ${hidden} 項）`}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderPrepItem(task) {
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const isShared = task.category === '共用';
+  // 指定了對象時，其他人的小人淡出（仍可點，方便代辦/代帶）
+  const avatars = members.map(m => prepAvatar(task, m, !taskAppliesTo(task, m))).join('');
+  // 只看「適用的人」有沒有完成
+  const need = members.filter(m => taskAppliesTo(task, m));
+  const allDone = need.length ? need.every(m => task.done?.[m]) : false;
+  const isCritical = (task.priority || 0) >= 5 && !allDone;
+  const stars = task.priority > 0
+    ? `<span class="prep-stars${isCritical ? ' critical' : ''}" title="重要度 ${task.priority}">${'★'.repeat(Math.min(5, task.priority))}</span>` : '';
+
+  return `<div class="prep-item${allDone ? ' all-done' : ''}${isCritical ? ' critical' : ''}" data-id="${esc(task.id)}">
+    <div class="prep-main">
+      <div class="prep-name">${esc(task.name)}${stars}</div>
+      ${taskNoteText(task) ? `<div class="prep-note">${esc(taskNoteText(task))}</div>` : ''}
+      ${isShared && task.owner ? `<div class="prep-owner">🎒 由 ${esc(task.owner)} 負責帶</div>` : ''}
+    </div>
+    <div class="prep-avatars">${avatars}</div>
+    <button type="button" class="prep-more" title="編輯／刪除" onclick="openEditPrep('${esc(task.id)}');event.stopPropagation();">⋮</button>
+  </div>`;
+}
+
+// 這筆項目在目前檢視下算不算「已完成」
+function prepIsDone(task) {
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  if (_prepWho) return !!task.done?.[_prepWho];          // 只看某人時＝那人勾了沒
+  const need = members.filter(m => taskAppliesTo(task, m));
+  return need.length ? need.every(m => task.done?.[m]) : false;
+}
+
+function prepPassFilter(task) {
+  if (_prepWho && !taskAppliesTo(task, _prepWho)) return false;  // 不干他的事就不顯示
+  if (_prepView === 'todo' && prepIsDone(task)) return false;
+  return true;
+}
+
+// 未完成優先，其次重要度高的在前
+function prepSort(a, b) {
+  const da = prepIsDone(a) ? 1 : 0, db = prepIsDone(b) ? 1 : 0;
+  if (da !== db) return da - db;
+  return (b.priority || 0) - (a.priority || 0);
+}
+
+function renderPrepFilters(tasks) {
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const all = tasks || [];
+  const saveWho = _prepWho, saveView = _prepView;
+
+  // 計數用目前的人物篩選、但不受完成狀態影響
+  _prepView = 'all';
+  const scoped = all.filter(prepPassFilter);
+  const todoCount = scoped.filter(t => !prepIsDone(t)).length;
+  _prepView = saveView;
+
+  return `
+    <div class="prep-filters">
+      <div class="prep-filter-group">
+        <button class="prep-filter${_prepView==='todo'?' on':''}" onclick="setPrepView('todo')">未完成 ${todoCount}</button>
+        <button class="prep-filter${_prepView==='all'?' on':''}" onclick="setPrepView('all')">全部 ${scoped.length}</button>
+      </div>
+      <div class="prep-filter-group">
+        <button class="prep-who${!_prepWho?' on':''}" onclick="setPrepWho('')">全員</button>
+        ${members.map(m => `
+          <button class="prep-who${_prepWho===m?' on':''}" onclick="setPrepWho('${esc(m)}')" title="只看 ${esc(m)} 要準備的">
+            <span class="prep-who-avatar">${avatarSvg(m)}</span>
+          </button>`).join('')}
+      </div>
+    </div>`;
+}
+
+window.setPrepView = function(v) {
+  _prepView = v;
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(window.APP_DATA?.tasks || []);
+};
+window.setPrepWho = function(m) {
+  _prepWho = m;
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(window.APP_DATA?.tasks || []);
+};
+
+// 每人各自的準備進度（共用裝備只算負責人那份）
+function renderPrepProgress(tasks) {
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const perMember = members.map(m => {
+    const mine = (tasks || []).filter(t => taskAppliesTo(t, m));
+    const done = mine.filter(t => t.done?.[m]).length;
+    return { m, done, total: mine.length, pct: mine.length ? Math.round(done / mine.length * 100) : 0 };
+  });
+  return `<div class="prep-progress" id="prepProgress">
+    ${perMember.map(p => `
+      <div class="prep-progress-item">
+        <div class="prep-progress-avatar${p.pct === 100 ? ' done' : ''}">${avatarSvg(p.m)}</div>
+        <div class="prep-progress-label"><span>${esc(p.m)}</span><span>${p.done}/${p.total}</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${p.pct}%"></div></div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderPrep(allTasks) {
+  allTasks = allTasks || [];
+  if (!allTasks.length) {
+    return `<div class="empty">🧳 在「寫入_任務」表填入項目後顯示<br>
+      <span style="font-size:.7rem;color:var(--muted)">分類填 待辦／行李／共用</span></div>`;
+  }
+  const gates = renderPrepGates(allTasks);
+  const tasks = allTasks.filter(prepGateVisible);
+  const progress = renderPrepProgress(tasks) + renderPrepFilters(tasks) + gates;
+
+  const groups = PREP_CATS.map(cat => {
+    const list = tasks.filter(t => (t.category || '待辦') === cat.key)
+      .filter(prepPassFilter)
+      .sort(prepSort);
+    if (!list.length) return '';
+    return `
+      <div class="prep-group">
+        <div class="section-title">${cat.icon} ${cat.label}
+          <span style="font-size:.65rem;color:var(--muted);font-weight:400;">（${list.length}）</span>
+        </div>
+        ${list.map(renderPrepItem).join('')}
+      </div>`;
+  }).join('');
+
+  // 沒被分類到的（分類欄填了別的字）
+  const known = PREP_CATS.map(c => c.key);
+  const others = tasks.filter(t => !known.includes(t.category || '待辦'))
+    .filter(prepPassFilter).sort(prepSort);
+  const otherHtml = others.length ? `
+    <div class="prep-group">
+      <div class="section-title">📌 其他<span style="font-size:.65rem;color:var(--muted);font-weight:400;">（${others.length}）</span></div>
+      ${others.map(renderPrepItem).join('')}
+    </div>` : '';
+
+  const addBtn = `
+    <div style="text-align:center;margin-top:14px;">
+      <button onclick="openAddPrep()" style="
+        padding:8px 18px;border:1.5px dashed var(--border);background:transparent;
+        color:var(--muted);border-radius:8px;cursor:pointer;font-size:.72rem;
+        font-family:'Lato',sans-serif;">＋ 新增準備項目</button>
+    </div>`;
+
+  const empty = (!groups.trim() && !otherHtml.trim())
+    ? `<div class="empty" style="padding:26px 16px;">${_prepView === 'todo'
+        ? (_prepWho ? `🎉 ${esc(_prepWho)} 的項目都準備好了！` : '🎉 全部都準備好了！')
+        : '沒有符合的項目'}</div>`
+    : '';
+
+  return progress + groups + otherHtml + empty + addBtn;
+}
+
+// ── 新增項目：彈窗（同記帳表單風格），直接寫回 sheet
+const PREP_CAT_OPTS = [
+  { key:'待辦', label:'📋 待辦' },
+  { key:'行李', label:'🎒 行李' },
+  { key:'共用', label:'🤝 共用' },
+];
+let _prepCat = '待辦';
+let _prepOwner = '';
+let _prepPriority = 3;
+let _prepEditId = null;   // null＝新增模式，否則是正在編輯的 task.id
+let _prepView = 'todo';   // 檢視：all／todo（未完成）
+let _prepWho  = '';       // 只看某人（空＝全員）
+
+window.openAddPrep = function() {
+  _prepEditId = null;
+  _prepCat = '待辦';
+  _prepOwner = '';
+  _prepPriority = 3;
+  document.getElementById('prepName').value = '';
+  document.getElementById('prepNote').value = '';
+  document.getElementById('pxModalPrepTitle').textContent = '▶ 新增準備項目';
+  document.getElementById('pxBtnPrep').textContent = '[ 加入清單 ]';
+  document.getElementById('pxBtnPrepDelete').style.display = 'none';
+  renderPrepCatBtns();
+  renderPrepOwnerBtns();
+  renderPrepPriorityBtns();
+  pxCheckPrepSubmit();
+  document.getElementById('pxModalPrep').classList.add('show');
+  window.lockBody?.();
+  setTimeout(() => document.getElementById('prepName')?.focus(), 100);
+};
+
+window.openEditPrep = function(taskId) {
+  const task = (window.APP_DATA?.tasks || []).find(t => t.id === taskId);
+  if (!task) return;
+  _prepEditId = taskId;
+  _prepCat = task.category || '待辦';
+  _prepOwner = task.owner || '';
+  _prepPriority = task.priority || 3;
+  document.getElementById('prepName').value = task.name || '';
+  document.getElementById('prepNote').value = task.note || '';
+  document.getElementById('pxModalPrepTitle').textContent = '▶ 編輯準備項目';
+  document.getElementById('pxBtnPrep').textContent = '[ 儲存修改 ]';
+  document.getElementById('pxBtnPrepDelete').style.display = '';
+  renderPrepCatBtns();
+  renderPrepOwnerBtns();
+  renderPrepPriorityBtns();
+  pxCheckPrepSubmit();
+  document.getElementById('pxModalPrep').classList.add('show');
+  window.lockBody?.();
+};
+
+function renderPrepCatBtns() {
+  const el = document.getElementById('prepCatBtns');
+  el.innerHTML = PREP_CAT_OPTS.map(c =>
+    `<button type="button" class="px-chip${_prepCat===c.key?' on':''}" onclick="selectPrepCat('${c.key}')">${c.label}</button>`
+  ).join('');
+  // 對象欄任何分類都能用：共用＝誰負責帶，其他＝誰需要
+  const lbl = document.querySelector('#prepOwnerField .px-label');
+  if (lbl) lbl.textContent = _prepCat === '共用'
+    ? '▸ 誰負責帶（不選＝大家都要帶）'
+    : '▸ 誰需要（不選＝全員都要）';
+}
+window.selectPrepCat = function(key) {
+  _prepCat = key;
+  renderPrepCatBtns();
+  renderPrepOwnerBtns();
+};
+
+function renderPrepOwnerBtns() {
+  const el = document.getElementById('prepOwnerBtns');
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const sel = String(_prepOwner || '').split(/[,，、\s]+/).filter(Boolean);
+  el.innerHTML = members.map(m =>
+    `<button type="button" class="px-chip${sel.includes(m)?' on':''}" onclick="selectPrepOwner('${esc(m)}')">${esc(m)}</button>`
+  ).join('');
+}
+// 可複選：點一下加入、再點一次移除；全不選＝全員適用
+window.selectPrepOwner = function(m) {
+  const sel = String(_prepOwner || '').split(/[,，、\s]+/).filter(Boolean);
+  const i = sel.indexOf(m);
+  if (i >= 0) sel.splice(i, 1); else sel.push(m);
+  _prepOwner = sel.join(',');
+  renderPrepOwnerBtns();
+};
+
+function renderPrepPriorityBtns() {
+  const el = document.getElementById('prepPriorityBtns');
+  el.innerHTML = [1,2,3,4,5].map(n =>
+    `<button type="button" class="px-chip${_prepPriority===n?' on':''}" onclick="selectPrepPriority(${n})">${'★'.repeat(n)}</button>`
+  ).join('');
+}
+window.selectPrepPriority = function(n) {
+  _prepPriority = n;
+  renderPrepPriorityBtns();
+};
+
+window.pxCheckPrepSubmit = function() {
+  const ready = document.getElementById('prepName').value.trim().length > 0;
+  document.getElementById('pxBtnPrep').disabled = !ready;
+};
+
+window.submitPrepModal = function() {
+  const name = document.getElementById('prepName').value.trim();
+  if (!name) return;
+  const note = document.getElementById('prepNote').value.trim();
+  const category = _prepCat, owner = _prepOwner, priority = _prepPriority;
+  const gasBase = window.TRIP_CONFIG?.apiBase || '';
+  window.APP_DATA = window.APP_DATA || {};
+  window.APP_DATA.tasks = window.APP_DATA.tasks || [];
+  const el = document.getElementById('prepContent');
+
+  // ── 編輯既有項目 ──
+  if (_prepEditId) {
+    const task = window.APP_DATA.tasks.find(t => t.id === _prepEditId);
+    if (!task) { window.cancelPxModal?.('pxModalPrep'); return; }
+    Object.assign(task, { category, name, priority, note, owner });
+    if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
+    window.cancelPxModal?.('pxModalPrep');
+    if (gasBase && task._rowIndex) {
+      fetch(gasBase, {
+        method: 'POST',
+        body: JSON.stringify({ action:'editTask', rowIndex:task._rowIndex, category, name, priority, note, owner }),
+      }).catch(e => {
+        console.warn('修改準備項目失敗', e);
+        window.setSyncState?.('local', '⚠ 修改項目同步失敗');
+      });
+    }
+    return;
+  }
+
+  // ── 新增項目 ──
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const task = {
+    id: 'tmp_' + Date.now(), category, name, priority, note, owner,
+    done: Object.fromEntries(members.map(m => [m, false])),
+  };
+  window.APP_DATA.tasks.push(task);
+  if (el) el.innerHTML = renderPrep(window.APP_DATA.tasks);
+  window.cancelPxModal?.('pxModalPrep');
+  if (!gasBase) return;
+  fetch(gasBase, {
+    method: 'POST',
+    body: JSON.stringify({ action:'addTask', category, name, priority, note, owner }),
+  })
+    .then(r => r.json())
+    .then(res => {
+      // 換成 sheet 給的正式 ID 與行號，之後才勾得動
+      if (res?.ok && res.msg?.id) {
+        task.id = res.msg.id;
+        task._rowIndex = res.msg.rowIndex;
+        const el2 = document.getElementById('prepContent');
+        if (el2) el2.innerHTML = renderPrep(window.APP_DATA.tasks);
+      }
+    })
+    .catch(e => {
+      console.warn('新增準備項目失敗', e);
+      window.setSyncState?.('local', '⚠ 新增項目同步失敗');
+    });
+};
+
+window.deletePrepModal = function() {
+  if (!_prepEditId) return;
+  const tasks = window.APP_DATA?.tasks || [];
+  const idx = tasks.findIndex(t => t.id === _prepEditId);
+  if (idx < 0) return;
+  const task = tasks[idx];
+  if (!confirm(`刪除「${task.name}」？`)) return;
+  tasks.splice(idx, 1);
+  const el = document.getElementById('prepContent');
+  if (el) el.innerHTML = renderPrep(tasks);
+  window.cancelPxModal?.('pxModalPrep');
+
+  const gasBase = window.TRIP_CONFIG?.apiBase || '';
+  if (gasBase && task._rowIndex) {
+    fetch(gasBase, {
+      method: 'POST',
+      body: JSON.stringify({ action:'deleteTask', rowIndex:task._rowIndex }),
+    }).catch(e => {
+      console.warn('刪除準備項目失敗', e);
+      window.setSyncState?.('local', '⚠ 刪除項目同步失敗');
+    });
+  }
+};
+
+// 點小人 → 切換該成員的完成狀態（樂觀更新，背景同步）
+window.togglePrep = function(taskId, member, btn) {
+  const task = (window.APP_DATA?.tasks || []).find(t => t.id === taskId);
+  if (!task) return;
+  task.done = task.done || {};
+  const next = !task.done[member];
+  task.done[member] = next;
+
+  // 立即反應：小人亮起／暗下
+  btn.classList.toggle('done', next);
+  btn.classList.add('pop');
+  setTimeout(() => btn.classList.remove('pop'), 260);
+
+  // 整列狀態（全員完成時整列淡化）
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const row = btn.closest('.prep-item');
+  if (row) {
+    const isShared = task.category === '共用';
+    const allDone = isShared
+      ? (task.owner ? !!task.done[task.owner] : members.some(m => task.done[m]))
+      : members.every(m => task.done[m]);
+    row.classList.toggle('all-done', allDone);
+  }
+
+  // 背景同步 GAS（失敗就回捲）
+  const gasBase = window.TRIP_CONFIG?.apiBase || '';
+  if (gasBase && task._rowIndex) {
+    fetch(gasBase, {
+      method: 'POST',
+      body: JSON.stringify({ action:'toggleTask', rowIndex:task._rowIndex, who:member, done:next }),
+    }).catch(e => {
+      console.warn('準備狀態同步失敗', e);
+      task.done[member] = !next;
+      btn.classList.toggle('done', !next);
+      window.setSyncState?.('local', '⚠ 準備清單同步失敗');
+    });
+  }
+
+  // 更新上方進度條
+  const bars = document.getElementById('prepProgress');
+  if (bars) bars.outerHTML = renderPrepProgress(window.APP_DATA?.tasks || []);
+};
+
+
+// ══════════════════════════════════════════════════════════
+//  日程時間軸：日期跳轉 + 分類篩選 + 住宿展開 + 回到今日
+// ══════════════════════════════════════════════════════════
+const SCH_CATS = [
+  { key:'all',  label:'全部' },
+  { key:'景點', label:'景點' },
+  { key:'住宿', label:'住宿' },
+  { key:'活動', label:'活動' },
+  { key:'補給', label:'補給' },
+  { key:'其他', label:'其他' },
+];
+const SCH_ICONS = { '景點':'📍', '住宿':'🏠', '活動':'🎯', '補給':'🛒', '其他':'•' };
+
+// 時間顯示用：Google Sheet 的時間格會回「11:00:00」，秒數對行程沒有意義
+// 左側軌道只放時刻，一種格式。Sheet 會漏出「上午 11:00:00」這種顯示值，
+// 要把秒數與上午／下午前綴收掉，否則會折成兩行、跟時長混在一起分不出語意。
+function schTimeText(t) {
+  const s = String(t || '').trim();
+  const m = s.match(/(\d{1,2})\s*[:：]\s*(\d{2})/);
+  if (!m) return s;                     // 只寫「上午」「下午」的原樣顯示
+  let h = +m[1];
+  if (/下午|晚/.test(s) && h < 12) h += 12;
+  if (/上午|早/.test(s) && h === 12) h = 0;
+  return `${h}:${m[2]}`;
+}
+
+// 「交通」分類不畫節點，畫成兩個節點之間的虛線區間：時長在軸左、方向在軸右
+// 標題開頭若是時長（2h／2小時／40min／1.5h）就拆出來，其餘當方向文字
+function schSplitDuration(title) {
+  const t = String(title || '').trim();
+  // 允許兩段（2h 30min／1小時30分），否則「30min」會被當成方向文字甩到右邊
+  const m = t.match(/^((?:\d+(?:\.\d+)?\s*(?:h|hr|hrs|小時|時|min|mins|分鐘|分)\s*){1,2}|\d+\s*[:：]\s*\d+)\s*(.*)$/i);
+  if (!m) return { dur: '', text: t };
+  return { dur: m[1].trim().replace(/\s+/g, ''), text: m[2].trim() };
+}
+let _schFilter = 'all';
+let _schActiveKey = null;   // 日期跳轉列目前選中的那天
+
+// 「9/17」→ 當年的 Date（行程都在同一年）
+function schDate(dateStr, year) {
+  const m = String(dateStr || '').match(/(\d{1,2})\s*[\/月-]\s*(\d{1,2})/);
+  if (!m) return null;
+  return new Date(year, +m[1] - 1, +m[2]);
+}
+function schWeekday(d) {
+  return d ? ['日','一','二','三','四','五','六'][d.getDay()] : '';
+}
+function schIsSameDay(a, b) {
+  return a && b && a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+// 把日程 + 住宿合併成節點，依日期分組
+function buildScheduleDays(d) {
+  const year = new Date(window.TRIP_CONFIG?.dates?.depart || Date.now()).getFullYear();
+  // 日期欄留空＝沿用上一列（GAS 已處理，這裡再保險一次，避免節點憑空消失）
+  let lastD = null;
+  const items = (d.schedule || []).map(x => {
+    const parsed = schDate(x.date, year) || lastD;
+    if (parsed) lastD = parsed;
+    return { ...x, _d: parsed };
+  });
+
+  // 住宿表的每一晚 → 自動變成住宿節點（日期欄可能是「9/15 9/16」這種多晚）
+  (d.accommodation || []).forEach((a, ai) => {
+    String(a.date || '').split(/[\s,、]+/).filter(Boolean).forEach(one => {
+      const dd = schDate(one, year);
+      if (!dd) return;
+      // 日程表已經手動排了同一天的同一間 → 不再自動加一筆，改成把住宿表的
+      // 資料掛到手動那列上（保留你自己填的時間／備註，卡片一樣點得開）
+      const manual = items.find(x =>
+        x.category === '住宿' && x._d && schIsSameDay(x._d, dd) && x._stayIndex == null &&
+        String(x.title || '').trim() && (
+          String(a.name || '').includes(String(x.title).trim()) ||
+          String(x.title).trim().includes(String(a.name || '').trim())
+        ));
+      if (manual) {
+        manual._stayIndex = ai;
+        if (!manual.lat) { manual.lat = a.lat; manual.lng = a.lng; }
+        if (!manual.place) manual.place = a.address || '';
+        return;
+      }
+      items.push({
+        date: one, time: '', category: '住宿',
+        title: a.name, note: '', place: a.address || '',
+        lat: a.lat, lng: a.lng, order: 9999,   // 住宿排當天最後
+        _d: dd, _stayIndex: ai,
+      });
+    });
+  });
+
+  // 航班 → 自動變成航段節點（三人相同航段合併成一筆，不同的標註是誰的）
+  const members = window.TRIP_MEMBERS || ['猴','花','寧'];
+  const segMap = new Map();
+  (d.flights || []).forEach(f => {
+    (f.segments || []).forEach(seg => {
+      // depTime 格式「2026/9/14 7:00」
+      const dm = String(seg.depTime || '').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+      if (!dm) return;
+      const tm = String(seg.depTime || '').match(/(\d{1,2}:\d{2})/);
+      const am = String(seg.arrTime || '').match(/(\d{1,2}:\d{2})/);
+      const key = `${seg.flightNo || ''}|${seg.depTime}`;
+      if (!segMap.has(key)) {
+        segMap.set(key, {
+          date: `${+dm[2]}/${+dm[3]}`,
+          time: tm ? tm[1] : '',
+          category: '其他',
+          _flight: true,
+          title: `${seg.from} → ${seg.to}`,
+          place: [seg.flightNo, seg.operatedBy || seg.airline].filter(Boolean).join(' · '),
+          note: am ? `抵達 ${am[1]}${seg.flightTime ? `（飛 ${seg.flightTime}）` : ''}` : '',
+          lat: 0, lng: 0, order: 0,
+          _d: new Date(+dm[1], +dm[2] - 1, +dm[3]),
+          _who: new Set(),
+        });
+      }
+      segMap.get(key)._who.add(f.person);
+    });
+  });
+  segMap.forEach(node => {
+    // 不是全員同班機才標名字（例如寧的回程不同路線）
+    if (node._who.size && node._who.size < members.length) {
+      node.title += `（${[...node._who].join('、')}）`;
+    }
+    items.push(node);
+  });
+
+  // 活動表 → 自動變成活動節點（日程表已手動排同一天同名活動的就跳過）
+  (d.activity || []).forEach((a, ai) => {
+    if (!a.date || !a.name) return;
+    const dd = schDate(a.date, year);
+    if (!dd) return;
+    const dup = items.some(x =>
+      x.category === '活動' && x._d && schIsSameDay(x._d, dd) &&
+      findSchActivity(x.title, [a]) === 0);
+    if (dup) return;
+    const tm = String(a.meetTime || '').match(/(\d{1,2}[:：]\d{2})/);
+    const meetExtra = String(a.meetTime || '').replace(tm ? tm[1] : '', '').trim();
+    items.push({
+      date: a.date,
+      time: tm ? tm[1] : '',
+      category: '活動',
+      _actIndex: ai,
+      title: a.name,
+      place: a.meetLoc || a.location || '',
+      note: meetExtra ? `集合 ${a.meetTime}` : '',
+      lat: a.lat || 0, lng: a.lng || 0,
+      order: 5000 + ai,   // 排在手動節點後、住宿前
+      _d: dd,
+    });
+  });
+
+  // 依日期分組
+  const byDate = new Map();
+  items.filter(x => x._d).forEach(x => {
+    const key = `${x._d.getMonth()+1}/${x._d.getDate()}`;
+    if (!byDate.has(key)) byDate.set(key, { key, d: x._d, items: [] });
+    byDate.get(key).items.push(x);
+  });
+
+  // 日期排序；同一天內依時間排。沒填時間的節點（起床、車程…）不該被丟到最後，
+  // 而是沿用「前一個有填時間的節點」的時間，留在 sheet 裡原本的位置。
+  const days = [...byDate.values()].sort((a, b) => a.d - b.d);
+  days.forEach(day => {
+    const seq = [...day.items].sort((a, b) => (a.order || 0) - (b.order || 0));
+    let carried = 0;   // 天的開頭還沒有任何時間 → 視為 0 點
+    seq.forEach(x => {
+      const t = parseSchTime(x.time);
+      if (t < 100000) carried = t;
+      x._sortT = carried;
+    });
+    day.items.sort((a, b) => {
+      if (a._sortT !== b._sortT) return a._sortT - b._sortT;
+      return (a.order || 0) - (b.order || 0);
+    });
+    // 「參考」是掛在前一個節點底下的附註，篩選時跟著上面那個節點一起出現
+    let parentCat = '';
+    day.items.forEach(x => {
+      if (x.category === '參考') x._parentCat = parentCat;
+      else if (x.category !== '交通') parentCat = x.category;
+    });
+  });
+  return days;
+}
+
+// 時間排序用：「09:00」→540、「上午」→ 早、「下午」→ 晚、空白→ 依原順序（回傳 大數 讓它落到後面但仍受 order 影響）
+function parseSchTime(t) {
+  const s = String(t || '').trim();
+  if (!s) return 100000;
+  const hm = s.match(/(\d{1,2})\s*[:：]\s*(\d{2})/);
+  if (hm) {
+    // Google Sheet 會顯示成「下午 2:00:00」，不補 12 小時會被排到凌晨
+    let h = +hm[1];
+    if (/下午|晚/.test(s) && h < 12) h += 12;
+    if (/上午|早/.test(s) && h === 12) h = 0;
+    return h * 60 + +hm[2];
+  }
+  if (/上午|早/.test(s)) return 8 * 60;
+  if (/中午/.test(s))    return 12 * 60;
+  if (/下午/.test(s))    return 14 * 60;
+  if (/傍晚|黃昏/.test(s)) return 17 * 60;
+  if (/晚/.test(s))      return 19 * 60;
+  const h = s.match(/^(\d{1,2})$/);
+  if (h) return +h[1] * 60;
+  return 100000;
+}
+
+function renderSchedule(d) {
+  const days = buildScheduleDays(d);
+  if (!days.length) {
+    return `<div class="empty">📅 在「日程」表填入行程後顯示<br>
+      <span style="font-size:.7rem;color:var(--muted)">欄位：日期／時間／分類／標題／說明／地點</span></div>`;
+  }
+  const today = new Date();
+
+  const jumper = renderSchJumper(days, today);
+
+  const filters = `
+    <div class="sch-filters">
+      ${SCH_CATS.map(c => `<button class="sch-filter${_schFilter===c.key?' on':''}"
+        onclick="setSchFilter('${c.key}')">${c.label}</button>`).join('')}
+      <button class="sch-filter sch-foldall" id="schFoldAll" onclick="toggleSchFoldAll()">全部收合</button>
+    </div>`;
+
+  // 有內容的日子之間若隔了空白天，插一段「空 N 天」的虛線軸
+  let body = '', prevDay = null;
+  days.forEach((day, i) => {
+    const html = renderSchDay(day, today, d, i + 1);
+    if (!html) return;
+    if (prevDay) {
+      const gap = Math.round((day.d - prevDay.d) / 86400000) - 1;
+      if (gap > 0) body += `<div class="sch-gap"><span class="sch-gap-dots"></span><span class="sch-gap-text">空 ${gap} 天</span></div>`;
+    }
+    body += html;
+    prevDay = day;
+  });
+
+  return jumper + filters + `
+    <div class="sch-scroll" id="schScroll">${body}</div>
+    <button class="sch-back-today" id="schBackToday" onclick="schScrollToToday()" style="display:none;">
+      <span id="schBackArrow">↑</span> <span id="schBackLabel">返回</span>
+    </button>`;
+}
+
+// 日期跳轉列：列出全部天數，可左右滑動，選中的那天置中放大、往外遞減。
+// 不再只渲染 ±N 天——那樣從最後一天要回到第一天得按十幾次箭頭。
+function renderSchJumper(days, today) {
+  // 選中預設今天；今天不在行程內就用第一天
+  if (!_schActiveKey || !days.some(x => x.key === _schActiveKey)) {
+    const t = days.find(x => schIsSameDay(x.d, today));
+    _schActiveKey = t ? t.key : days[0].key;
+  }
+  const idx = days.findIndex(x => x.key === _schActiveKey);
+
+  const btns = days.map((day, i) => {
+    const off = i - idx;
+    const isToday = schIsSameDay(day.d, today);
+    return `<button class="sch-jump-day off${Math.min(2, Math.abs(off))}${off === 0 ? ' active' : ''}${isToday ? ' today' : ''}"
+      data-key="${esc(day.key)}" onclick="schJumpTo('${esc(day.key)}')">
+      <span class="sch-jump-d">D${i + 1}</span>
+      <span class="sch-jump-date">${esc(day.key)}</span>
+    </button>`;
+  });
+
+  return `
+    <div class="sch-jumper" id="schJumper">
+      <button class="sch-jump-arrow" onclick="schJumpStep(-1)" ${idx <= 0 ? 'disabled' : ''} title="前一天">‹</button>
+      <div class="sch-jump-scroll">${btns.join('')}</div>
+      <button class="sch-jump-arrow" onclick="schJumpStep(1)" ${idx >= days.length - 1 ? 'disabled' : ''} title="後一天">›</button>
+    </div>`;
+}
+
+// 元素相對「頁面」的實際位置（時間軸已改成跟頁面一起捲動，不再有自己的捲動框）
+function schRelTop(el) {
+  return el.getBoundingClientRect().top + window.scrollY;
+}
+
+// 只重畫跳轉列（不動時間軸，避免捲動位置跳掉）
+function refreshSchJumper() {
+  const el = document.getElementById('schJumper');
+  if (!el) return;
+  const days = buildScheduleDays(window.APP_DATA || window.STATIC);
+  if (!days.length) return;
+  el.outerHTML = renderSchJumper(days, new Date());
+  centerSchJumper();
+}
+
+// 把選中的那天捲到跳轉列中央（列出全部天數後，選中的可能在畫面外）
+function centerSchJumper() {
+  const strip = document.querySelector('#schJumper .sch-jump-scroll');
+  const active = strip?.querySelector('.sch-jump-day.active');
+  if (!strip || !active) return;
+  strip.scrollLeft = active.offsetLeft - (strip.clientWidth - active.offsetWidth) / 2;
+}
+window.centerSchJumper = centerSchJumper;
+
+// 「2h13min」「45min」「1.5h」「30」「30~45min」「1h~2h」→ 分鐘數
+// 區間寫法取前面那個數（保守估，不要讓摘要看起來比實際更嚇人）
+function schDurMin(s) {
+  const t = String(s || '').trim();
+  if (!t) return 0;
+  const head = t.split(/[~～-]/)[0];      // 區間只取前段
+  let min = 0, matched = false;
+  const h = head.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|小時|時)/i);
+  if (h) { min += parseFloat(h[1]) * 60; matched = true; }
+  const m = head.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|分鐘|分)/i);
+  if (m) { min += parseFloat(m[1]); matched = true; }
+  if (!matched) {
+    const bare = head.match(/^(\d+(?:\.\d+)?)$/);
+    // 「1.5~2h」的單位長在後半段，被切掉了 → 要回頭看整串決定是時還是分
+    if (bare) min = parseFloat(bare[1]) * (/h|hr|小時|時/i.test(t) ? 60 : 1);
+  }
+  return Math.round(min);
+}
+
+function schFmtMin(min) {
+  if (!min) return '';
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? (m ? `${h}h${m}m` : `${h}h`) : `${m}m`;
+}
+
+// 一天的摘要：車程／停點數／停留總計／入住時間
+// 資料全部來自已填欄位，不需要額外維護
+function schDaySummary(items) {
+  let drive = 0, dwell = 0, stops = 0, checkin = '';
+  items.forEach(x => {
+    if (x.category === '交通') {
+      drive += schDurMin(schSplitDuration(x.title).dur);
+      return;
+    }
+    dwell += schDurMin(x.stay);
+    if (x.category === '景點' || x.category === '活動') stops++;
+    if (x.category === '住宿' && !checkin) {
+      // 入住時間優先看時間欄，沒有就從說明裡撈第一個時刻（「16:00~22:00」）
+      checkin = schTimeText(x.time) || (String(x.note || '').match(/(\d{1,2}[:：]\d{2})/) || [])[1] || '';
+    }
+  });
+  const parts = [];
+  if (drive)   parts.push(`<span class="sch-sum-item">🚗 ${schFmtMin(drive)}</span>`);
+  if (stops)   parts.push(`<span class="sch-sum-item">📍 ${stops} 站</span>`);
+  if (dwell)   parts.push(`<span class="sch-sum-item">⏱ ${schFmtMin(dwell)}</span>`);
+  if (checkin) parts.push(`<span class="sch-sum-item">🛏 ${esc(checkin)}</span>`);
+  return parts.length ? `<div class="sch-day-sum">${parts.join('')}</div>` : '';
+}
+
+// 收合狀態：記日期 key，重繪後仍保留
+const _schFolded = new Set();
+
+function renderSchDay(day, today, d, dayNum) {
+  const isToday = schIsSameDay(day.d, today);
+  const isPast  = !isToday && day.d < today;
+  // 交通是節點之間的連接線，篩選特定分類時沒有意義，只在「全部」顯示
+  const shown = day.items.filter(x => _schFilter === 'all' ? true
+    : (x.category === _schFilter || x._parentCat === _schFilter));
+  if (!shown.length || shown.every(x => x.category === '交通' || x.category === '參考')) return '';
+
+  const folded = _schFolded.has(day.key);
+
+  return `
+    <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}${folded ? ' folded' : ''}" data-key="${esc(day.key)}">
+      <div class="sch-day-head" onclick="toggleSchDay('${esc(day.key)}')">
+        <span class="sch-day-line"></span>
+        <div class="sch-day-badge">
+          <div class="sch-day-title">
+            <span class="sch-day-num">第 ${dayNum} 天</span>
+            ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
+            <span class="sch-fold-btn" title="${folded ? '展開' : '收合'}">${folded ? '＋' : '－'}</span>
+          </div>
+          <div class="sch-day-sub">${esc(day.key)}（${schWeekday(day.d)}）</div>
+        </div>
+        <span class="sch-day-line"></span>
+      </div>
+      ${_schFilter === 'all' ? schDaySummary(day.items) : ''}
+      <div class="sch-nodes">
+        ${shown.map((x, i) => renderSchNode(x, d, i > 0 && x.time && x.time === shown[i - 1].time)).join('')}
+      </div>
+    </div>`;
+}
+
+window.toggleSchDay = function(key) {
+  const el = document.querySelector(`.sch-day[data-key="${key}"]`);
+  if (!el) return;
+  const folded = !_schFolded.has(key);
+  if (folded) _schFolded.add(key); else _schFolded.delete(key);
+  el.classList.toggle('folded', folded);
+  const btn = el.querySelector('.sch-fold-btn');
+  if (btn) { btn.textContent = folded ? '＋' : '－'; btn.title = folded ? '展開' : '收合'; }
+  updateSchFoldAllBtn();
+};
+
+// 全部收合／展開：只操作目前畫面上有的日子
+window.toggleSchFoldAll = function() {
+  const days = [...document.querySelectorAll('#schScroll .sch-day')];
+  if (!days.length) return;
+  const expandAll = days.some(el => _schFolded.has(el.dataset.key));  // 有收合的就全展開
+  days.forEach(el => {
+    const key = el.dataset.key;
+    if (expandAll) _schFolded.delete(key); else _schFolded.add(key);
+    el.classList.toggle('folded', !expandAll);
+    const btn = el.querySelector('.sch-fold-btn');
+    if (btn) { btn.textContent = expandAll ? '－' : '＋'; btn.title = expandAll ? '收合' : '展開'; }
+  });
+  updateSchFoldAllBtn();
+};
+
+function updateSchFoldAllBtn() {
+  const btn = document.getElementById('schFoldAll');
+  if (!btn) return;
+  const days = [...document.querySelectorAll('#schScroll .sch-day')];
+  const anyFolded = days.some(el => _schFolded.has(el.dataset.key));
+  btn.textContent = anyFolded ? '全部展開' : '全部收合';
+}
+
+// sameTime＝跟上一個節點同一個時間（例如整批市區漫遊），時間就不重複印
+// 車程區間後面的小 RAV4（沿用像素圖場景那台，sprites.js 的 CAR_FRAME）
+function schCarSvg() {
+  const frame = window.CAR_FRAME;
+  if (!frame) return '';
+  return `<svg class="sch-car" width="26" height="16" viewBox="0 0 32 20" aria-hidden="true">${frame}</svg>`;
+}
+
+// 點項目看詳情：只有明確填了網址才給連結，不猜、不自動搜尋——
+// 座標已經有專屬的「導航」按鈕負責，這裡不重複做同一件事。
+function schInfoUrl(x) {
+  return String(x.url || '').trim();
+}
+
+function renderSchNode(x, d, sameTime) {
+  // 交通：不是節點而是節點之間的區間
+  if (x.category === '交通') {
+    const { dur, text } = schSplitDuration(x.title);
+    // 方向寫在說明欄；標題只寫時長時，就把說明升為主要文字。沒有方向就不補
+    // 「移動」這種廢字——連續五個「移動」只是噪音。
+    const main = text || x.note || '';
+    const sub  = text ? x.note : '';
+    return `
+      <div class="sch-conn">
+        <div class="sch-conn-dot"><span class="sch-conn-line"></span></div>
+        <div class="sch-node-time"></div>
+        <div class="sch-conn-body">
+          ${dur ? `<span class="sch-conn-dur">${esc(dur)}</span>${schCarSvg()}` : ''}
+          ${main ? `<span class="sch-conn-text">${esc(main)}</span>` : ''}
+          ${sub ? `<span class="sch-conn-note">${esc(sub)}</span>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // 參考：不是獨立節點，是掛在前一個節點底下的小字附註（縮排、無圓點）
+  if (x.category === '參考') {
+    const info = safeUrl(schInfoUrl(x));   // safeUrl 內部已做 esc，不要重複跳脫
+    const ref = info
+      ? `<button class="sch-nav" title="查看" onclick="window.open('${info}','_blank');event.stopPropagation();">🔗</button>`
+      : '';
+    return `
+      <div class="sch-ref"${info ? ` onclick="window.open('${info}','_blank')" style="cursor:pointer;"` : ''}>
+        <span class="sch-ref-mark">└</span>
+        <div class="sch-ref-body">
+          <span class="sch-ref-title">${esc(x.title)}</span>
+          ${x.place ? `<span class="sch-ref-place">${esc(x.place)}</span>` : ''}
+          ${x.note ? `<div class="sch-ref-note">${esc(x.note)}</div>` : ''}
+        </div>
+        ${ref}
+      </div>`;
+  }
+
+  const isStay = x.category === '住宿';
+  const stay = isStay && x._stayIndex != null ? (d.accommodation || [])[x._stayIndex] : null;
+  // 活動節點：自動併入的直接帶 index；手動排的用標題比對活動表
+  const actIndex = x._actIndex != null ? x._actIndex
+    : x.category === '活動' ? findSchActivity(x.title, d.activity) : -1;
+  const act = actIndex >= 0 ? d.activity[actIndex] : null;
+
+  // 住宿：沿用帳簿住宿卡的類型判斷（sheet 有填類型就優先用）
+  const pt = isStay ? placeTypeIcon(stay?.stayType || x.title || '') : null;
+  const icon = x._flight ? '✈️' : isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
+
+  const navBtn = (x.lat && x.lng)
+    ? `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤ 導航</button>`
+    : '';
+
+  // 住宿：一眼標籤列（詳情進彈窗）
+  let stayTags = '';
+  if (stay) {
+    let payTag;
+    if (stay.paid && stay.payDate)   payTag = `<span class="tag tag-paid">${esc(stay.payDate)} 付款</span>`;
+    else if (stay.paid)              payTag = `<span class="tag tag-paid">已付款</span>`;
+    else if (stay.deductDate)        payTag = `<span class="tag tag-unpaid">${esc(stay.deductDate)} 扣款</span>`;
+    else                             payTag = `<span class="tag tag-unpaid">未付款</span>`;
+    stayTags = `
+      <div class="sch-stay-tags">
+        <span class="tag tag-person">${esc(pt.label)}</span>
+        ${payTag}
+        ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
+        ${navBtn}
+      </div>`;
+  }
+
+  const clickable = stay ? `onclick="openSchStay(${x._stayIndex})"`
+                  : act  ? `onclick="openSchAct(${actIndex})"` : '';
+
+  const timeText = sameTime ? '' : schTimeText(x.time);
+  const time = `<div class="sch-node-time">${esc(timeText)}</div>`;
+  // 時間欄空著時，圓點跟標題中間會斷一段空白 → 補一條淡虛線把它們接起來。
+  // 只給主要節點（景點／住宿／活動），讓這條線本身也是層級訊號。
+  const major = ['景點', '住宿', '活動'].includes(x.category);
+  const lead = (!timeText && major) ? ' lead' : '';
+  // 預計停留：跟車程時長同一類資訊（要花多久），所以用同一種標籤樣式
+  const dwell = String(x.stay || '').trim()
+    ? `<span class="sch-dwell">${esc(String(x.stay).trim())}</span>` : '';
+  const cls = `cat-${esc(x.category)}${lead}${stay ? (stay.paid ? ' stay-paid' : ' stay-unpaid') : ''}`;
+
+  // 點不開的節點不做卡片：空心圓點＋一行字（景點放大、車程等縮成一行）
+  // 沒有詳情彈窗（不是住宿／活動）的節點，點文字就開相關頁面（自訂網址／地圖總覽／名稱搜尋）
+  if (!clickable) {
+    const big = x.category === '景點';
+    const info = safeUrl(schInfoUrl(x));
+    const infoAttr = info ? ` onclick="window.open('${info}','_blank')" style="cursor:pointer;"` : '';
+    return `
+      <div class="sch-node plain ${cls}${big ? ' big' : ''}">
+        <div class="sch-node-dot ring"></div>
+        ${time}
+        <div class="sch-node-body">
+          <div class="sch-plain-text"${infoAttr}>
+            <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${dwell}${
+              x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
+            ${x.note ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
+          </div>
+          ${navBtn}
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="sch-node expandable ${cls}" ${clickable}>
+      <div class="sch-node-dot">${icon}</div>
+      ${time}
+      <div class="sch-node-body">
+        <div class="sch-node-title">${esc(x.title)}${dwell}<span class="sch-expand">›</span></div>
+        ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
+        ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
+        ${stayTags}
+        ${!stay && navBtn ? `<div class="sch-node-actions">${navBtn}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+// 標題比對活動表（完全相同或互相包含就算同一筆）
+function findSchActivity(title, activities) {
+  const t = String(title || '').trim();
+  if (!t) return -1;
+  return (activities || []).findIndex(a => {
+    const n = String(a.name || '').trim();
+    return n && (n === t || n.includes(t) || t.includes(n));
+  });
+}
+
+// ── 節點詳情彈窗 ──────────────────────────────
+// ── 資訊區塊：標籤在上、內容佔滿寬度（取代左右對照式排版）
+function schBlock(icon, label, val, opts) {
+  if (!val) return '';
+  opts = opts || {};
+  // 想做 chips 但內容不適合拆時，退回一般段落（別把整段包成一顆巨大膠囊）
+  const chips = opts.chips ? splitToChips(val) : null;
+  const body = chips
+    ? `<div class="sch-chips">${chips.map(c => `<span class="sch-chip">${esc(c)}</span>`).join('')}</div>`
+    : `<div class="sch-block-body">${esc(val)}</div>`;
+  return `
+    <div class="sch-block${opts.warn ? ' warn' : ''}">
+      <div class="sch-block-label">${icon} ${label}</div>
+      ${body}
+    </div>`;
+}
+
+// 清單型文字 → chips 陣列；不適合拆就回傳 null，讓呼叫端改用段落
+function splitToChips(text) {
+  const t = String(text || '').trim();
+  if (!t) return null;
+  // 含句子結構（分號、破折號、括號長句）代表是敘述而非清單，直接不拆
+  if (/[；;—]|——/.test(t)) return null;
+  const parts = t.split(/[、,，/／]+/).map(x => x.trim()).filter(Boolean);
+  if (parts.length < 2) return null;              // 只有一項就不必做成標籤
+  if (!parts.every(x => x.length <= 10)) return null;  // 有長項＝敘述，整段保留
+  return parts;
+}
+
+// 價格區：每人價當視覺重心，其餘降階
+function schPriceBar(o) {
+  if (!o.twd) return o.emptyText
+    ? `<div class="sch-price"><span class="sch-price-main" style="font-size:.9rem;color:var(--muted);">${esc(o.emptyText)}</span></div>` : '';
+  return `
+    <div class="sch-price">
+      <div class="sch-price-main">${fmtPer(o.twd)}</div>
+      <div class="sch-price-sub">
+        ${fmt(o.twd)} 合計${o.orig && o.cur !== 'NT' ? ` · ${fmtOrig(o.orig, o.cur)}` : ''}${o.nights ? ` · ${o.nights} 晚` : ''}
+        ${o.foreignFee ? `<span class="sch-fee">手續費 NT$${o.foreignFee}</span>` : ''}
+      </div>
+    </div>`;
+}
+
+window.openSchStay = function(i) {
+  const stay = (window.APP_DATA?.accommodation || [])[i];
+  if (!stay) return;
+  const pt = placeTypeIcon(stay.stayType || stay.name || '');
+  let payTag;
+  if (stay.paid && stay.payDate)   payTag = `<span class="tag tag-paid">${esc(stay.payDate)} 付款</span>`;
+  else if (stay.paid)              payTag = `<span class="tag tag-paid">已付款</span>`;
+  else if (stay.deductDate)        payTag = `<span class="tag tag-unpaid">${esc(stay.deductDate)} 扣款</span>`;
+  else                             payTag = `<span class="tag tag-unpaid">未付款</span>`;
+
+  openSchModal(`
+    <div class="sch-modal-head">
+      <span class="sch-modal-icon">${pt.icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="sch-modal-title">${(() => {
+          const u = safeUrl(schInfoUrl({lat:stay.lat,lng:stay.lng,title:stay.name,place:stay.address}));
+          return u ? `<a href="${u}" target="_blank" rel="noopener">${esc(stay.name)}</a>` : esc(stay.name);
+        })()}</div>
+        <div class="sch-modal-sub">${esc(stay.date || '')}${stay.nights ? ` · ${stay.nights} 晚` : ''}</div>
+      </div>
+    </div>
+
+    ${schPriceBar({ twd: stay.twd, orig: stay.orig, cur: stay.cur, nights: stay.nights,
+                    foreignFee: stay.foreignFee, emptyText: '現場付' })}
+
+    <div class="sch-tagrow">
+      <span class="tag tag-person">${esc(pt.label)}</span>
+      ${payTag}
+      <span class="tag ${stay.cancel ? 'tag-cancel' : 'tag-nocancel'}">${stay.cancel ? '可取消' : '不可退'}</span>
+      ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
+    </div>
+
+    ${schBlock('📍', '地址', stay.address)}
+    ${schBlock('🛏', '設備', stay.facilities, { chips: true })}
+    ${schBlock('💰', '自費', stay.extraFee)}
+    ${schBlock('🎒', '需自備', stay.bring, { chips: true })}
+    ${schBlock('🌄', '周邊', stay.nearby)}
+    ${schBlock('📌', '備註', stay.note, { warn: isWarnText(stay.note) })}
+
+    ${(stay.lat && stay.lng) ? `
+      <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${stay.lat},${stay.lng}','_blank')">➤ 導航到這裡</button>` : ''}
+  `);
+};
+
+window.openSchAct = function(i) {
+  const a = (window.APP_DATA?.activity || [])[i];
+  if (!a) return;
+  let payTag = a.paid ? `<span class="tag tag-paid">已付款</span>`
+             : a.payDate ? `<span class="tag tag-unpaid">${esc(a.payDate)} 前付款</span>`
+             : `<span class="tag tag-unpaid">未付款</span>`;
+  const meet = [a.meetTime, a.meetLoc].filter(Boolean).join(' · ');
+
+  openSchModal(`
+    <div class="sch-modal-head">
+      <span class="sch-modal-icon">🎯</span>
+      <div style="flex:1;min-width:0;">
+        <div class="sch-modal-title">${(() => {
+          const u = safeUrl(a.url || schInfoUrl({lat:a.lat,lng:a.lng,title:a.name,place:a.meetLoc}));
+          return u ? `<a href="${u}" target="_blank" rel="noopener">${esc(a.name)}</a>` : esc(a.name);
+        })()}</div>
+        <div class="sch-modal-sub">${esc(a.date || '')}${a.duration ? ` · ${esc(a.duration)}` : ''}</div>
+      </div>
+    </div>
+
+    ${schPriceBar({ twd: a.twd, orig: a.orig, cur: a.cur, foreignFee: a.foreignFee })}
+
+    <div class="sch-tagrow">
+      ${payTag}
+      <span class="tag ${a.cancel ? 'tag-cancel' : 'tag-nocancel'}">${a.cancel ? '可取消' : '不可退'}</span>
+      ${a.difficulty ? `<span class="tag tag-person">難度 ${esc(a.difficulty)}</span>` : ''}
+      ${a.payer ? `<span class="sch-payer">${avatarSvg(a.payer)}</span>` : ''}
+    </div>
+
+    ${meet ? `<div class="sch-meet"><span class="sch-meet-label">集合</span><span>${esc(meet)}</span></div>` : ''}
+
+    ${schBlock('📝', '內容', a.content)}
+    ${schBlock('✅', '提供', a.included, { chips: true })}
+    ${schBlock('❌', '不提供', a.excluded, { chips: true })}
+    ${schBlock('🎒', '自備', a.bring, { chips: true })}
+    ${schBlock('🚩', '回程地', a.returnLoc)}
+    ${schBlock('⚠️', '注意', a.note, { warn: true })}
+
+    ${(a.lat && a.lng) ? `
+      <button class="sch-modal-nav" onclick="window.open('https://maps.google.com/?q=${a.lat},${a.lng}','_blank')">➤ 導航到集合點</button>` : ''}
+  `);
+};
+
+// 含這些字樣的備註視為警示，用有色區塊突顯
+function isWarnText(t) {
+  return /無網路|沒有網路|不提供網路|需自備|只收現金|不收現金|4x4|F 級|F級|碎石|注意|警|限制|不適合|禁止/.test(String(t || ''));
+}
+
+function openSchModal(html) {
+  const box = document.getElementById('schModalBody');
+  if (!box) return;
+  box.innerHTML = html;
+  document.getElementById('schModal').classList.add('show');
+}
+
+window.setSchFilter = function(key) {
+  _schFilter = key;
+  const el = document.getElementById('scheduleContent');
+  if (el) el.innerHTML = renderSchedule(window.APP_DATA || window.STATIC);
+  schBindScroll();
+};
+
+// 日期跳轉：捲到該天
+// 轉向或視窗縮放時，重算能顯示幾天
+(function(){
+  let t = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { if (document.getElementById('schJumper')) refreshSchJumper(); }, 200);
+  });
+})();
+
+window.schJumpTo = function(key) {
+  _schActiveKey = key;
+  refreshSchJumper();
+  const target = document.querySelector(`.sch-day[data-key="${key}"]`);
+  if (!target) return;
+  // 跳過去的那天如果是收合的，順手展開——不然點了等於什麼都沒發生
+  if (_schFolded.has(key)) toggleSchDay(key);
+  // 扣掉跳轉列黏頂的高度，不然目標日期的標題會被蓋住
+  const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
+  window.scrollTo({ top: schRelTop(target) - jumperH - 6, behavior: 'smooth' });
+};
+
+// ‹ › 前後一天（移動選中的那天）
+window.schJumpStep = function(dir) {
+  const days = buildScheduleDays(window.APP_DATA || window.STATIC);
+  if (!days.length) return;
+  const idx = days.findIndex(x => x.key === _schActiveKey);
+  const next = Math.max(0, Math.min(days.length - 1, (idx < 0 ? 0 : idx) + dir));
+  schJumpTo(days[next].key);
+};
+
+// 行程還沒開始（今天不在行程內）時，基準就是第一天
+function schAnchorDay() {
+  return document.querySelector('.sch-day.today')
+      || document.querySelector('#schScroll .sch-day');
+}
+
+window.schScrollToToday = function() {
+  const anchor = schAnchorDay();
+  if (anchor) schJumpTo(anchor.dataset.key);
+};
+
+// 捲動時決定「回到今日」要不要出現、箭頭朝哪（現在跟著整個頁面捲動，不是內框）
+function schBindScroll() {
+  const container = document.getElementById('schScroll');
+  const btn = document.getElementById('schBackToday');
+  const arrow = document.getElementById('schBackArrow');
+  const label = document.getElementById('schBackLabel');
+  if (!container || !btn) return;
+  // 基準＝今日；行程還沒開始就用第一天
+  const realToday = container.querySelector('.sch-day.today');
+  const todayEl = realToday || container.querySelector('.sch-day');
+  if (!todayEl) { btn.style.display = 'none'; return; }
+  if (label) label.textContent = '返回';
+
+  function update() {
+    const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
+    // 捲到哪天，跳轉列就跟著選到哪天
+    const dayEls = [...container.querySelectorAll('.sch-day')];
+    const cur = dayEls.filter(el => schRelTop(el) <= window.scrollY + jumperH + 40).pop()
+             || dayEls[0];
+    if (cur && cur.dataset.key !== _schActiveKey) {
+      _schActiveKey = cur.dataset.key;
+      refreshSchJumper();
+    }
+
+    const todayTop = schRelTop(todayEl);
+    const diff = todayTop - window.scrollY;
+    if (Math.abs(diff) < window.innerHeight * 0.5) {
+      btn.style.display = 'none';   // 今日就在視野內
+      return;
+    }
+    btn.style.display = 'flex';
+    // 今日在下方 → 按鈕貼底、箭頭朝下；今日在上方 → 貼頂、箭頭朝上
+    arrow.textContent = diff > 0 ? '↓' : '↑';
+  }
+  window.removeEventListener('scroll', window._schHandler || (()=>{}));
+  window._schHandler = update;
+  window.addEventListener('scroll', update, { passive:true });
+  update();
+  centerSchJumper();
+  updateSchFoldAllBtn();
+  // 一進來就對準今日
+  if (todayEl) {
+    const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
+    window.scrollTo({ top: schRelTop(todayEl) - jumperH - 6 });
+  }
+}
+window.schBindScroll = schBindScroll;
+
+// ══════════════════════════════════════════════════════════
+//  保險：依 公司＋方案 分組成卡片，一列＝一個理賠項目
+// ══════════════════════════════════════════════════════════
+function renderInsurance(items) {
+  items = items || [];
+  if (!items.length) {
+    return `<div class="empty">🛡 在「保險」表填入後顯示<br>
+      <span style="font-size:.7rem;color:var(--muted)">欄位：保險公司／方案／理賠項目／理賠金額／理賠方法／備註</span></div>`;
+  }
+  // 沿用上一列的公司/方案（同一張保單多列時可留空）
+  let lastCompany = '', lastPlan = '';
+  const filled = items.map(x => {
+    if (x.company) lastCompany = x.company; 
+    if (x.plan) lastPlan = x.plan;
+    return { ...x, company: x.company || lastCompany, plan: x.plan || lastPlan };
+  });
+  const groups = new Map();
+  filled.forEach(x => {
+    const key = `${x.company}｜${x.plan}`;
+    if (!groups.has(key)) groups.set(key, { company: x.company, plan: x.plan, rows: [] });
+    groups.get(key).rows.push(x);
+  });
+
+  return [...groups.values()].map(g => `
+    <div class="car-card" style="margin-bottom:12px;">
+      <div class="car-header">
+        <div class="car-title">🛡 ${esc(g.company)}</div>
+        ${g.plan ? `<div class="car-model">${esc(g.plan)}</div>` : ''}
+      </div>
+      <div style="padding:4px 16px 12px;">
+        ${g.rows.map(r => `
+          <div style="padding:9px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span style="flex:1;font-size:.82rem;color:var(--text);">${esc(r.item)}</span>
+              ${r.amount ? `<span style="font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);white-space:nowrap;">${esc(r.amount)}</span>` : ''}
+            </div>
+            ${r.method ? `<div style="font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.7;">📋 ${esc(r.method)}</div>` : ''}
+            ${r.note ? `<div style="font-size:.66rem;color:var(--muted);margin-top:2px;">📌 ${esc(r.note)}</div>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
 }
 
 function renderCarDetail(car) {
@@ -358,8 +1664,10 @@ function renderCarDetail(car) {
 }
 
 window.showInfoTab = function(id, btn) {
+  window._activeInfoTab = id;   // 記住次分頁，背景同步重繪後才能恢復，不會跳回「行前」
   document.querySelectorAll('[id^="infoTab-"]').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('#mainSection-info .tab').forEach(t => t.classList.remove('active'));
   document.getElementById('infoTab-'+id)?.classList.add('active');
   btn.classList.add('active');
+  if (id === 'schedule') setTimeout(() => window.schBindScroll?.(), 0);
 };

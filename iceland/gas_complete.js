@@ -14,15 +14,196 @@ const SHEET_NAMES = {
   flight:        '航班',
   expense:       '寫入_一般開銷',
   checkin:       '寫入_腳印',
+  task:          '寫入_任務',
+  schedule:      '日程',
+  insurance:     '保險',
+  manual:        '手冊',
 };
 
-// 找某欄第一個空行（從 startRow 起，1-based）
-function findFirstEmptyRow(sheet, colLetter, startRow) {
-  var vals = sheet.getRange(colLetter + ':' + colLetter).getValues();
-  for (var i = startRow - 1; i < vals.length; i++) {
-    if (String(vals[i][0] || '').trim() === '') return i + 1;
+// ── 保險表欄位 ───────────────────────────────────────────
+// 一列＝一個理賠項目；同公司/方案多列即可
+var INSURANCE_HEADER = [
+  '保險公司','方案','理賠項目','理賠金額','理賠方法','備註'
+];
+
+// ── 手冊資訊表欄位 ───────────────────────────────────────
+// 分類例：實用資訊／緊急聯絡／購物補給／交通…（自由填）
+var MANUAL_HEADER = [
+  '分類','標題','內容','連結'
+];
+
+// ── 一次性：建立保險表（在編輯器選這個函式按執行）──
+function setupInsuranceSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAMES.insurance);
+  if (!sheet) sheet = ss.insertSheet(SHEET_NAMES.insurance);
+  var first = String(sheet.getRange(1, 1).getValue() || '').trim();
+  if (first === '保險公司') return '已是新結構，未變更';
+  sheet.getRange(1, 1, 1, INSURANCE_HEADER.length).setValues([INSURANCE_HEADER]);
+  sheet.setFrozenRows(1);
+  var widths = [110, 130, 180, 110, 260, 200];
+  for (var c = 0; c < widths.length; c++) sheet.setColumnWidth(c + 1, widths[c]);
+  return '保險表已建立';
+}
+
+// ── 一次性：建立手冊資訊表 ──
+function setupManualSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAMES.manual);
+  if (!sheet) sheet = ss.insertSheet(SHEET_NAMES.manual);
+  var first = String(sheet.getRange(1, 1).getValue() || '').trim();
+  if (first === '分類') return '已是新結構，未變更';
+  sheet.getRange(1, 1, 1, MANUAL_HEADER.length).setValues([MANUAL_HEADER]);
+  sheet.setFrozenRows(1);
+  var widths = [90, 160, 420, 240];
+  for (var c = 0; c < widths.length; c++) sheet.setColumnWidth(c + 1, widths[c]);
+  // 先塞幾筆你們「雜」分頁整理出來的情報當種子
+  var seed = [
+    ['實用資訊', '刷卡', '冰島消費全面無紙化，上廁所都能刷卡；店家收歐元找克朗，想留紀念幣可帶點歐元。匯率約 1000 ISK ≈ 300 台幣', ''],
+    ['實用資訊', '時差', '冰島比台灣慢 8 小時（台灣 10:00＝冰島凌晨 02:00）', ''],
+    ['實用資訊', '電壓', '220V 歐規雙圓孔，飯店沒有萬國插頭，要自備', ''],
+    ['緊急聯絡', '緊急電話', '冰島報警／救護／消防統一：112', ''],
+    ['實用資訊', '網路', '歐洲 eSIM', 'https://esim.djbcard.com/product-category/esim/europe/?aid=16'],
+    ['購物補給', '便宜超市', 'Bónus（小豬超市，最便宜）、Krónan、Nettó；N1 加油站可補給', ''],
+  ];
+  sheet.getRange(2, 1, seed.length, MANUAL_HEADER.length).setValues(seed);
+  return '手冊表已建立（含 ' + seed.length + ' 筆種子資料）';
+}
+
+// ── 日程表欄位 ───────────────────────────────────────────
+// A日期(9/17) B時間(可空/可寫「上午」) C分類 D標題 E說明 F地點 G緯度 H經度
+//   分類：景點／住宿／活動／其他（住宿列可留空，會自動從住宿表帶入）
+//   時間：填了就顯示，沒填就按列的順序排
+var SCHEDULE_HEADER = [
+  '日期','時間','分類','標題','說明','地點','緯度','經度','停留','網址'
+];
+
+// ── 一次性：建立日程表（在編輯器選這個函式按執行）──
+function setupScheduleSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAMES.schedule);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAMES.schedule);
   }
-  return vals.length + 1;
+  var rows = sheet.getDataRange().getValues();
+  var header = rows[0].map(function(h){ return String(h || '').trim(); });
+  if (header[0] === '日期' && header[2] === '分類') {
+    applyScheduleValidation_(sheet);
+    sheet.setFrozenRows(1);
+    return '已是新結構，已重設驗證規則';
+  }
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+  sheet.getRange(1, 1, 1, SCHEDULE_HEADER.length).setValues([SCHEDULE_HEADER]);
+  applyScheduleValidation_(sheet);
+  sheet.setFrozenRows(1);
+  return '日程表已建立';
+}
+
+function applyScheduleValidation_(sheet) {
+  var last = Math.max(sheet.getMaxRows(), 200);
+  // C 分類：交通＝節點間的區間、參考＝掛在上一個節點下的附註、補給＝超市加油
+  sheet.getRange(2, 3, last - 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['景點', '住宿', '活動', '補給', '交通', '參考', '其他'], true)
+      .setAllowInvalid(false).build());
+  var widths = [80, 70, 70, 220, 320, 180, 90, 90, 80, 220];
+  for (var c = 0; c < widths.length; c++) sheet.setColumnWidth(c + 1, widths[c]);
+}
+
+// ── 行前準備清單欄位 ─────────────────────────────────────
+// A項目ID B分類 C項目名稱 D重要度 E說明 F對象
+// G猴狀態 H花狀態 I寧狀態 J最後更新
+//   分類：待辦／行李／共用
+//   對象：留空＝全員都要；填成員名（可逗號分隔多人）＝只有那些人要，
+//         其他人不列入進度計算。例：國際駕照只有駕駛需要 → 填「猴,花」
+//         共用分類則代表「誰負責帶」
+var TASK_HEADER = [
+  '項目ID','分類','項目名稱','重要度','說明','對象',
+  '猴狀態','花狀態','寧狀態','最後更新'
+];
+
+// ── 行前準備成員（狀態欄順序）
+var TASK_MEMBERS = ['猴', '花', '寧'];
+
+// ── 一次性：建立／升級任務表結構（在編輯器選這個函式按執行）──
+// 可重複執行：舊表會搬成新結構，已是新結構則只重設驗證規則。
+// 會先清掉舊的資料驗證（舊 C 欄是重要度，有 0–5 規則，會擋住新的文字欄）。
+function setupTaskSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAMES.task);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAMES.task);
+    sheet.getRange(1, 1, 1, TASK_HEADER.length).setValues([TASK_HEADER]);
+    applyTaskValidation_(sheet);
+    sheet.setFrozenRows(1);
+    return '已建立新表';
+  }
+
+  var rows = sheet.getDataRange().getValues();
+  var header = rows[0].map(function(h){ return String(h || '').trim(); });
+  var isNew  = header[1] === '分類';
+
+  // 整張表先解除資料驗證，否則寫入會被舊規則擋下
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+
+  if (isNew) {
+    // 已是新結構：只重設驗證規則，資料不動
+    applyTaskValidation_(sheet);
+    sheet.setFrozenRows(1);
+    return '已是新結構，已重設驗證規則';
+  }
+
+  // 舊 → 新：把有名稱的列搬過去，分類先給「待辦」
+  var moved = [];
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    if (String(r[1] || '').trim() === '') continue;   // 舊 B 欄＝項目名稱
+    moved.push([
+      r[0] || ('re' + ('00' + (moved.length + 1)).slice(-3)),
+      '待辦',                       // 分類（之後可改成 行李／共用）
+      r[1],                         // 項目名稱
+      Number(r[2]) || 3,            // 重要度
+      r[3] || '',                   // 說明
+      '',                           // 負責人
+      r[4] === true, r[5] === true, r[6] === true,   // 猴／花／寧狀態
+      r[7] || '',                   // 最後更新
+    ]);
+  }
+
+  sheet.clear();
+  sheet.getRange(1, 1, 1, TASK_HEADER.length).setValues([TASK_HEADER]);
+  if (moved.length) {
+    sheet.getRange(2, 1, moved.length, TASK_HEADER.length).setValues(moved);
+  }
+  applyTaskValidation_(sheet);
+  sheet.setFrozenRows(1);
+  return '已升級，搬移 ' + moved.length + ' 筆';
+}
+
+// 任務表的下拉選單與核取方塊（讓手動填表好填）
+function applyTaskValidation_(sheet) {
+  var last = Math.max(sheet.getMaxRows(), 200);
+
+  // B 分類：待辦／行李／共用
+  sheet.getRange(2, 2, last - 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['待辦', '行李', '共用'], true)
+      .setAllowInvalid(false).build());
+
+  // D 重要度：0–5
+  sheet.getRange(2, 4, last - 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['0', '1', '2', '3', '4', '5'], true)
+      .setAllowInvalid(false).build());
+
+  // F 對象：留空＝全員；可填單人或多人（逗號分隔），故不設下拉限制
+
+  // G/H/I 三人狀態：核取方塊
+  sheet.getRange(2, 7, last - 1, 3).insertCheckboxes();
+
+  // 欄寬（純粹好讀）
+  var widths = [80, 70, 200, 70, 260, 70, 55, 55, 55, 150];
+  for (var c = 0; c < widths.length; c++) sheet.setColumnWidth(c + 1, widths[c]);
 }
 
 function readSheet(sheet) {
@@ -154,6 +335,66 @@ function readExpenseMap(sheet) {
   return { expenses: out };
 }
 
+// ── 行前準備清單讀取 ─────────────────────────────────────
+function readTaskSheet(sheet) {
+  var rows = sheet.getDataRange().getDisplayValues();
+  if (rows.length < 2) return { tasks: [] };
+  var tasks = [];
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    if (String(r[2] || '').trim() === '') continue;   // 沒名稱的空列跳過
+    tasks.push({
+      id:        r[0],
+      category:  r[1] || '待辦',
+      name:      r[2],
+      priority:  parseInt(r[3], 10) || 0,
+      note:      r[4] || '',
+      owner:     r[5] || '',
+      done: (function(){
+        var d = {};
+        TASK_MEMBERS.forEach(function(m, k){
+          d[m] = String(r[6 + k]).toUpperCase() === 'TRUE';
+        });
+        return d;
+      })(),
+      updated:   r[9] || '',
+      _rowIndex: i + 1,
+    });
+  }
+  return { tasks: tasks };
+}
+
+// ── 日程讀取（時間軸用）─────────────────────────────────
+function readScheduleSheet(sheet) {
+  var rows = sheet.getDataRange().getDisplayValues();
+  if (rows.length < 2) return { schedule: [] };
+  var out = [];
+  var lastDate = '';
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    var date = String(r[0] || '').trim();
+    var title = String(r[3] || '').trim();
+    // 日期可以只寫在該天第一列，後面留空＝沿用上一列的日期
+    if (date) lastDate = date; else date = lastDate;
+    if (!title || !date) continue;
+    out.push({
+      date:     date,
+      time:     r[1] || '',
+      category: r[2] || '其他',
+      title:    title,
+      note:     r[4] || '',
+      place:    r[5] || '',
+      lat:      parseFloat(r[6]) || 0,
+      lng:      parseFloat(r[7]) || 0,
+      stay:     r[8] || '',         // 預計停留時間（30min／1h30min），留空＝不顯示
+      url:      r[9] || '',         // 自訂連結，留空就用座標／標題自動找地圖頁
+      order:    i,                  // sheet 原始順序（沒填時間時用它排）
+      _rowIndex: i + 1,
+    });
+  }
+  return { schedule: out };
+}
+
 // ── 住宿地圖讀取（住宿 sheet 的 lat/lng 欄）────────────
 function readStayMap(sheet) {
   var rows = sheet.getDataRange().getDisplayValues();
@@ -192,6 +433,10 @@ function doGet(e) {
         // 打卡 sheet 用專屬轉換，其他用通用轉換
         if (key === 'checkin') {
           result[key] = readCheckinSheet(sheet);
+        } else if (key === 'task') {
+          result[key] = readTaskSheet(sheet);
+        } else if (key === 'schedule') {
+          result[key] = readScheduleSheet(sheet);
         } else {
           result[key] = readSheet(sheet);
         }
@@ -204,6 +449,12 @@ function doGet(e) {
 
     // 地圖一次載入：?sheet=mapdata（打卡＋消費＋住宿）
     if (param === 'mapdata') {
+      var mapCache  = CacheService.getScriptCache();
+      var mapCached = mapCache.get('mapdata_v1');
+      if (mapCached) {
+        return ContentService.createTextOutput(mapCached)
+          .setMimeType(ContentService.MimeType.JSON);
+      }
       var ckSheet  = ss.getSheetByName(SHEET_NAMES.checkin);
       var expSheet = ss.getSheetByName(SHEET_NAMES.expense);
       var stSheet  = ss.getSheetByName(SHEET_NAMES.accommodation);
@@ -212,7 +463,9 @@ function doGet(e) {
         expenses: expSheet ? readExpenseMap(expSheet).expenses  : [],
         stays:    stSheet  ? readStayMap(stSheet).stays         : [],
       };
-      return ContentService.createTextOutput(JSON.stringify(bundle))
+      var mapJson = JSON.stringify(bundle);
+      mapCache.put('mapdata_v1', mapJson, 30);   // 30 秒，寫入時會清掉
+      return ContentService.createTextOutput(mapJson)
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -223,6 +476,28 @@ function doGet(e) {
           .setMimeType(ContentService.MimeType.JSON);
       }
       return ContentService.createTextOutput(JSON.stringify(readCheckinSheet(checkinSheet)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 日程時間軸：?sheet=schedule
+    if (param === 'schedule') {
+      var schSheet = ss.getSheetByName(SHEET_NAMES.schedule);
+      if (!schSheet) {
+        return ContentService.createTextOutput(JSON.stringify({ schedule: [] }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify(readScheduleSheet(schSheet)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 行前準備清單：?sheet=tasks
+    if (param === 'tasks') {
+      var taskSheet = ss.getSheetByName(SHEET_NAMES.task);
+      if (!taskSheet) {
+        return ContentService.createTextOutput(JSON.stringify({ tasks: [] }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify(readTaskSheet(taskSheet)))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -261,6 +536,25 @@ function doGet(e) {
   }
 }
 
+// ── 找第一個「指定欄位是空的」的列 ────────────────────────
+// 不能直接用 getLastRow()：表格下方常有公式或殘留格式，會把新資料寫到很下面，
+// 所以改用一個「一定會有值」的欄位（例如類別、項目名稱）來判斷哪裡才是真正的空行。
+// col 傳欄位字母（'A'／'C'…），startRow 是資料起始列（標題列的下一列）。
+function findFirstEmptyRow(sheet, col, startRow) {
+  var colIdx = 0;
+  var s = String(col).toUpperCase();
+  for (var i = 0; i < s.length; i++) {
+    colIdx = colIdx * 26 + (s.charCodeAt(i) - 64);
+  }
+  var last = sheet.getLastRow();
+  if (last < startRow) return startRow;
+  var values = sheet.getRange(startRow, colIdx, last - startRow + 1, 1).getValues();
+  for (var r = 0; r < values.length; r++) {
+    if (String(values[r][0]).trim() === '') return startRow + r;
+  }
+  return last + 1;
+}
+
 // ── doPost ───────────────────────────────────────────────
 function doPost(e) {
   try {
@@ -270,7 +564,7 @@ function doPost(e) {
     var ss      = SpreadsheetApp.getActiveSpreadsheet();
 
     function clearCache() {
-      CacheService.getScriptCache().remove('all_sheets_v1');
+      CacheService.getScriptCache().removeAll(['all_sheets_v1', 'mapdata_v1']);
     }
 
     // ── 新增／修改一般開銷 ────────────────────────────────
@@ -335,6 +629,71 @@ function doPost(e) {
       if (payload.svgGrid !== undefined) sheet.getRange(payload.rowIndex, 27).setValue(payload.svgGrid);
       clearCache();
       return ok('expense map data updated');
+    }
+
+    // ── 行前準備：打勾／取消勾 ────────────────────────────
+    // G猴(7) H花(8) I寧(9) J最後更新(10)
+    if (action === 'toggleTask') {
+      var sheet = ss.getSheetByName(SHEET_NAMES.task);
+      if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.task);
+      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      var mIdx = TASK_MEMBERS.indexOf(payload.who);
+      if (mIdx < 0) throw new Error('未知成員：' + payload.who);
+      var col = 7 + mIdx;
+      sheet.getRange(payload.rowIndex, col).setValue(payload.done === true);
+      sheet.getRange(payload.rowIndex, 10).setValue(new Date().toISOString());
+      clearCache();
+      return ok('task toggled');
+    }
+
+    // ── 行前準備：修改項目（名稱／分類／重要度／說明／負責人）──
+    // B分類 C項目名稱 D重要度 E說明 F負責人
+    if (action === 'editTask') {
+      var sheet = ss.getSheetByName(SHEET_NAMES.task);
+      if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.task);
+      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      if (payload.category !== undefined) sheet.getRange(payload.rowIndex, 2).setValue(payload.category);
+      if (payload.name     !== undefined) sheet.getRange(payload.rowIndex, 3).setValue(payload.name);
+      if (payload.priority !== undefined) sheet.getRange(payload.rowIndex, 4).setValue(payload.priority);
+      if (payload.note     !== undefined) sheet.getRange(payload.rowIndex, 5).setValue(payload.note);
+      if (payload.owner    !== undefined) sheet.getRange(payload.rowIndex, 6).setValue(payload.owner);
+      sheet.getRange(payload.rowIndex, 10).setValue(new Date().toISOString());
+      clearCache();
+      return ok('task updated');
+    }
+
+    // ── 行前準備：新增項目 ────────────────────────────────
+    if (action === 'addTask') {
+      var sheet = ss.getSheetByName(SHEET_NAMES.task);
+      if (!sheet) {
+        sheet = ss.insertSheet(SHEET_NAMES.task);
+        sheet.getRange(1, 1, 1, TASK_HEADER.length).setValues([TASK_HEADER]);
+        sheet.setFrozenRows(1);
+      }
+      var insertRow = findFirstEmptyRow(sheet, 'C', 2);   // C＝項目名稱
+      var newId = 're' + ('000' + (insertRow - 1)).slice(-3);
+      sheet.getRange(insertRow, 1, 1, TASK_HEADER.length).setValues([[
+        newId,
+        payload.category || '待辦',
+        payload.name     || '',
+        payload.priority || 3,
+        payload.note     || '',
+        payload.owner    || '',
+        false, false, false,
+        new Date().toISOString(),
+      ]]);
+      clearCache();
+      return ok({ msg: 'task added', id: newId, rowIndex: insertRow });
+    }
+
+    // ── 行前準備：刪除項目 ────────────────────────────────
+    if (action === 'deleteTask') {
+      var sheet = ss.getSheetByName(SHEET_NAMES.task);
+      if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.task);
+      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      sheet.deleteRow(payload.rowIndex);
+      clearCache();
+      return ok('task deleted');
     }
 
     // ── 消費留言（一般開銷 AB 欄存 JSON）──────────────────

@@ -295,13 +295,13 @@
     const cached = localStorage.getItem('wx_cache');
     if (cached) {
       try {
-        const { ts, data } = JSON.parse(cached);
+        const { ts, data, sun } = JSON.parse(cached);
         if (Date.now() - ts < WEATHER_TTL) {
           const w = decodeW(data.weathercode, data.is_day === 1);
           const temp = Math.round(data.temperature_2m);
           const wind = Math.round(data.windspeed_10m);
           const windDir = Math.round(data.winddirection_10m||270);
-          _weatherCache = { loc, w, temp, wind, windDir };
+          _weatherCache = { loc, w, temp, wind, windDir, sun: sun || {} };
           applyWeatherToDOM();
           setSky(w.type); startParticles(w.type, wind, windDir);
           updateClocks();
@@ -312,14 +312,18 @@
     }
 
     try{
-      const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weathercode,is_day,windspeed_10m,winddirection_10m&timezone=Atlantic%2FReykjavik`);
+      const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weathercode,is_day,windspeed_10m,winddirection_10m&daily=sunrise,sunset&forecast_days=1&timezone=Atlantic%2FReykjavik`);
       const data=await res.json();
-      localStorage.setItem('wx_cache', JSON.stringify({ ts: Date.now(), data: data.current }));
+      const sun = {
+        rise: data.daily?.sunrise?.[0]?.slice(-5) || '',
+        set:  data.daily?.sunset?.[0]?.slice(-5)  || '',
+      };
+      localStorage.setItem('wx_cache', JSON.stringify({ ts: Date.now(), data: data.current, sun }));
       const w=decodeW(data.current.weathercode,data.current.is_day===1);
       const temp=Math.round(data.current.temperature_2m);
       const wind=Math.round(data.current.windspeed_10m);
       const windDir=Math.round(data.current.winddirection_10m||270);
-      _weatherCache = { loc, w, temp, wind, windDir };
+      _weatherCache = { loc, w, temp, wind, windDir, sun };
       applyWeatherToDOM();
       setSky(w.type);startParticles(w.type, wind, windDir);
     }catch(e){
@@ -333,19 +337,39 @@
 
   function applyWeatherToDOM(){
     if(!_weatherCache) return;
-    const {loc, w, temp, wind} = _weatherCache;
+    const {loc, w, temp, wind, sun} = _weatherCache;
     const locEl  = document.getElementById('pxLoc');
     const wEl    = document.getElementById('pxWeather');
     const windEl = document.getElementById('pxWind');
     const boxEl  = document.getElementById('pxWeatherWind');
+    const sunEl  = document.getElementById('pxSun');
     if(locEl) locEl.textContent = '📍 '+loc.name;
     if(wEl)   wEl.textContent   = w.label+'  '+temp+'°C';
     if(windEl){
-      windEl.textContent      = '💨 '+wind+' m/s';
+      // 冰島開車警戒：15 m/s 起開門要小心，20 m/s 起不建議上路
+      const alert = wind >= 20 ? ' ⚠⚠' : wind >= 15 ? ' ⚠' : '';
+      windEl.textContent      = '💨 '+wind+' m/s'+alert;
       windEl.style.color      = windColor(wind);
       windEl.style.borderTopColor = windColor(wind);
+      windEl.title = wind >= 20 ? '暴風：不建議開車' : wind >= 15 ? '強風：開車門小心' : '';
     }
+    if(sunEl && sun?.set) sunEl.textContent = '☀ '+(sun.rise||'--:--')+'  🌙 '+sun.set;
     if(boxEl) boxEl.style.borderColor = '#ffcc00';
+    initGpsCoord();
+  }
+
+  // ── 目前座標（旅途中看自己在哪；拒絕定位就整行不顯示）
+  let _gpsInited = false;
+  function initGpsCoord(){
+    if(_gpsInited || !navigator.geolocation) return;
+    _gpsInited = true;
+    navigator.geolocation.getCurrentPosition(pos => {
+      const el = document.getElementById('pxGps');
+      if(el){
+        el.textContent = '🧭 '+pos.coords.latitude.toFixed(4)+', '+pos.coords.longitude.toFixed(4);
+        el.style.display = '';
+      }
+    }, () => {}, { enableHighAccuracy:false, timeout:8000, maximumAge:300000 });
   }
 
   // ── 對話框輪播
