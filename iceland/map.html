@@ -320,13 +320,11 @@ body{
   font-size:18px;line-height:1;text-align:center;
   filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));
 }
-/* 路線方向箭頭：CSS 三角形，旋轉角度由 bearing 算出（0deg＝朝北） */
-.route-arrow{
-  width:0;height:0;margin:2px 0 0 2px;
-  border-left:4px solid transparent;
-  border-right:4px solid transparent;
-  border-bottom:8px solid currentColor;
-  filter:drop-shadow(0 0 1px rgba(0,0,0,.5));
+/* 路線方向：小圓點放在每段 75% 處，靠近下一站那頭 */
+.route-dot{
+  width:6px;height:6px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.75);
+  box-shadow:0 0 1px rgba(0,0,0,.5);
 }
 .tag-stay{background:#1e3a4a;color:#80c0e0;border:1px solid #356a88;}
 .tag-expense{background:#1e4030;color:#8ad8a8;border:1px solid #357a52;}
@@ -1221,21 +1219,21 @@ function itemTs(it) {
 
 // 打卡時間序連線
 let trailLine = null;
-// 路線方向：每段中點放一個小箭頭，朝向下一個點
-// （不用 PolylineDecorator 外掛，離線時也要能顯示）
+// 路線方向：在每段靠近「終點」的位置放一個小圓點。
+// 不用三角箭頭是因為旋轉角度得自己算方位角，高緯度容易算歪，
+// 指錯方向比不指方向更糟；圓點靠哪一端本身就說明了去向。
 function makeArrows(pts, color) {
   const g = L.layerGroup();
   for (let i = 0; i < pts.length - 1; i++) {
     const [y1, x1] = pts[i], [y2, x2] = pts[i + 1];
-    // 經度差要乘上 cos(緯度) 才是實際距離比例，否則高緯度的箭頭會歪掉
-    const latRad = (y1 + y2) / 2 * Math.PI / 180;
-    const deg = Math.atan2((x2 - x1) * Math.cos(latRad), y2 - y1) * 180 / Math.PI;
-    g.addLayer(L.marker([(y1 + y2) / 2, (x1 + x2) / 2], {
+    // 取 75% 處：靠近下一站，一眼看得出是往那個方向走
+    const p = [y1 + (y2 - y1) * 0.75, x1 + (x2 - x1) * 0.75];
+    g.addLayer(L.marker(p, {
       interactive: false,
       icon: L.divIcon({
         className: '',
-        html: `<div class="route-arrow" style="transform:rotate(${deg}deg);border-bottom-color:${color};"></div>`,
-        iconSize: [12, 12], iconAnchor: [6, 6],
+        html: `<div class="route-dot" style="background:${color};"></div>`,
+        iconSize: [8, 8], iconAnchor: [4, 4],
       }),
     }));
   }
