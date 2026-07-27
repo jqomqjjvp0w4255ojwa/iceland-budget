@@ -498,7 +498,10 @@
     .sch-node.cat-其他 .sch-node-body{border-left-color:rgba(158,166,182,.45);}
     .sch-node.cat-補給 .sch-node-body{border-left-color:rgba(158,166,182,.45);}
     .sch-node.expandable .sch-node-body:active{background:var(--card);border-color:var(--muted);}
-    .sch-node-title{font-size:.8rem;color:var(--text);display:flex;align-items:center;gap:5px;}
+    /* flex-wrap 讓時長標籤/展開箭頭在空間不夠時掉到下一行，而不是把標題擠到
+       只剩一個字寬——中文沒有詞界，擠到那個地步瀏覽器就會逐字往下疊 */
+    .sch-node-title{font-size:.8rem;color:var(--text);display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+    .sch-title-text{min-width:6em;flex:1 1 auto;}
     .sch-node-place{font-size:.66rem;color:var(--muted);margin-top:2px;}
     .sch-node-note{font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.7;white-space:pre-wrap;}
     /* 說明比標題再淡一階，才不會兩行看起來一樣重 */
@@ -521,9 +524,10 @@
       border:2px solid var(--border);margin-top:9px;margin-left:2px;
     }
     .sch-node.plain.big .sch-node-dot.ring{border-color:rgba(78,195,121,.75);width:13px;height:13px;margin-left:1px;}
-    .sch-node-line{display:flex;align-items:baseline;gap:5px;min-width:0;}
+    .sch-node-line{display:flex;align-items:baseline;gap:5px;min-width:0;flex-wrap:wrap;}
     .sch-line-icon{font-size:.7rem;flex-shrink:0;}
-    .sch-line-title{font-size:.72rem;color:var(--muted);}
+    /* 同樣道理：給標題一個不能再縮的下限，時長標籤擠不下就換行，不要逐字疊 */
+    .sch-line-title{font-size:.72rem;color:var(--muted);min-width:6em;flex:1 1 auto;}
     /* 其他＝要做的事（退房、取車、集合），比補給重要，拉到中間層 */
     .sch-node.plain.cat-其他 .sch-line-title{font-size:.84rem;color:var(--text);opacity:.9;}
     .sch-node.plain.cat-其他 .sch-line-icon{font-size:.78rem;}
@@ -548,7 +552,7 @@
       background:repeating-linear-gradient(var(--border) 0 3px,transparent 3px 8px);}
     .sch-conn-body{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
     .sch-car{image-rendering:pixelated;display:block;flex-shrink:0;opacity:.85;}
-    .sch-conn-text{font-size:.66rem;color:var(--muted);}
+    .sch-conn-text{font-size:.66rem;color:var(--muted);min-width:6em;flex:1 1 auto;}
     .sch-conn-note{font-size:.6rem;color:var(--muted);opacity:.7;}
 
     /* 參考：掛在前一個節點下的附註，縮排、比景點小一號、不佔時間軸圓點 */
