@@ -34,10 +34,6 @@ window.TW_CONFIG = {
     { name: '寧', icon: '🐱', color: '#9b5de5', spriteKey: 'NING_FRAMES' },
   ],
 
-  // ── 帳簿（第二階段）：幣別與花銷類別
-  currencies: ['TWD'],
-  expenseCategories: ['餐飲', '交通', '住宿', '票券', '購物', '保險', '其他'],
-
 };
 
 // ── shorthand

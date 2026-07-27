@@ -1,7 +1,7 @@
 // 台灣版 service worker
 // ⚠ CACHE_NAME 與快取路徑都是 taiwan 專用，與 iceland 版完全分開，
 //   兩個 PWA 同時安裝也不會互相打架。
-const CACHE_NAME = 'taiwan-diary-v2.2'
+const CACHE_NAME = 'taiwan-diary-v3.0'
 
 const ASSETS = [
   '/iceland-budget/taiwan/',
