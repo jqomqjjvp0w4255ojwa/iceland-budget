@@ -963,15 +963,27 @@ function schedParseDate(s, year) {
 let SCHED_RAW = [];
 let _dayAutoDone = false;   // 只在第一次載入時自動跳到今天
 
+// 日程離線快取：地圖最需要行程圖層的場景就是荒野沒訊號的時候，
+// 所以先用上次存的立刻畫，抓到新的再覆蓋（跟主頁 localStorage 快取同一套思路）
+const SCHED_CACHE_KEY = 'cached_iceland_schedule';
+
 async function loadSchedule() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(SCHED_CACHE_KEY) || 'null');
+    if (Array.isArray(cached) && cached.length) { SCHED_RAW = cached; buildSched(); }
+  } catch(e) { /* 快取壞了就當沒有 */ }
+
   const gasBase = TRIP_CONFIG.apiBase || '';
   if (!gasBase) return;
   try {
     const res = await fetch(gasBase + '?sheet=schedule&_=' + Date.now(), { cache:'no-store' });
     const data = await res.json();
-    SCHED_RAW = Array.isArray(data.schedule) ? data.schedule : [];
+    const rows = Array.isArray(data.schedule) ? data.schedule : [];
+    if (!rows.length) return;   // 伺服器回空的不覆蓋快取，離線資料比沒有好
+    SCHED_RAW = rows;
+    try { localStorage.setItem(SCHED_CACHE_KEY, JSON.stringify(rows)); } catch(e) {}
     buildSched();
-  } catch(e) { console.warn('日程資料載入失敗', e); }
+  } catch(e) { console.warn('日程載入失敗，使用快取資料', e); }
 }
 
 // 住宿座標要等住宿表載入才補得齊，所以兩邊載完都呼叫這裡重建一次
@@ -2427,20 +2439,34 @@ async function loadExpenses() {
 }
 
 // 地圖初次載入：一次拿齊打卡＋消費＋住宿（GAS 冷啟動只等一次）
+// 打卡／消費／住宿也一樣先吃快取再更新：沒訊號時打開地圖，
+// 至少看得到上次同步的足跡，而不是一張空地圖
+const MAPDATA_CACHE_KEY = 'cached_iceland_mapdata';
+
+function applyMapData(data) {
+  if (Array.isArray(data.checkins)) applyCheckins(data.checkins);
+  if (Array.isArray(data.expenses)) applyExpenses(data.expenses);
+  if (Array.isArray(data.stays)) {
+    STAYS = data.stays.map((st, i) => ({ id:'s'+i, ...st }));
+    renderStayLine();
+    buildSched();          // 住宿座標到齊，重建日程把住宿站補回路線
+  }
+  renderMarkers();
+}
+
 async function loadMapData() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(MAPDATA_CACHE_KEY) || 'null');
+    if (cached) applyMapData(cached);
+  } catch(e) { /* 快取壞了就當沒有 */ }
+
   const gasBase = TRIP_CONFIG.apiBase || '';
   if (!gasBase) return;
   try {
     const res = await fetch(gasBase + '?sheet=mapdata', { cache:'no-store' });
     const data = await res.json();
-    if (Array.isArray(data.checkins)) applyCheckins(data.checkins);
-    if (Array.isArray(data.expenses)) applyExpenses(data.expenses);
-    if (Array.isArray(data.stays)) {
-      STAYS = data.stays.map((st, i) => ({ id:'s'+i, ...st }));
-      renderStayLine();
-      buildSched();          // 住宿座標到齊，重建日程把住宿站補回路線
-    }
-    renderMarkers();
+    applyMapData(data);
+    try { localStorage.setItem(MAPDATA_CACHE_KEY, JSON.stringify(data)); } catch(e) {}
   } catch(e) {
     console.warn('地圖資料載入失敗，改逐項載入', e);
     loadCheckins(); loadExpenses(); loadStays();
