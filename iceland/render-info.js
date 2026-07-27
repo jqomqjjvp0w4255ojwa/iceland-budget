@@ -1270,12 +1270,22 @@ function renderSchNode(x, d, sameTime) {
   const pt = isStay ? placeTypeIcon(stay?.stayType || x.title || '') : null;
   const icon = x._flight ? '✈️' : isStay ? pt.icon : (SCH_ICONS[x.category] || '•');
 
-  const navBtn = (x.lat && x.lng)
-    ? `<button class="sch-nav" title="看位置" onclick="openSchMapPreview(${x.lat},${x.lng},'${esc(String(x.title||'').replace(/'/g,''))}');event.stopPropagation();">◎ 位置</button>`
-    + `<button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤ 導航</button>`
+  // 詳情卡（住宿／活動）用的橫排按鈕組：空間夠，是主要動作
+  const navBtnRow = (x.lat && x.lng)
+    ? `<div class="sch-node-actions">
+        <button class="sch-nav" title="看位置" onclick="openSchMapPreview(${x.lat},${x.lng},'${esc(String(x.title||'').replace(/'/g,''))}');event.stopPropagation();">◎ 位置</button>
+        <button class="sch-nav" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤ 導航</button>
+      </div>`
+    : '';
+  // 列表項（景點等一行字節點）用的直排小按鈕：空間窄，貼右側，是次要動作
+  const navBtnCol = (x.lat && x.lng)
+    ? `<div class="sch-node-actions-col">
+        <button class="sch-nav-icon" title="看位置" onclick="openSchMapPreview(${x.lat},${x.lng},'${esc(String(x.title||'').replace(/'/g,''))}');event.stopPropagation();">◎</button>
+        <button class="sch-nav-icon" title="導航" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank');event.stopPropagation();">➤</button>
+      </div>`
     : '';
 
-  // 住宿：一眼標籤列（詳情進彈窗）
+  // 住宿：一眼標籤列（詳情進彈窗）——按鈕不混進來，跟其他標籤搶位置會擠散
   let stayTags = '';
   if (stay) {
     let payTag;
@@ -1288,7 +1298,6 @@ function renderSchNode(x, d, sameTime) {
         <span class="tag tag-person">${esc(pt.label)}</span>
         ${payTag}
         ${stay.payer ? `<span class="sch-payer" title="付款人 ${esc(stay.payer)}">${avatarSvg(stay.payer)}</span>` : ''}
-        ${navBtn}
       </div>`;
   }
 
@@ -1318,11 +1327,12 @@ function renderSchNode(x, d, sameTime) {
         ${time}
         <div class="sch-node-body">
           <div class="sch-plain-text"${infoAttr}>
-            <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span>${dwell}${
-              x.place ? `<span class="sch-line-place">· ${esc(x.place)}</span>` : ''}</div>
+            <div class="sch-node-line"><span class="sch-line-icon">${icon}</span><span class="sch-line-title">${esc(x.title)}</span></div>
+            ${(dwell || x.place) ? `<div class="sch-line-meta">${dwell}${
+              x.place ? `<span class="sch-line-place">${esc(x.place)}</span>` : ''}</div>` : ''}
             ${x.note ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
           </div>
-          ${navBtn}
+          ${navBtnCol}
         </div>
       </div>`;
   }
@@ -1336,7 +1346,7 @@ function renderSchNode(x, d, sameTime) {
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
         ${stayTags}
-        ${!stay && navBtn ? `<div class="sch-node-actions">${navBtn}</div>` : ''}
+        ${navBtnRow}
       </div>
     </div>`;
 }

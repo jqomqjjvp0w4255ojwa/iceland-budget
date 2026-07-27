@@ -507,35 +507,50 @@
     /* 說明比標題再淡一階，才不會兩行看起來一樣重 */
     .sch-node.plain .sch-node-note{font-size:.63rem;opacity:.72;margin-top:1px;line-height:1.5;}
     .sch-expand{font-size:.8rem;color:var(--muted);margin-left:auto;padding-left:6px;}
+    /* 詳情卡（住宿／活動）：位置＋導航橫排，空間夠、是主要動作 */
     .sch-nav{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.62rem;font-family:'Lato',sans-serif;}
     .sch-nav:active{background:rgba(79,195,247,.12);}
-    .sch-node-actions{display:flex;margin-top:6px;}
+    .sch-node-actions{display:flex;gap:8px;margin-top:6px;}
+
+    /* 列表項（景點等一行字節點）：位置／導航縮成小圓鈕，直排貼右側——
+       空間窄、是次要動作，不搶標題的閱讀空間 */
+    .sch-node-actions-col{display:flex;flex-direction:column;gap:4px;flex-shrink:0;}
+    .sch-nav-icon{
+      width:22px;height:22px;flex-shrink:0;
+      background:none;border:1px solid var(--border);color:var(--accent2);
+      border-radius:50%;cursor:pointer;font-size:.68rem;line-height:1;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .sch-nav-icon:active{background:rgba(79,195,247,.12);}
 
     /* 點不開的節點：不做卡片，一行字＋空心圓點 */
-    /* 文字自成一群靠左，導航鈕靠右對齊，不要卡在文字下面變成散落的碎片 */
     .sch-node.plain .sch-node-body{
       background:transparent;border:none;border-left:none;
       padding:6px 0 6px 4px;
-      display:flex;align-items:center;gap:10px;
+      display:flex;align-items:flex-start;gap:10px;
     }
     .sch-plain-text{flex:1;min-width:0;}
     .sch-node-dot.ring{
       width:11px;height:11px;background:var(--card);
-      border:2px solid var(--border);margin-top:9px;margin-left:2px;
+      border:2px solid var(--border);margin-top:9px;margin-left:2px;flex-shrink:0;
     }
     .sch-node.plain.big .sch-node-dot.ring{border-color:rgba(78,195,121,.75);width:13px;height:13px;margin-left:1px;}
-    .sch-node-line{display:flex;align-items:baseline;gap:5px;min-width:0;flex-wrap:wrap;}
-    .sch-line-icon{font-size:.7rem;flex-shrink:0;}
-    /* 同樣道理：給標題一個不能再縮的下限，時長標籤擠不下就換行，不要逐字疊 */
-    .sch-line-title{font-size:.72rem;color:var(--muted);min-width:6em;flex:1 1 auto;}
+    /* 圖示＋標題永遠同一行：只有這兩個項目，不會被別的東西擠到換行 */
+    .sch-node-line{display:flex;align-items:flex-start;gap:5px;min-width:0;}
+    .sch-line-icon{font-size:.7rem;flex-shrink:0;line-height:1.5;}
+    .sch-line-title{font-size:.72rem;color:var(--muted);flex:1;min-width:0;line-height:1.5;}
     /* 其他＝要做的事（退房、取車、集合），比補給重要，拉到中間層 */
     .sch-node.plain.cat-其他 .sch-line-title{font-size:.84rem;color:var(--text);opacity:.9;}
     .sch-node.plain.cat-其他 .sch-line-icon{font-size:.78rem;}
+    /* 次要資訊固定在第二行，跟標題對齊縮排（不擠在標題那行搶位置） */
+    .sch-line-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+      margin:2px 0 0 calc(.7rem + 5px);}
     .sch-line-place{font-size:.63rem;color:var(--muted);opacity:.75;min-width:0;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     /* 景點：整條時間軸上最大的字 */
     .sch-node.plain.big .sch-line-title{font-size:.95rem;color:var(--text);font-weight:600;letter-spacing:.02em;}
     .sch-node.plain.big .sch-line-icon{font-size:.85rem;}
+    .sch-node.plain.big .sch-line-meta{margin-left:calc(.85rem + 5px);}
     .sch-node.plain.big .sch-node-body{padding-top:4px;}
 
     /* 交通：兩個節點之間的虛線區間，時長在軸左、方向在軸右 */
