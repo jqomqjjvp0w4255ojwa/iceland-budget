@@ -320,6 +320,15 @@ body{
   font-size:18px;line-height:1;text-align:center;
   filter:drop-shadow(1px 1px 0 rgba(0,0,0,0.4));
 }
+/* 預覽模式：只留地圖本身，其餘操作介面全部收起來 */
+body.preview .topbar,
+body.preview .card-drawer,
+body.preview .map-fab,
+body.preview .day-bar,
+body.preview .time-bar,
+body.preview .layers-menu{display:none !important;}
+body.preview #map{top:0 !important;height:100% !important;}
+
 /* 路線方向：小圓點放在每段 75% 處，靠近下一站那頭 */
 .route-dot{
   width:6px;height:6px;border-radius:50%;
@@ -1371,10 +1380,22 @@ function buildSchedPopup(x) {
     ${x.place ? `<div class="popup-note">📍 ${esc(x.place)}</div>` : ''}
     ${x.note ? `<div class="popup-note">${esc(x.note)}</div>` : ''}
     <div class="popup-actions">
+      ${(x.category === '住宿' || x.category === '活動')
+        ? `<button class="popup-action-btn" onclick="openSchedCard('${esc(x.category)}','${esc(x.title)}','${esc(x.dayKey)}')">📋 詳細</button>` : ''}
       <button class="popup-action-btn" onclick="window.open('https://maps.google.com/?q=${x.lat},${x.lng}','_blank')">➤ 導航</button>
       ${/^https?:\/\//i.test(x.url) ? `<button class="popup-action-btn" onclick="window.open('${esc(x.url)}','_blank')">🔗 詳情</button>` : ''}
     </div>
   </div>`;
+}
+
+// 地圖在 iframe 裡，開住宿／活動卡要請外層主頁面處理（那裡才有完整資料與彈窗）
+function openSchedCard(category, title, dayKey) {
+  if (window.parent === window) return;   // 單獨開啟 map.html 時沒有外層可呼叫
+  window.parent.postMessage({
+    source: 'iceland-map',
+    action: category === '住宿' ? 'openStay' : 'openAct',
+    title, dayKey,
+  }, '*');
 }
 
 function itemImgHtml(item) {
@@ -2295,11 +2316,28 @@ async function loadMapData() {
 // ══════════════════════════════════════════
 //  初始化
 // ══════════════════════════════════════════
+// ── 預覽模式：?preview=1&lat=..&lng=..&title=..
+// 行程頁點「看位置」時用 iframe 嵌這支，只看位置，不要整套操作介面
+(function initPreview() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('preview') !== '1') return;
+  document.body.classList.add('preview');
+  const lat = parseFloat(q.get('lat')), lng = parseFloat(q.get('lng'));
+  if (isNaN(lat) || isNaN(lng)) return;
+  map.setView([lat, lng], 12);
+  L.marker([lat, lng], {
+    icon: L.divIcon({ html:`<div class="sched-pin"></div>`, className:'',
+                      iconSize:[15,15], iconAnchor:[7.5,7.5] }),
+  }).addTo(map);
+})();
+
 buildTopbarMembers();
 buildTabs();
 renderMarkers();
-loadMapData();
-loadSchedule();
+if (!document.body.classList.contains('preview')) {
+  loadMapData();
+  loadSchedule();
+}
 // 修正容器尺寸計算延遲導致 tile 不載入
 setTimeout(() => map.invalidateSize(), 200);
 </script>
