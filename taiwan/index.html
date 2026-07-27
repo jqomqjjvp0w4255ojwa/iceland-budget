@@ -213,8 +213,8 @@ body{
 .diary-info{flex:1;min-width:0;}
 .diary-name{font-size:10px;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .diary-meta{display:flex;gap:6px;align-items:center;margin-bottom:4px;flex-wrap:wrap;}
-.diary-tag{font-size:8px;padding:2px 6px;border-radius:3px;font-family:var(--px);white-space:nowrap;}
-.tag-checkin{background:#ffe2e2;color:#d84848;border:1px solid #f8b0b0;}
+.diary-tag{font-size:7px;padding:1.5px 5px;border-radius:3px;font-family:var(--px);white-space:nowrap;}
+.tag-checkin{background:#f0ead9;color:#8a7048;border:1px solid var(--border);}
 .tag-wish{background:#ffe9f3;color:#e0407e;border:1px solid #f8b8d2;}
 .tag-trip{background:#e2f4e6;color:#3a8a4a;border:1px solid #a8dcb4;}
 .diary-date{font-size:8px;color:var(--muted);}
@@ -1282,7 +1282,7 @@ function buildTabs() {
 function setTab(key) {
   currentTab = key;
   buildTabs();
-  renderCards();
+  renderMarkers();
   if (!drawerOpen && !isDesktop()) toggleDrawer();
 }
 
