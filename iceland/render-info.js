@@ -1194,6 +1194,13 @@ function updateSchFoldAllBtn() {
 }
 
 // sameTime＝跟上一個節點同一個時間（例如整批市區漫遊），時間就不重複印
+// 車程區間後面的小 RAV4（沿用像素圖場景那台，sprites.js 的 CAR_FRAME）
+function schCarSvg() {
+  const frame = window.CAR_FRAME;
+  if (!frame) return '';
+  return `<svg class="sch-car" width="26" height="16" viewBox="0 0 32 20" aria-hidden="true">${frame}</svg>`;
+}
+
 // 點項目看詳情：只有明確填了網址才給連結，不猜、不自動搜尋——
 // 座標已經有專屬的「導航」按鈕負責，這裡不重複做同一件事。
 function schInfoUrl(x) {
@@ -1213,7 +1220,7 @@ function renderSchNode(x, d, sameTime) {
         <div class="sch-conn-dot"><span class="sch-conn-line"></span></div>
         <div class="sch-node-time"></div>
         <div class="sch-conn-body">
-          ${dur ? `<span class="sch-conn-dur">${esc(dur)}</span>` : ''}
+          ${dur ? `<span class="sch-conn-dur">${esc(dur)}</span>${schCarSvg()}` : ''}
           ${main ? `<span class="sch-conn-text">${esc(main)}</span>` : ''}
           ${sub ? `<span class="sch-conn-note">${esc(sub)}</span>` : ''}
         </div>
