@@ -1332,7 +1332,7 @@ function renderSchNode(x, d, sameTime) {
       <div class="sch-node-dot">${icon}</div>
       ${time}
       <div class="sch-node-body">
-        <div class="sch-node-title">${esc(x.title)}${dwell}<span class="sch-expand">›</span></div>
+        <div class="sch-node-title"><span class="sch-title-text">${esc(x.title)}</span>${dwell}<span class="sch-expand">›</span></div>
         ${x.place ? `<div class="sch-node-place">📍 ${esc(x.place)}</div>` : ''}
         ${x.note  ? `<div class="sch-node-note">${esc(x.note)}</div>` : ''}
         ${stayTags}
