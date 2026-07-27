@@ -1008,6 +1008,21 @@ function buildSched() {
     dayOrder.forEach((x, i) => { x.dayNum = i - base + 1; });
     const dayMap = Object.fromEntries(dayOrder.map(x => [x.key, x]));
 
+    // 沒填時間的節點沿用「前一個有填時間的節點」的時間，跟行程頁
+    // buildScheduleDays() 同一套規則。要用「全部列」（含沒座標的交通列）
+    // 才能算對，晚一步等座標篩完再算的話，會漏掉時間線索。
+    Object.values(dayMap).forEach(day => day._rows = []);
+    rows.forEach(r => { if (dayMap[r.date]) dayMap[r.date]._rows.push(r); });
+    Object.values(dayMap).forEach(day => {
+      const seq = [...day._rows].sort((a, b) => (a.order || 0) - (b.order || 0));
+      let carried = 0;
+      seq.forEach(r => {
+        const t = schedTimeMin(r.time);
+        if (t < 100000) carried = t;
+        r._sortT = carried;
+      });
+    });
+
     // 住宿列常常沒填座標（座標在住宿表裡），先用名稱去住宿表補上，
     // 否則它會被當成沒座標而排除，當天路線就會在住宿這一站斷掉
     rows.forEach(r => {
@@ -1033,7 +1048,7 @@ function buildSched() {
           name: r.title, title: r.title, note: r.note || '', place: r.place || '',
           lat: r.lat, lng: r.lng, stayTime: r.stay || '', url: r.url || '',
           date: r.date, time: r.time || '',
-          order: r.order || i,
+          order: r.order || i, _sortT: r._sortT ?? 0,
         };
       });
 
@@ -1333,9 +1348,10 @@ function schedTimeMin(t) {
   if (/晚/.test(s))      return 19 * 60;
   return 100000;
 }
+// 排序改用 buildSched() 裡算好的 _sortT（沒填時間的節點沿用前一個有填
+// 時間節點的時間，不會被誤判成「當天最晚」），跟行程頁同一套規則
 function schedSeq(a, b) {
-  const ta = schedTimeMin(a.time), tb = schedTimeMin(b.time);
-  return ta !== tb ? ta - tb : (a.order || 0) - (b.order || 0);
+  return (a._sortT - b._sortT) || ((a.order || 0) - (b.order || 0));
 }
 
 // 路線方向：每段拆成兩截，前段淡、後段濃，中間放一個圓點當分界。
