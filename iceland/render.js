@@ -403,11 +403,12 @@ function renderAll(){
 
       <!-- 其他分頁（待開發） -->
       <div id="mainSection-info" style="display:none"><div id="infoContent"></div></div>
-      <div id="mainSection-map" style="display:none;padding:0;margin:0;">
+      <!-- 負 margin 把左右 16px、底部 80px 的容器留白吃掉，地圖才能貼滿到邊緣 -->
+      <div id="mainSection-map" style="display:none;padding:0;margin:0 -16px -80px;width:calc(100% + 32px);">
         <iframe
           id="mapFrame"
           src="map.html"
-          style="width:100%;height:calc(100vh - 120px);border:none;display:block;"
+          style="width:100%;height:70vh;border:none;display:block;"
           loading="lazy"
         ></iframe>
       </div>
@@ -447,6 +448,7 @@ function showTab(id,btn){
 
 function switchMainTab(key, btn){
   window._activeMainTab = key;
+  if (key === 'map') resizeMapFrame();
   if (key === 'info') {
     setTimeout(() => {
       const el = document.getElementById('infoContent');
@@ -478,6 +480,20 @@ function switchMainTab(key, btn){
     b.style.marginBottom      = isActive ? '-1px' : '0';
   });
 }
+
+// 地圖鐵框過去卡在 calc(100vh - 120px) 這種猜出來的固定值，header 一改高度
+// 或手機瀏覽器網址列伸縮就會跟畫面對不上，留一截空白。改成量實際剩餘高度。
+function resizeMapFrame() {
+  requestAnimationFrame(() => {
+    const frame = document.getElementById('mapFrame');
+    if (!frame) return;
+    const top = frame.getBoundingClientRect().top;
+    frame.style.height = Math.max(300, window.innerHeight - top) + 'px';
+  });
+}
+window.addEventListener('resize', () => {
+  if (window._activeMainTab === 'map') resizeMapFrame();
+});
 
 // ── 同步邏輯
 async function syncFromCloud(){
