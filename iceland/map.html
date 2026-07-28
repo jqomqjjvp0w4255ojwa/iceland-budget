@@ -658,11 +658,14 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card{touch-act
   border-bottom:none;
   box-shadow:0 -6px 20px rgba(0,0,0,0.5);
   transition:height .25s ease;
-  /* pill 與標題固定在頂部，只有內容捲動 */
-  display:flex;flex-direction:column;overflow:hidden;
+  /* pill 與標題固定在頂部，只有內容捲動。overflow 不能設 hidden——
+     顏色選擇器、算盤、標籤下拉這些浮出來的選單會被連帶裁斷邊緣。
+     圓角改由 header 自己扛，不靠外層 clip 也能看起來是圓角。 */
+  display:flex;flex-direction:column;overflow:visible;
 }
 #checkinModal .modal-box.tall{height:92vh;}
-#checkinModal .modal-header{flex-shrink:0;position:static;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;}
+#checkinModal .modal-header{flex-shrink:0;position:static;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
+  border-radius:10px 10px 0 0;}
 #checkinModal .modal-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
 .sheet-pill{
   height:18px;display:flex;align-items:center;justify-content:center;

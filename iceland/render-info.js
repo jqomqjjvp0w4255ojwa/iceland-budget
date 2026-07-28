@@ -1013,7 +1013,6 @@ function renderSchedule(d) {
     <div class="sch-filters">
       ${SCH_CATS.map(c => `<button class="sch-filter${_schFilter===c.key?' on':''}"
         onclick="setSchFilter('${c.key}')">${c.label}</button>`).join('')}
-      <button class="sch-filter sch-foldall" id="schFoldAll" onclick="toggleSchFoldAll()">全部收合</button>
     </div>`;
 
   // 有內容的日子之間若隔了空白天，插一段「空 N 天」的虛線軸
@@ -1140,8 +1139,6 @@ function schDaySummary(items) {
 }
 
 // 收合狀態：記日期 key，重繪後仍保留
-const _schFolded = new Set();
-
 function renderSchDay(day, today, d, dayNum) {
   const isToday = schIsSameDay(day.d, today);
   const isPast  = !isToday && day.d < today;
@@ -1150,17 +1147,14 @@ function renderSchDay(day, today, d, dayNum) {
     : (x.category === _schFilter || x._parentCat === _schFilter));
   if (!shown.length || shown.every(x => x.category === '交通' || x.category === '參考')) return '';
 
-  const folded = _schFolded.has(day.key);
-
   return `
-    <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}${folded ? ' folded' : ''}" data-key="${esc(day.key)}">
-      <div class="sch-day-head" onclick="toggleSchDay('${esc(day.key)}')">
+    <div class="sch-day${isPast ? ' past' : ''}${isToday ? ' today' : ''}" data-key="${esc(day.key)}">
+      <div class="sch-day-head">
         <span class="sch-day-line"></span>
         <div class="sch-day-badge">
           <div class="sch-day-title">
             <span class="sch-day-num">第 ${dayNum} 天</span>
             ${isToday ? '<span class="sch-today-tag">今天</span>' : ''}
-            <span class="sch-fold-btn" title="${folded ? '展開' : '收合'}">${folded ? '＋' : '－'}</span>
           </div>
           <div class="sch-day-sub">${esc(day.key)}（${schWeekday(day.d)}）</div>
         </div>
@@ -1171,40 +1165,6 @@ function renderSchDay(day, today, d, dayNum) {
         ${shown.map((x, i) => renderSchNode(x, d, i > 0 && x.time && x.time === shown[i - 1].time)).join('')}
       </div>
     </div>`;
-}
-
-window.toggleSchDay = function(key) {
-  const el = document.querySelector(`.sch-day[data-key="${key}"]`);
-  if (!el) return;
-  const folded = !_schFolded.has(key);
-  if (folded) _schFolded.add(key); else _schFolded.delete(key);
-  el.classList.toggle('folded', folded);
-  const btn = el.querySelector('.sch-fold-btn');
-  if (btn) { btn.textContent = folded ? '＋' : '－'; btn.title = folded ? '展開' : '收合'; }
-  updateSchFoldAllBtn();
-};
-
-// 全部收合／展開：只操作目前畫面上有的日子
-window.toggleSchFoldAll = function() {
-  const days = [...document.querySelectorAll('#schScroll .sch-day')];
-  if (!days.length) return;
-  const expandAll = days.some(el => _schFolded.has(el.dataset.key));  // 有收合的就全展開
-  days.forEach(el => {
-    const key = el.dataset.key;
-    if (expandAll) _schFolded.delete(key); else _schFolded.add(key);
-    el.classList.toggle('folded', !expandAll);
-    const btn = el.querySelector('.sch-fold-btn');
-    if (btn) { btn.textContent = expandAll ? '－' : '＋'; btn.title = expandAll ? '收合' : '展開'; }
-  });
-  updateSchFoldAllBtn();
-};
-
-function updateSchFoldAllBtn() {
-  const btn = document.getElementById('schFoldAll');
-  if (!btn) return;
-  const days = [...document.querySelectorAll('#schScroll .sch-day')];
-  const anyFolded = days.some(el => _schFolded.has(el.dataset.key));
-  btn.textContent = anyFolded ? '全部展開' : '全部收合';
 }
 
 // sameTime＝跟上一個節點同一個時間（例如整批市區漫遊），時間就不重複印
@@ -1558,8 +1518,6 @@ window.schJumpTo = function(key) {
   refreshSchJumper();
   const target = document.querySelector(`.sch-day[data-key="${key}"]`);
   if (!target) return;
-  // 跳過去的那天如果是收合的，順手展開——不然點了等於什麼都沒發生
-  if (_schFolded.has(key)) toggleSchDay(key);
   // 扣掉跳轉列黏頂的高度，不然目標日期的標題會被蓋住
   const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
   window.scrollTo({ top: schRelTop(target) - jumperH - 6, behavior: 'smooth' });
@@ -1624,7 +1582,6 @@ function schBindScroll() {
   window.addEventListener('scroll', update, { passive:true });
   update();
   centerSchJumper();
-  updateSchFoldAllBtn();
   // 一進來就對準今日
   if (todayEl) {
     const jumperH = document.getElementById('schJumper')?.offsetHeight || 0;
