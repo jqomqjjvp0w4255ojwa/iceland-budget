@@ -10,12 +10,12 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@300;400&display=swap">
   <style>
     :root{
-      --space:#faf8f2;        /* 純淨的底 */
-      --ink:#3a4656;          /* 線 */
-      --faint:#aab4bf;        /* 更淡的線 */
-      --sea:#bcd8e6;          /* 面：出國 */
-      --moss:#d3d6ab;         /* 面：手札 */
-      --spark:#e0a33c;        /* 唯一的暖點：下一趟 */
+      --space:#f7f1e6;        /* 純淨的底 */
+      --ink:#5b4a38;          /* 線 */
+      --faint:#b9ab94;        /* 更淡的線 */
+      --sea:#d9b9a0;          /* 面：出國 */
+      --moss:#cdc5a2;         /* 面：手札 */
+      --spark:#c97b3d;        /* 唯一的暖點：下一趟 */
     }
     *{box-sizing:border-box;}
     body{
@@ -85,10 +85,10 @@
     #tour:hover{transform:rotate(-1deg) translateY(-8px);}
     /* 面的邊不畫框，只在兩側各補一條「沒對齊的線」 */
     #tour::before{
-      content:''; position:absolute; left:-7px; top:10px; bottom:-8px; width:1.5px; background:var(--ink); opacity:.6;
+      content:''; position:absolute; left:-7px; top:10px; bottom:-8px; width:1.5px; background:var(--ink); opacity:.6; transform:rotate(.9deg);
     }
     #tour::after{
-      content:''; position:absolute; right:12px; top:-9px; width:56%; height:1.5px; background:var(--ink); opacity:.6;
+      content:''; position:absolute; right:12px; top:-9px; width:56%; height:1.5px; background:var(--ink); opacity:.6; transform:rotate(-.7deg);
     }
 
     #notes{
@@ -99,7 +99,7 @@
     #notes:hover{transform:rotate(.6deg) translateY(-8px);}
     #notes .name{font-size:17px;}
     #notes::before{
-      content:''; position:absolute; right:-7px; top:-8px; bottom:12px; width:1.5px; background:var(--ink); opacity:.6;
+      content:''; position:absolute; right:-7px; top:-8px; bottom:12px; width:1.5px; background:var(--ink); opacity:.6; transform:rotate(-1deg);
     }
 
     /* ── 最近：右下三行極輕的字 ── */
@@ -136,13 +136,17 @@
 
 <!-- 線：從左下的家，穿過去過的點，飄向右上還沒去的地方 -->
 <svg class="journey" width="1240" height="840" viewBox="0 0 1240 840">
-  <path d="M 210 636 C 330 560, 400 610, 470 556 S 610 420, 700 388"
-        fill="none" stroke="#3a4656" stroke-width="1.6" stroke-linecap="round"/>
-  <path d="M 700 388 C 760 366, 790 320, 812 268"
-        fill="none" stroke="#3a4656" stroke-width="1.6" stroke-linecap="round"
+  <path d="M 210 636 C 252 608, 288 576, 330 562 C 356 554, 372 588, 400 596
+           C 428 604, 448 578, 470 556 C 502 524, 518 476, 556 448
+           C 588 424, 626 412, 662 400 C 676 396, 688 392, 700 388"
+        fill="none" stroke="#5b4a38" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M 700 388 C 726 378, 748 372, 764 352 C 782 330, 792 302, 800 288
+           C 806 278, 809 273, 812 268"
+        fill="none" stroke="#5b4a38" stroke-width="1.6" stroke-linecap="round"
         stroke-dasharray="1 9"/>
-  <path d="M 210 636 C 260 700, 350 712, 428 690"
-        fill="none" stroke="#aab4bf" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 210 636 C 232 668, 252 692, 288 702 C 326 712, 366 708, 396 700
+           C 408 697, 419 693, 428 690"
+        fill="none" stroke="#b9ab94" stroke-width="1.2" stroke-linecap="round"/>
 </svg>
 
 <span class="pt hollow" style="left:210px; top:636px;">
