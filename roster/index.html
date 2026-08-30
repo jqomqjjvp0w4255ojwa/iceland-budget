@@ -37,13 +37,48 @@ body{
   margin-top:30px;
 }
 
-/* 選格：自動換行的 n×n，沒有畫框，選中的人用四個角標記（像遊標）*/
+/* 選格：自己一個容器，n×n 排列，滿了就翻頁 */
 .side{order:2; flex-shrink:0; width:clamp(258px,34vw,430px);}
+.selbox{
+  position:relative; padding:14px 12px 10px;
+  background-image:radial-gradient(circle, var(--dotB) 1.2px, transparent 1.4px);
+  background-size:8px 8px;
+}
+.selbox .inner{background:var(--space); padding:14px 12px 12px; box-shadow:2px 3px 0 rgba(0,0,0,.06);}
+.selbox .cap{
+  font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.22em;
+  color:var(--faint); display:flex; align-items:baseline; gap:8px; margin-bottom:12px;
+}
+.selbox .cap b{font-weight:400; color:var(--ink); font-size:8px;}
 .cast{
   display:grid; grid-template-columns:repeat(auto-fill, minmax(78px, 1fr));
   gap:clamp(12px,1.6vw,20px) clamp(6px,1vw,12px);
-  align-items:end;
+  align-items:end; align-content:start;
+  min-height:296px;                      /* 頁與頁之間不要跳動 */
 }
+
+/* 翻頁 */
+.pager{
+  display:flex; align-items:center; justify-content:flex-end; gap:10px;
+  margin-top:14px; padding-top:12px; border-top:1px solid var(--faint);
+}
+.pager button{
+  width:26px; height:26px; border-radius:50%; padding:0; cursor:pointer;
+  border:1.5px solid var(--faint); background:none; color:var(--ink);
+  font-size:12px; line-height:1; display:grid; place-items:center;
+}
+.pager button:hover:not(:disabled){border-color:var(--ink);}
+.pager button:disabled{opacity:.32; cursor:default;}
+.pager .no{
+  font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.16em;
+  color:var(--faint); font-variant-numeric:tabular-nums; min-width:44px; text-align:center;
+}
+.pager .dots{display:flex; gap:5px; margin-right:auto;}
+.pager .dots i{
+  width:5px; height:5px; border-radius:50%; background:none;
+  border:1px solid var(--faint); cursor:pointer;
+}
+.pager .dots i.on{background:var(--spark); border-color:var(--spark);}
 .actor{
   position:relative; background:none; border:none; cursor:pointer; padding:10px 2px 6px;
   display:flex; flex-direction:column; align-items:center; gap:7px;
@@ -218,8 +253,13 @@ button.ln.ghost{border:none; color:var(--faint);}
       <div id="cardBody"></div>
     </div>
     <div class="side">
-      <div class="cast" id="cast"></div>
-      <div class="count" id="count"></div>
+      <div class="selbox">
+        <div class="inner">
+          <div class="cap">SELECT <b id="count"></b></div>
+          <div class="cast" id="cast"></div>
+          <div class="pager" id="pager"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -266,10 +306,24 @@ let padSprite = null;      // 編輯中暫存的自畫像素圖
 const CURSOR = `<svg class="cur" viewBox="0 0 40 60" preserveAspectRatio="none" aria-hidden="true">
   <path d="M 1 9 V 1 H 9 M 31 1 H 39 V 9 M 39 51 V 59 H 31 M 9 59 H 1 V 51"/></svg>`;
 
+const PER_PAGE = 12;              // 一頁 12 位，滿了就翻頁
+let page = 0;
+
+function pageCount(){ return Math.max(1, Math.ceil(Roster.all().length / PER_PAGE)); }
+function pageOf(id){
+  const i = Roster.all().findIndex(c => c.id === id);
+  return i < 0 ? 0 : Math.floor(i / PER_PAGE);
+}
+function goPage(p){
+  page = Math.min(Math.max(0, p), pageCount() - 1);
+  renderCast();
+}
+
 function renderCast(){
   const list = Roster.all();
+  page = Math.min(page, pageCount() - 1);
   const box = document.getElementById('cast');
-  box.innerHTML = list.map(c => `
+  box.innerHTML = list.slice(page * PER_PAGE, (page + 1) * PER_PAGE).map(c => `
     <button class="actor ${c.id === sel ? 'on' : ''}" data-id="${esc(c.id)}" title="${esc(c.name)}">
       ${CURSOR}
       ${c.isMe ? '<span class="me">ME</span>' : ''}
@@ -279,6 +333,22 @@ function renderCast(){
   document.getElementById('count').textContent = list.length + ' 位';
   box.querySelectorAll('.actor').forEach(el =>
     el.addEventListener('click', () => openSheet(el.dataset.id)));
+
+  // 翻頁列：只有一頁就不佔位置
+  const pg = document.getElementById('pager');
+  const n = pageCount();
+  if (n <= 1){ pg.innerHTML = ''; pg.style.display = 'none'; return; }
+  pg.style.display = '';
+  pg.innerHTML = `
+    <div class="dots">${Array.from({ length:n }, (_, i) =>
+      `<i class="${i === page ? 'on' : ''}" data-p="${i}" title="第 ${i + 1} 頁"></i>`).join('')}</div>
+    <button ${page === 0 ? 'disabled' : ''} data-step="-1" aria-label="上一頁">‹</button>
+    <span class="no">${page + 1} / ${n}</span>
+    <button ${page === n - 1 ? 'disabled' : ''} data-step="1" aria-label="下一頁">›</button>`;
+  pg.querySelectorAll('button[data-step]').forEach(b =>
+    b.addEventListener('click', () => goPage(page + (+b.dataset.step))));
+  pg.querySelectorAll('.dots i').forEach(d =>
+    d.addEventListener('click', () => goPage(+d.dataset.p)));
 }
 
 /* ══ 左右換人：大格的箭頭、鍵盤方向鍵、手機上滑動 ══ */
@@ -288,6 +358,7 @@ function flip(step){
   const i = list.findIndex(c => c.id === sel);
   const next = list[((i < 0 ? 0 : i + step) + list.length) % list.length];
   sel = next.id; editing = false; padSprite = null;
+  page = pageOf(sel);                    // 換到別頁的人時，選格跟著翻過去
   render();
   const el = document.querySelector('.actor.on');
   if (el) el.scrollIntoView({ block:'nearest', behavior:'smooth' });
@@ -298,6 +369,7 @@ const isPhone = () => window.matchMedia('(max-width:720px)').matches;
 
 function openSheet(id){
   sel = id; editing = false; padSprite = null;
+  page = pageOf(sel);
   render();
   if (isPhone()){
     document.body.classList.add('sheet');
