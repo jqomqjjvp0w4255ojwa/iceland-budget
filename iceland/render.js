@@ -481,14 +481,15 @@ function switchMainTab(key, btn){
   });
 }
 
-// 地圖鐵框過去卡在 calc(100vh - 120px) 這種猜出來的固定值，header 一改高度
-// 或手機瀏覽器網址列伸縮就會跟畫面對不上，留一截空白。改成量實際剩餘高度。
+// 地圖高度不能用「目前捲動位置的剩餘空間」算——還沒往下捲時上面的
+// 像素場景會吃掉大半視窗，地圖就被壓成一小條。改成固定給接近整個視窗，
+// 切到腳印分頁時順便把地圖捲到畫面頂，等於進入全螢幕地圖。
 function resizeMapFrame() {
   requestAnimationFrame(() => {
     const frame = document.getElementById('mapFrame');
     if (!frame) return;
-    const top = frame.getBoundingClientRect().top;
-    frame.style.height = Math.max(300, window.innerHeight - top) + 'px';
+    frame.style.height = Math.max(480, window.innerHeight - 66) + 'px';
+    frame.scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
 }
 window.addEventListener('resize', () => {
