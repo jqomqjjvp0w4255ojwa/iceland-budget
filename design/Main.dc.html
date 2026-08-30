@@ -64,14 +64,11 @@
     /* ── 面：兩本書化成的兩個面 ── */
     .plane{
       position:absolute; border:none; cursor:pointer; padding:0;
-      display:flex; flex-direction:column; justify-content:flex-end;
-      text-align:left; gap:8px;
+      display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-start;
+      text-align:left; gap:6px;
       transition:transform .3s cubic-bezier(.2,.85,.3,1.05);
     }
-    .plane .name{
-      font-family:'Noto Serif TC',serif; font-weight:600; font-size:21px;
-      letter-spacing:.24em; color:var(--ink);
-    }
+    .plane .glyph{display:block;}
     .plane .n{
       font-family:Silkscreen,monospace; font-size:7.5px; letter-spacing:.2em;
       color:var(--ink); opacity:.55; font-variant-numeric:tabular-nums;
@@ -79,7 +76,9 @@
 
     #tour{
       left:668px; top:186px; width:300px; height:212px;
-      background:var(--sea); padding:26px 30px;
+      background-image:radial-gradient(circle, #cf9d7d 1.5px, transparent 1.7px);
+      background-size:7px 7px;
+      padding:26px 30px;
       transform:rotate(-2deg);
     }
     #tour:hover{transform:rotate(-1deg) translateY(-8px);}
@@ -93,7 +92,9 @@
 
     #notes{
       left:836px; top:492px; width:212px; height:150px;
-      background:var(--moss); padding:20px 24px;
+      background-image:radial-gradient(circle, #b3ad7e 1.3px, transparent 1.5px);
+      background-size:8px 8px;
+      padding:20px 24px;
       transform:rotate(1.6deg);
     }
     #notes:hover{transform:rotate(.6deg) translateY(-8px);}
@@ -165,12 +166,27 @@
 </span>
 
 <button class="plane" id="tour" aria-label="出國旅行">
-  <span class="name">出國旅行</span>
-  <span class="n">1 TOUR · 15 DAYS</span>
+  <svg class="glyph" width="200" height="96" viewBox="0 0 200 96" aria-hidden="true">
+    <path d="M 6 74 Q 54 71.6, 100 73 T 194 71.8" fill="none" stroke="#5b4a38" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M 30 72 C 52 34, 96 14, 132 20 C 154 24, 168 40, 175 56"
+          fill="none" stroke="#5b4a38" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="1 8"/>
+    <circle cx="30" cy="72" r="4" fill="#f7f1e6" stroke="#5b4a38" stroke-width="1.5"/>
+    <circle cx="176" cy="60" r="4.6" fill="#c97b3d"/>
+    <path d="M 96 80 Q 100 84, 104 80" fill="none" stroke="#5b4a38" stroke-width="1.1" stroke-linecap="round" opacity=".55"/>
+  </svg>
+  <span class="n">1 · 15 DAYS</span>
 </button>
 
 <button class="plane" id="notes" aria-label="島內手札">
-  <span class="name">島內手札</span>
+  <svg class="glyph" width="130" height="82" viewBox="0 0 130 82" aria-hidden="true">
+    <path d="M 44 14 C 70 6, 98 16, 106 34 C 113 51, 100 66, 78 70
+             C 56 74, 32 68, 26 50 C 21 35, 28 20, 44 14 Z"
+          fill="none" stroke="#5b4a38" stroke-width="1.6" stroke-linecap="round"/>
+    <circle cx="58" cy="38" r="3.4" fill="#5b4a38"/>
+    <circle cx="82" cy="50" r="3.4" fill="#5b4a38"/>
+    <path d="M 58 38 Q 70 40, 82 50" fill="none" stroke="#5b4a38" stroke-width="1.1" stroke-linecap="round" opacity=".6"/>
+    <path d="M 10 74 Q 16 70, 22 74" fill="none" stroke="#5b4a38" stroke-width="1.1" stroke-linecap="round" opacity=".45"/>
+  </svg>
   <span class="n">3 NOTES</span>
 </button>
 
