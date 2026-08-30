@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@300;400;500&display=swap">
+  <style>
+    :root{
+      --night:#262d38; --slate:#424c5a; --panel:#3b4756; --sink:#2c3238;
+      --edge:#34384a; --brass:#ffc70f; --beacon:#7fd8ff; --moss:#99ff8b;
+      --ember:#df7687; --paper:#d1d1d3; --white:#ffffff;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0; background:var(--night); color:var(--white);
+      font-family:'Noto Sans TC',system-ui,sans-serif; font-weight:300;
+      width:1240px; height:840px; overflow:hidden; position:relative;
+    }
+    body::after{
+      content:''; position:absolute; inset:0; pointer-events:none; z-index:20;
+      background:repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 1px, transparent 1px 3px);
+    }
+    .hud{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 32px; border-bottom:2px solid var(--edge); background:var(--sink);
+    }
+    .back{
+      font-family:Silkscreen,monospace; font-size:9px; letter-spacing:.16em;
+      color:var(--paper); border:2px solid var(--edge); background:none;
+      padding:7px 12px; cursor:pointer;
+    }
+    .back:hover{color:var(--brass); border-color:var(--brass);}
+    .title{display:flex; align-items:baseline; gap:12px;}
+    .title .zh{font-family:'Noto Serif TC',serif; font-weight:900; font-size:19px; letter-spacing:.14em; color:var(--brass);}
+    .title .en{font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.2em; color:var(--paper); opacity:.55;}
+    .tally{font-family:Silkscreen,monospace; font-size:9px; letter-spacing:.14em; color:var(--paper); opacity:.6;}
+
+    .body{padding:22px 32px; display:flex; flex-direction:column; gap:18px;}
+
+    .atlas{
+      position:relative; border:2px solid var(--edge); background:var(--sink);
+      height:452px; overflow:hidden;
+    }
+    .atlas svg{display:block; width:100%; height:100%;}
+    .legend{
+      position:absolute; left:12px; bottom:10px;
+      font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.16em;
+      color:var(--paper); opacity:.45;
+    }
+    .scalebar{
+      position:absolute; right:12px; bottom:10px; display:flex; align-items:center; gap:7px;
+      font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.14em; color:var(--paper); opacity:.45;
+    }
+    .scalebar i{display:block; width:54px; height:5px; border:1px solid currentColor; border-top:none;}
+
+    .pin{position:absolute; transform:translate(-50%,-50%); display:grid; place-items:center;}
+    .pin .core{
+      width:11px; height:11px; background:var(--beacon);
+      box-shadow:0 0 0 2px var(--sink), 0 0 12px rgba(127,216,255,.9);
+    }
+    .pin .ring{
+      position:absolute; width:30px; height:30px; border:2px solid var(--beacon);
+      opacity:.42; animation:ping 2.4s steps(6) infinite;
+    }
+    @keyframes ping{0%{transform:scale(.55); opacity:.75;} 100%{transform:scale(1.35); opacity:0;}}
+    @media (prefers-reduced-motion: reduce){ .pin .ring{animation:none; opacity:.3;} }
+    .pin .tag{
+      position:absolute; bottom:24px; white-space:nowrap;
+      font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.1em;
+      background:var(--beacon); color:#10161d; padding:4px 7px;
+    }
+    .pin.home .core{width:7px; height:7px; background:var(--brass); box-shadow:0 0 0 2px var(--sink);}
+    .pin.home .tag{background:none; color:var(--brass); bottom:14px; font-size:7px; padding:0;}
+
+    .row{display:flex; gap:16px;}
+    .card{
+      flex:1; display:flex; align-items:center; gap:18px;
+      border:2px solid var(--edge); background:var(--panel); padding:16px 20px;
+      cursor:pointer; transition:border-color .14s, background .14s;
+    }
+    .card:hover{border-color:var(--beacon); background:var(--slate);}
+    .cardyear{
+      font-family:Silkscreen,monospace; font-size:9px; letter-spacing:.1em;
+      color:var(--paper); opacity:.5; align-self:flex-start; padding-top:5px;
+      font-variant-numeric:tabular-nums;
+    }
+    .cardmain{flex:1; min-width:0;}
+    .cardname{
+      font-family:'Noto Serif TC',serif; font-weight:700; font-size:20px; letter-spacing:.04em;
+      display:flex; align-items:center; gap:11px;
+    }
+    .chip{
+      font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.1em;
+      padding:4px 7px; border:2px solid var(--beacon); color:var(--beacon);
+      background:rgba(127,216,255,.12);
+    }
+    .cardmeta{
+      font-family:Silkscreen,monospace; font-size:9px; letter-spacing:.06em;
+      color:var(--paper); opacity:.7; margin-top:7px; font-variant-numeric:tabular-nums;
+    }
+    .cardnote{font-size:12px; color:var(--paper); opacity:.62; margin-top:5px;}
+    .crew{display:flex; gap:5px;}
+    .go{font-family:Silkscreen,monospace; font-size:15px; color:var(--brass);}
+
+    .newslot{
+      display:flex; align-items:center; gap:14px; padding:15px 20px;
+      border:2px dashed var(--edge); background:none; cursor:pointer;
+      color:var(--paper); opacity:.55; width:100%;
+      font-family:'Noto Sans TC',sans-serif; font-size:14px;
+    }
+    .newslot:hover{opacity:1; border-color:var(--brass); color:var(--brass);}
+    .newslot .plus{font-family:Silkscreen,monospace; font-size:14px;}
+    a{color:var(--beacon);} a:hover{color:var(--white);}
+  </style>
+</helmet>
+
+<div class="hud">
+  <button class="back">← 書桌</button>
+  <div class="title">
+    <span class="zh">出國旅行</span>
+    <span class="en">GRAND TOURS</span>
+  </div>
+  <div class="tally">1 趟 · 15 天</div>
+</div>
+
+<div class="body">
+  <div class="atlas">
+    <!-- 等距圓柱投影：group 直接吃 經度/緯度，translate(180 84) scale(1 -1) 換算成畫布座標 -->
+    <svg viewBox="0 0 360 142" preserveAspectRatio="none">
+      <defs>
+        <pattern id="dots" width="2.4" height="2.4" patternUnits="userSpaceOnUse">
+          <circle cx="1.2" cy="1.2" r="0.5" fill="#4d5867"/>
+        </pattern>
+      </defs>
+      <g stroke="#39424f" stroke-width="0.35" opacity=".8">
+        <line x1="0" y1="84" x2="360" y2="84"/>
+        <line x1="0" y1="60.5" x2="360" y2="60.5" stroke-dasharray="2 2"/>
+        <line x1="0" y1="107.5" x2="360" y2="107.5" stroke-dasharray="2 2"/>
+        <line x1="0" y1="17.5" x2="360" y2="17.5" stroke-dasharray="2 2"/>
+        <line x1="180" y1="0" x2="180" y2="142"/>
+      </g>
+      <g transform="translate(180 84) scale(1 -1)" fill="url(#dots)">
+        <polygon points="-168,66 -156,71 -130,70 -110,72 -90,73 -75,73 -60,66 -55,50 -67,45 -70,41 -76,35 -80,26 -97,25 -105,20 -115,29 -124,40 -124,48 -133,55 -150,59 -165,64"/>
+        <polygon points="-58,60 -45,60 -30,70 -20,76 -30,83 -50,82 -58,76 -60,68"/>
+        <polygon points="-81,8 -76,11 -60,11 -50,5 -35,-5 -38,-13 -48,-25 -58,-35 -62,-42 -68,-52 -75,-52 -72,-40 -70,-20 -75,-15 -81,-5"/>
+        <polygon points="-10,36 -9,44 0,50 5,58 12,65 20,70 30,70 45,72 60,73 75,75 95,78 110,76 125,73 140,72 160,70 178,66 170,60 155,55 142,48 135,42 128,38 122,30 118,22 108,20 100,10 95,5 90,20 80,10 72,20 68,24 60,25 52,28 45,30 40,33 35,36 28,41 20,40 12,38 0,36"/>
+        <polygon points="-10,51 -6,55 -3,58 0,54 -1,51 -5,50"/>
+        <polygon points="-17,15 -16,22 -10,32 0,36 10,37 20,32 32,31 35,25 43,12 51,12 42,-2 40,-15 35,-22 32,-28 25,-34 18,-34 12,-18 9,-2 5,5 -5,5 -12,10"/>
+        <polygon points="43,-12 50,-15 48,-25 44,-22"/>
+        <polygon points="113,-22 114,-33 118,-35 129,-32 138,-35 147,-38 153,-28 145,-15 135,-12 130,-11 122,-17"/>
+        <polygon points="166,-46 174,-41 178,-37 173,-34 168,-44"/>
+        <polygon points="130,32 135,34 141,40 145,44 142,45 136,36 131,31"/>
+        <polygon points="-24,65 -14,66 -13,64 -22,63"/>
+      </g>
+    </svg>
+
+    <div class="pin" style="left:44.7%; top:13.4%;">
+      <span class="ring"></span>
+      <span class="core"></span>
+      <span class="tag">冰島 2026</span>
+    </div>
+    <div class="pin home" style="left:83.6%; top:42.5%;">
+      <span class="core"></span>
+      <span class="tag">家</span>
+    </div>
+
+    <div class="legend">WORLD · EQUIRECTANGULAR</div>
+    <div class="scalebar"><i></i><span>5000 KM</span></div>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <span class="cardyear">2026</span>
+      <span class="cardmain">
+        <span class="cardname">冰島 2026 <span class="chip">▶ 規劃中 D-15</span></span>
+        <span class="cardmeta">09/14 – 09/30 · 15 天 · 環島＋西峽灣＋斯奈山</span>
+      </span>
+      <span class="crew">
+        <svg viewBox="0 0 7 9" width="18" height="23" style="shape-rendering:crispEdges">
+          <g fill="#c07020"><rect x="2" y="0" width="3" height="1"/><rect x="1" y="1" width="5" height="3"/><rect x="2" y="4" width="3" height="1"/><rect x="1" y="5" width="5" height="3"/><rect x="2" y="8" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/></g>
+          <rect x="2" y="2" width="1" height="1" fill="#14171c"/><rect x="4" y="2" width="1" height="1" fill="#14171c"/>
+        </svg>
+        <svg viewBox="0 0 7 9" width="18" height="23" style="shape-rendering:crispEdges">
+          <g fill="#cc4488"><rect x="2" y="0" width="3" height="1"/><rect x="1" y="1" width="5" height="3"/><rect x="2" y="4" width="3" height="1"/><rect x="1" y="5" width="5" height="3"/><rect x="2" y="8" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/></g>
+          <rect x="2" y="2" width="1" height="1" fill="#14171c"/><rect x="4" y="2" width="1" height="1" fill="#14171c"/>
+        </svg>
+        <svg viewBox="0 0 7 9" width="18" height="23" style="shape-rendering:crispEdges">
+          <g fill="#7755bb"><rect x="2" y="0" width="3" height="1"/><rect x="1" y="1" width="5" height="3"/><rect x="2" y="4" width="3" height="1"/><rect x="1" y="5" width="5" height="3"/><rect x="2" y="8" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/></g>
+          <rect x="2" y="2" width="1" height="1" fill="#14171c"/><rect x="4" y="2" width="1" height="1" fill="#14171c"/>
+        </svg>
+      </span>
+      <span class="go">▶</span>
+    </div>
+  </div>
+
+  <button class="newslot"><span class="plus">＋</span> 規劃新的旅程</button>
+</div>
+</x-dc>
+</body>
+</html>
