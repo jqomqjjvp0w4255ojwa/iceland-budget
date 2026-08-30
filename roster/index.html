@@ -7,29 +7,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@300;400&display=swap">
+<link rel="stylesheet" href="../shared/base.css">
 <style>
-:root{
-  --space:#f7f1e6; --ink:#5b4a38; --faint:#b9ab94;
-  --dotA:#cf9d7d; --dotB:#b3ad7e; --spark:#c97b3d;
-}
-*{box-sizing:border-box;}
-html,body{margin:0; background:var(--space); color:var(--ink);}
-body{
-  font-family:'Noto Sans TC',system-ui,sans-serif; font-weight:300;
-  min-height:100vh; -webkit-tap-highlight-color:transparent;
-}
+/* 這頁自己的：版面與角色館專用元件。外殼（顏色變數、標題、.back、.lede、
+   .hint、.ln 按鈕、像素圖）都在 shared/base.css */
 .wrap{position:relative; max-width:1240px; margin:0 auto; padding:clamp(20px,5vh,58px) clamp(18px,5vw,64px) 90px;}
-
-.back{
-  font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.24em;
-  color:var(--faint); background:none; border:none; cursor:pointer; padding:0;
-  text-decoration:none; display:inline-block;
-}
-.back:hover{color:var(--ink);}
 .mark{margin:34px 0 4px;}
-.mark .zh{font-family:'Noto Serif TC',serif; font-weight:900; font-size:23px; letter-spacing:.3em; margin:0;}
-.mark .en{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.3em; color:var(--faint); margin-top:9px;}
-.lede{font-size:12.5px; color:var(--faint); line-height:2.1; letter-spacing:.04em; margin:14px 0 0;}
 
 /* ══ 選角畫面：左邊被選中的人，右邊 n×n 選格 ══ */
 .body{
@@ -152,15 +135,6 @@ body{
 .stat b{font-family:Silkscreen,monospace; font-size:13px; color:var(--ink); font-weight:400; margin-right:5px;}
 .acts{display:flex; gap:10px; margin-top:22px; flex-wrap:wrap;}
 
-button.ln, a.ln{
-  font-family:'Noto Sans TC',sans-serif; font-size:12px; letter-spacing:.08em;
-  background:none; border:1px solid var(--faint); color:var(--ink);
-  padding:8px 16px; cursor:pointer; text-decoration:none; display:inline-block;
-}
-button.ln:hover, a.ln:hover{border-color:var(--ink);}
-button.ln.warm{border-color:var(--spark); color:var(--spark);}
-button.ln.ghost{border:none; color:var(--faint);}
-
 /* ══ 編輯 ══ */
 .edit{margin-top:22px; padding-top:20px; border-top:1px solid var(--faint);}
 .fld{margin-bottom:16px;}
@@ -184,7 +158,6 @@ button.ln.ghost{border:none; color:var(--faint);}
   margin-top:40px; padding-top:20px; border-top:1px solid var(--faint);
 }
 .foot .sp{margin-left:auto;}
-.hint{font-size:11px; color:var(--faint); letter-spacing:.05em;}
 
 /* ══ 手機：點角色從下面彈出小窗 ══ */
 .scrim{
@@ -274,6 +247,7 @@ button.ln.ghost{border:none; color:var(--faint);}
 
 <div class="scrim" id="scrim" onclick="closeSheet()"></div>
 
+<script src="../shared/util.js"></script>
 <script src="../shared/theme.js"></script>
 <script src="../shared/sprites.js"></script>
 <script src="../shared/roster.js"></script>
@@ -294,8 +268,7 @@ Roster.addStats(ch => {
   return [`<b>${n}</b>次島內腳印`, `<b>${days}</b>天出遊`];
 });
 
-const esc = s => String(s == null ? '' : s)
-  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const esc = U.esc;                      // shared/util.js
 
 // 桌機一進來就攤開第一位；手機因為彈窗預設是收起的，不會擋畫面
 let sel = (Roster.all()[0] || {}).id || null;

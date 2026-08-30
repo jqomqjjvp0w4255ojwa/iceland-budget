@@ -1,0 +1,73 @@
+/* ══════════════════════════════════════════════════════════
+   base.css — 點線面系列頁面的共用外殼
+   書桌(book/)、角色館(roster/)、之後的島內手札都吃這一份。
+
+   用法：
+     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@300;400&display=swap">
+     <link rel="stylesheet" href="../shared/base.css">
+     <script src="../shared/theme.js"></script>
+
+   這裡只管「長什麼樣」，不管「擺在哪」——定位交給各頁自己寫，
+   因為書桌是滿版分層、角色館是正常文件流。
+   ══════════════════════════════════════════════════════════ */
+
+/* 六個變數驅動整個畫面；實際數值由 shared/theme.js 覆寫，
+   這裡的預設值是「A 大地」，沒載入 theme.js 也不會沒有顏色 */
+:root{
+  --space:#f7f1e6; --ink:#5b4a38; --faint:#b9ab94;
+  --dotA:#cf9d7d; --dotB:#b3ad7e; --spark:#c97b3d;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;}
+body{
+  background:var(--space); color:var(--ink);
+  font-family:'Noto Sans TC',system-ui,sans-serif; font-weight:300;
+  min-height:100vh; -webkit-tap-highlight-color:transparent;
+  transition:background .35s, color .35s;
+}
+button{font-family:inherit; color:inherit;}
+a{color:var(--ink);}
+
+/* ══ 標題組 ══ */
+.mark .zh{
+  font-family:'Noto Serif TC',serif; font-weight:900;
+  font-size:clamp(19px,2.4vw,23px); letter-spacing:.32em; margin:0;
+}
+.mark .en{
+  font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.32em;
+  color:var(--faint); margin-top:9px;
+}
+
+/* ══ 返回 ══ */
+.back{
+  font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.24em;
+  color:var(--faint); background:none; border:none; cursor:pointer;
+  padding:4px 0; text-decoration:none; display:inline-block;
+}
+.back:hover{color:var(--ink);}
+
+/* ══ 說明文字 ══ */
+.lede{
+  font-size:12.5px; color:var(--faint); line-height:2.1;
+  letter-spacing:.04em; margin:14px 0 0;
+}
+/* 安靜的一句話。中文用像素字會糊，所以一律用正常字級 */
+.hint{font-size:11px; color:var(--faint); letter-spacing:.05em;}
+
+/* ══ 線框按鈕 ══ */
+button.ln, a.ln{
+  font-family:'Noto Sans TC',sans-serif; font-size:12px; letter-spacing:.08em;
+  background:none; border:1px solid var(--faint); color:var(--ink);
+  padding:8px 16px; cursor:pointer; text-decoration:none; display:inline-block;
+}
+button.ln:hover, a.ln:hover{border-color:var(--ink);}
+button.ln.warm{border-color:var(--spark); color:var(--spark);}
+button.ln.ghost{border:none; color:var(--faint);}
+
+/* ══ 像素圖 ══ */
+.px, .px svg{image-rendering:pixelated;}
+
+@media (prefers-reduced-motion: reduce){
+  body{transition:none;}
+}

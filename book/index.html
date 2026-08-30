@@ -5,35 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>旅程書</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@300;400&display=swap">
+<link rel="stylesheet" href="../shared/base.css">
 <style>
-  /* 佈景主題：六個變數驅動整個畫面，主題只是換這六個值 */
-  :root{
-    --space:#f7f1e6; --ink:#5b4a38; --faint:#b9ab94;
-    --dotA:#cf9d7d; --dotB:#b3ad7e; --spark:#c97b3d;
-  }
-  *{box-sizing:border-box;}
+  /* 這頁自己的。外殼（六個顏色變數、標題、.back、.lede、.hint、.ln 按鈕）
+     在 shared/base.css；這裡只補書桌需要的「滿版分層」定位 */
   html,body{height:100%;}
-  body{
-    margin:0; background:var(--space); color:var(--ink);
-    font-family:'Noto Sans TC',system-ui,sans-serif; font-weight:300;
-    overflow-x:hidden;
-    transition:background .35s, color .35s;
-  }
-  button{font-family:inherit; color:inherit;}
+  body{overflow-x:hidden;}
 
   .view{display:none; min-height:100vh; position:relative;}
   .view.on{display:block;}
 
-  /* ══ 共用 ══ */
+  /* 書桌是滿版分層，標題與返回要絕對定位（base.css 只管長相不管位置）*/
   .mark{position:absolute; left:clamp(20px,6vw,72px); top:clamp(22px,6vh,64px); z-index:5;}
-  .mark .zh{font-family:'Noto Serif TC',serif; font-weight:900; font-size:clamp(19px,2.4vw,23px); letter-spacing:.34em; margin:0;}
-  .mark .en{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.34em; color:var(--faint); margin-top:9px;}
   .back{
     position:absolute; left:clamp(20px,6vw,72px); top:clamp(22px,6vh,58px); z-index:6;
-    font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.24em;
-    color:var(--faint); background:none; border:none; cursor:pointer; padding:4px 0;
   }
-  .back:hover{color:var(--ink);}
 
   /* ══ 書桌 ══ */
   #desk .stage{
@@ -238,7 +224,6 @@
   }
   .quick:hover i{transform:scale(1.1);}
   .quick small{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.2em; color:var(--faint); margin-left:4px;}
-  .hint{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.16em; color:var(--faint);}
 
   /* 窄螢幕：面往中間收、最近清單收到下方 */
   @media (max-width:760px){
@@ -411,6 +396,7 @@
   </div>
 </section>
 
+<script src="../shared/util.js"></script>
 <script src="../shared/theme.js"></script>
 <script src="../shared/sprites.js"></script>
 <script src="../shared/roster.js"></script>
@@ -433,9 +419,7 @@ function show(id){
 function go(url){ location.href = url; }
 
 /* ══ 資料 ══ */
-const esc = s => String(s ?? '').replace(/[&<>"']/g,
-  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmtD = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth()+1}`.padStart(2,'0') + '/' + `${d.getDate()}`.padStart(2,'0'); };
+const esc = U.esc, fmtD = U.fmtMD;      // shared/util.js
 
 function daysToGo(){
   const dep = new Date(TOURS[0].start + 'T00:00:00+08:00');
