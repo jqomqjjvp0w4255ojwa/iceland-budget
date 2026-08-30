@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旅程書</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@300;400&display=swap">
+<style>
+  /* 佈景主題：六個變數驅動整個畫面，主題只是換這六個值 */
+  :root{
+    --space:#f7f1e6; --ink:#5b4a38; --faint:#b9ab94;
+    --dotA:#cf9d7d; --dotB:#b3ad7e; --spark:#c97b3d;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--space); color:var(--ink);
+    font-family:'Noto Sans TC',system-ui,sans-serif; font-weight:300;
+    overflow-x:hidden;
+    transition:background .35s, color .35s;
+  }
+  button{font-family:inherit; color:inherit;}
+
+  .view{display:none; min-height:100vh; position:relative;}
+  .view.on{display:block;}
+
+  /* ══ 共用 ══ */
+  .mark{position:absolute; left:clamp(20px,6vw,72px); top:clamp(22px,6vh,64px); z-index:5;}
+  .mark .zh{font-family:'Noto Serif TC',serif; font-weight:900; font-size:clamp(19px,2.4vw,23px); letter-spacing:.34em; margin:0;}
+  .mark .en{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.34em; color:var(--faint); margin-top:9px;}
+  .back{
+    position:absolute; left:clamp(20px,6vw,72px); top:clamp(22px,6vh,58px); z-index:6;
+    font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.24em;
+    color:var(--faint); background:none; border:none; cursor:pointer; padding:4px 0;
+  }
+  .back:hover{color:var(--ink);}
+
+  /* ══ 書桌 ══ */
+  #desk .stage{
+    position:relative; max-width:1240px; min-height:100vh; margin:0 auto;
+  }
+  .journey{position:absolute; inset:0; width:100%; height:100%; pointer-events:none;}
+  .journey .solid{fill:none; stroke:var(--ink); stroke-width:1.6; stroke-linecap:round;}
+  .journey .dash{fill:none; stroke:var(--ink); stroke-width:1.6; stroke-linecap:round; stroke-dasharray:1 9;}
+  .journey .side{fill:none; stroke:var(--faint); stroke-width:1.2; stroke-linecap:round;}
+
+  .pt{position:absolute; transform:translate(-50%,-50%); pointer-events:none; z-index:2;}
+  .pt i{display:block; width:7px; height:7px; border-radius:50%; background:var(--ink);}
+  .pt.hollow i{background:var(--space); border:1.5px solid var(--ink);}
+  .pt.next i{width:11px; height:11px; background:var(--spark);}
+  .pt.next::after{
+    content:''; position:absolute; inset:-9px; border:1.5px solid var(--spark);
+    border-radius:50%; animation:breathe 3.2s ease-in-out infinite;
+  }
+  @keyframes breathe{0%,100%{transform:scale(.72); opacity:.75;} 50%{transform:scale(1.15); opacity:.15;}}
+  @media (prefers-reduced-motion: reduce){ .pt.next::after{animation:none; opacity:.4;} }
+  .pt .lbl{
+    position:absolute; left:14px; top:-5px; white-space:nowrap;
+    font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.16em; color:var(--ink);
+  }
+  .pt .sub{position:absolute; left:14px; top:9px; white-space:nowrap; font-size:11px; color:var(--faint);}
+
+  .plane{
+    position:absolute; border:none; cursor:pointer; padding:24px 28px; z-index:3;
+    display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-start; gap:6px;
+    background-image:radial-gradient(circle, var(--dotA) 1.5px, transparent 1.7px);
+    background-size:7px 7px; background-color:transparent;
+    transition:transform .3s cubic-bezier(.2,.85,.3,1.05);
+    text-align:left;
+  }
+  .plane .g-ink{fill:none; stroke:var(--ink); stroke-linecap:round;}
+  .plane .g-dot{fill:var(--ink);}
+  .plane .g-hollow{fill:var(--space); stroke:var(--ink); stroke-width:1.5;}
+  .plane .g-spark{fill:var(--spark);}
+  .plane .n{
+    font-family:Silkscreen,monospace; font-size:7.5px; letter-spacing:.2em;
+    color:var(--ink); opacity:.55; font-variant-numeric:tabular-nums;
+  }
+  #plTour{
+    left:54%; top:180px; width:min(300px,38vw); height:212px;
+    transform:rotate(-2deg);
+  }
+  #plTour:hover{transform:rotate(-1deg) translateY(-8px);}
+  #plTour::before{content:''; position:absolute; left:-7px; top:10px; bottom:-8px; width:1.5px; background:var(--ink); opacity:.6; transform:rotate(.9deg);}
+  #plTour::after{content:''; position:absolute; right:12px; top:-9px; width:56%; height:1.5px; background:var(--ink); opacity:.6; transform:rotate(-.7deg);}
+  #plNotes{
+    left:67%; top:492px; width:min(212px,30vw); height:150px;
+    background-image:radial-gradient(circle, var(--dotB) 1.3px, transparent 1.5px);
+    background-size:8px 8px; padding:18px 22px;
+    transform:rotate(1.6deg);
+  }
+  #plNotes:hover{transform:rotate(.6deg) translateY(-8px);}
+  #plNotes::before{content:''; position:absolute; right:-7px; top:-8px; bottom:12px; width:1.5px; background:var(--ink); opacity:.6; transform:rotate(-1deg);}
+
+  .tally{
+    position:absolute; left:clamp(20px,6vw,72px); bottom:56px;
+    font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.22em;
+    color:var(--faint); font-variant-numeric:tabular-nums; line-height:2.6;
+  }
+  .recent{
+    position:absolute; right:clamp(20px,6vw,76px); bottom:56px; text-align:right;
+    display:flex; flex-direction:column; gap:9px; max-width:60vw;
+  }
+  .recent .row{display:flex; gap:14px; justify-content:flex-end; align-items:baseline;}
+  .recent .place{font-size:13.5px; letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .recent .d{font-family:Silkscreen,monospace; font-size:7.5px; color:var(--faint); font-variant-numeric:tabular-nums; flex-shrink:0;}
+
+  /* 主題切換：右上一顆小點，展開九個色球 */
+  .themer{position:absolute; right:clamp(18px,5vw,64px); top:clamp(20px,5vh,58px); z-index:9; display:flex; align-items:center; gap:9px; flex-direction:row-reverse;}
+  .themer .knob{
+    width:30px; height:30px; border-radius:50%; border:1.5px solid var(--ink);
+    background:none; cursor:pointer; display:grid; place-items:center; padding:0;
+  }
+  .themer .knob i{display:block; width:10px; height:10px; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, var(--spark) 0 45%, var(--ink) 46%);}
+  .themer .tray{display:none; gap:7px;}
+  .themer.open .tray{display:flex;}
+  .themer .sw{
+    width:22px; height:22px; border-radius:50%; border:1.5px solid rgba(0,0,0,.25);
+    cursor:pointer; padding:0;
+  }
+  .themer .sw.on{outline:2px solid var(--ink); outline-offset:2px;}
+
+  /* ══ 地圖頁共用 ══ */
+  .maphead{position:absolute; left:clamp(20px,6vw,72px); top:clamp(58px,11vh,104px); z-index:5;}
+  .maphead .zh{font-family:'Noto Serif TC',serif; font-weight:900; font-size:clamp(19px,2.2vw,23px); letter-spacing:.3em; margin:0;}
+  .maphead .en{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.3em; color:var(--faint); margin-top:8px;}
+  .atlas{position:relative; margin:0 auto;}
+  .atlas svg{display:block; width:100%; height:100%;}
+  .mpin{position:absolute; transform:translate(-50%,-50%); z-index:2; background:none; border:none; padding:0; cursor:pointer;}
+  .mpin i{display:block; width:8px; height:8px; border-radius:50%; background:var(--ink);}
+  .mpin.spark i{width:12px; height:12px; background:var(--spark);}
+  .mpin.spark::after{
+    content:''; position:absolute; inset:-9px; border:1.5px solid var(--spark);
+    border-radius:50%; animation:breathe 3.2s ease-in-out infinite;
+  }
+  .mpin .lbl{
+    position:absolute; left:16px; top:-5px; white-space:nowrap;
+    font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.14em; color:var(--ink);
+  }
+  .mpin.home i{width:7px; height:7px; background:var(--space); border:1.5px solid var(--ink);}
+  .mpin.home::after{display:none;}
+  .mpin.home .lbl{color:var(--faint); font-size:7px;}
+  .mpin.tw i{width:7px; height:7px;}
+  .mpin.tw .lbl{font-family:'Noto Sans TC',sans-serif; font-size:11px; letter-spacing:.04em;}
+
+  .entry{
+    display:flex; align-items:baseline; gap:16px; width:100%;
+    background:none; border:none; cursor:pointer; padding:0 0 12px; text-align:left;
+    position:relative;
+  }
+  .entry svg.uline{position:absolute; left:0; right:0; bottom:0; width:100%; height:6px;}
+  .entry:hover .name{letter-spacing:.3em;}
+  .entry .name{
+    font-family:'Noto Serif TC',serif; font-weight:600; font-size:clamp(17px,2vw,22px);
+    letter-spacing:.24em; color:var(--ink); transition:letter-spacing .3s; white-space:nowrap;
+  }
+  .entry .meta{
+    font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.12em;
+    color:var(--faint); font-variant-numeric:tabular-nums;
+  }
+  .entry .go{margin-left:auto; font-family:Silkscreen,monospace; font-size:12px; color:var(--spark);}
+
+  /* 世界 */
+  #world .atlas{max-width:1050px; padding:0 20px; margin-top:22vh;}
+  #world .foot{max-width:1050px; margin:40px auto 0; padding:0 20px 70px;}
+
+  /* 台灣 */
+  #taiwan .wrap{
+    max-width:1050px; margin:0 auto; padding:150px 20px 70px;
+    display:flex; gap:30px; align-items:flex-start; flex-wrap:wrap;
+  }
+  #taiwan .atlas{width:min(380px,86vw); flex-shrink:0;}
+  #taiwan .side{flex:1; min-width:260px; display:flex; flex-direction:column;}
+  #taiwan .lede{font-size:12.5px; color:var(--faint); line-height:2.1; margin:0 0 8px;}
+  .note{
+    display:flex; gap:13px; align-items:baseline;
+    background:none; border:none; cursor:pointer; padding:13px 0; text-align:left;
+    position:relative; width:100%;
+  }
+  .note + .note::before{
+    content:''; position:absolute; left:0; right:20px; top:0; height:1px;
+    background:var(--faint); opacity:.35; transform:rotate(-.35deg);
+  }
+  .note:nth-child(odd)::before{transform:rotate(.35deg);}
+  .note .d{font-family:Silkscreen,monospace; font-size:7.5px; color:var(--faint); width:46px; flex-shrink:0; font-variant-numeric:tabular-nums;}
+  .note .place{font-size:15px; letter-spacing:.05em;}
+  .note .line{font-size:11.5px; color:var(--faint); margin-left:auto; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:45%;}
+  .quick{
+    margin-top:22px; display:flex; align-items:center; gap:13px; align-self:flex-start;
+    background:none; border:none; cursor:pointer; padding:0;
+    font-size:15px; color:var(--ink); letter-spacing:.08em;
+  }
+  .quick i{
+    width:40px; height:40px; border-radius:50%; flex-shrink:0;
+    background:var(--spark); display:grid; place-items:center;
+    font-family:Silkscreen,monospace; font-size:14px; font-style:normal; color:#fff;
+    transition:transform .2s;
+  }
+  .quick:hover i{transform:scale(1.1);}
+  .quick small{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.2em; color:var(--faint); margin-left:4px;}
+  .hint{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.16em; color:var(--faint);}
+
+  /* 窄螢幕：面往中間收、最近清單收到下方 */
+  @media (max-width:760px){
+    #plTour{left:auto; right:6vw; top:150px; width:min(270px,62vw); height:190px;}
+    #plNotes{left:auto; right:14vw; top:440px; width:min(200px,48vw); height:140px;}
+    .recent{position:static; text-align:left; max-width:none; padding:0 20px 30px; margin-top:64vh;}
+    .recent .row{justify-content:flex-start;}
+    .tally{position:static; padding:0 20px 60px;}
+    #desk .stage{min-height:auto;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ 書桌 ══ -->
+<section class="view on" id="desk">
+  <div class="stage">
+    <div class="mark">
+      <h1 class="zh">旅程書</h1>
+      <div class="en">TRAVEL LEDGER</div>
+    </div>
+
+    <div class="themer" id="themer">
+      <button class="knob" title="佈景主題" onclick="toggleThemer()"><i></i></button>
+      <div class="tray" id="themeTray"></div>
+    </div>
+
+    <svg class="journey" viewBox="0 0 1240 840" preserveAspectRatio="xMidYMid meet">
+      <path class="solid" d="M 210 636 C 252 608, 288 576, 330 562 C 356 554, 372 588, 400 596
+               C 428 604, 448 578, 470 556 C 502 524, 518 476, 556 448
+               C 588 424, 626 412, 662 400 C 676 396, 688 392, 700 388"/>
+      <path class="dash" d="M 700 388 C 726 378, 748 372, 764 352 C 782 330, 792 302, 800 288
+               C 806 278, 809 273, 812 268"/>
+      <path class="side" d="M 210 636 C 232 668, 252 692, 288 702 C 326 712, 366 708, 396 700
+               C 408 697, 419 693, 428 690"/>
+    </svg>
+
+    <span class="pt hollow" style="left:17%; top:74%;"><i></i><span class="lbl" style="left:-8px; top:16px;">HOME</span></span>
+    <span class="pt" style="left:38%; top:66%;"><i></i><span class="sub" style="top:-22px;" id="ptNote1"></span></span>
+    <span class="pt" style="left:34.5%; top:82%;"><i></i><span class="sub" id="ptNote2"></span></span>
+    <span class="pt next" style="left:65.5%; top:32%;">
+      <i></i>
+      <span class="lbl" style="left:20px; top:-14px;">ICELAND</span>
+      <span class="sub" style="left:20px; top:2px;" id="nextSub"></span>
+    </span>
+
+    <button class="plane" id="plTour" onclick="show('world')" aria-label="出國旅行">
+      <svg width="180" height="86" viewBox="0 0 200 96" aria-hidden="true">
+        <path class="g-ink" style="stroke-width:1.7" d="M 6 74 Q 54 71.6, 100 73 T 194 71.8"/>
+        <path class="g-ink" style="stroke-width:1.5; stroke-dasharray:1 8" d="M 30 72 C 52 34, 96 14, 132 20 C 154 24, 168 40, 175 56"/>
+        <circle class="g-hollow" cx="30" cy="72" r="4"/>
+        <circle class="g-spark" cx="176" cy="60" r="4.6"/>
+        <path class="g-ink" style="stroke-width:1.1; opacity:.55" d="M 96 80 Q 100 84, 104 80"/>
+      </svg>
+      <span class="n" id="nTour">1 TOUR</span>
+    </button>
+
+    <button class="plane" id="plNotes" onclick="show('taiwan')" aria-label="島內手札">
+      <svg width="118" height="74" viewBox="0 0 130 82" aria-hidden="true">
+        <path class="g-ink" style="stroke-width:1.6" d="M 44 14 C 70 6, 98 16, 106 34 C 113 51, 100 66, 78 70
+                 C 56 74, 32 68, 26 50 C 21 35, 28 20, 44 14 Z"/>
+        <circle class="g-dot" cx="58" cy="38" r="3.4"/>
+        <circle class="g-dot" cx="82" cy="50" r="3.4"/>
+        <path class="g-ink" style="stroke-width:1.1; opacity:.6" d="M 58 38 Q 70 40, 82 50"/>
+        <path class="g-ink" style="stroke-width:1.1; opacity:.45" d="M 10 74 Q 16 70, 22 74"/>
+      </svg>
+      <span class="n" id="nNotes">— NOTES</span>
+    </button>
+
+    <div class="tally" id="tally"></div>
+
+    <div class="recent" id="recent"></div>
+  </div>
+</section>
+
+<!-- ══ 世界地圖 ══ -->
+<section class="view" id="world">
+  <button class="back" onclick="show('desk')">← DESK</button>
+  <div class="maphead">
+    <h1 class="zh">出國旅行</h1>
+    <div class="en">GRAND TOURS</div>
+  </div>
+
+  <div class="atlas" id="worldAtlas">
+    <svg viewBox="0 0 360 142" preserveAspectRatio="none" style="aspect-ratio:360/142;">
+      <defs>
+        <pattern id="wdots" width="2.6" height="2.6" patternUnits="userSpaceOnUse">
+          <circle cx="1.3" cy="1.3" r="0.5" fill="var(--faint)"/>
+        </pattern>
+      </defs>
+      <path d="M 0 84.6 Q 90 83.2, 180 84.2 T 360 83.6" fill="none" stroke="var(--faint)" stroke-width="0.4" opacity=".5"/>
+      <g transform="translate(180 84) scale(1 -1)" fill="url(#wdots)">
+        <polygon points="-168,66 -156,71 -130,70 -110,72 -90,73 -75,73 -60,66 -55,50 -67,45 -70,41 -76,35 -80,26 -97,25 -105,20 -115,29 -124,40 -124,48 -133,55 -150,59 -165,64"/>
+        <polygon points="-58,60 -45,60 -30,70 -20,76 -30,83 -50,82 -58,76 -60,68"/>
+        <polygon points="-81,8 -76,11 -60,11 -50,5 -35,-5 -38,-13 -48,-25 -58,-35 -62,-42 -68,-52 -75,-52 -72,-40 -70,-20 -75,-15 -81,-5"/>
+        <polygon points="-10,36 -9,44 0,50 5,58 12,65 20,70 30,70 45,72 60,73 75,75 95,78 110,76 125,73 140,72 160,70 178,66 170,60 155,55 142,48 135,42 128,38 122,30 118,22 108,20 100,10 95,5 90,20 80,10 72,20 68,24 60,25 52,28 45,30 40,33 35,36 28,41 20,40 12,38 0,36"/>
+        <polygon points="-10,51 -6,55 -3,58 0,54 -1,51 -5,50"/>
+        <polygon points="-17,15 -16,22 -10,32 0,36 10,37 20,32 32,31 35,25 43,12 51,12 42,-2 40,-15 35,-22 32,-28 25,-34 18,-34 12,-18 9,-2 5,5 -5,5 -12,10"/>
+        <polygon points="43,-12 50,-15 48,-25 44,-22"/>
+        <polygon points="113,-22 114,-33 118,-35 129,-32 138,-35 147,-38 153,-28 145,-15 135,-12 130,-11 122,-17"/>
+        <polygon points="166,-46 174,-41 178,-37 173,-34 168,-44"/>
+        <polygon points="130,32 135,34 141,40 145,44 142,45 136,36 131,31"/>
+        <polygon points="-24,65 -14,66 -13,64 -22,63"/>
+      </g>
+      <path d="M 301 60 C 250 10, 200 4, 161 19" fill="none" stroke="var(--spark)"
+            stroke-width="1" stroke-dasharray="1 6" stroke-linecap="round"/>
+    </svg>
+    <button class="mpin spark" style="left:44.7%; top:13.4%;" onclick="go('../iceland/')">
+      <i></i><span class="lbl">ICELAND 2026</span>
+    </button>
+    <span class="mpin home" style="left:83.6%; top:42.5%;"><i></i><span class="lbl">HOME</span></span>
+  </div>
+
+  <div class="foot">
+    <button class="entry" onclick="go('../iceland/')">
+      <svg class="uline" viewBox="0 0 1030 6" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M 2 3.6 Q 258 1.8, 515 3.2 T 1028 2.6" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span class="name">冰島 2026</span>
+      <span class="meta" id="worldMeta">09/14 – 09/30 · 15 DAYS · 猴 花 寧</span>
+      <span class="go">▶</span>
+    </button>
+    <p class="hint" style="margin-top:16px;">＋ 之後的旅程會出現在這張地圖上</p>
+  </div>
+</section>
+
+<!-- ══ 台灣地圖 ══ -->
+<section class="view" id="taiwan">
+  <button class="back" onclick="show('desk')">← DESK</button>
+  <div class="maphead">
+    <h1 class="zh">島內手札</h1>
+    <div class="en">FIELD NOTES</div>
+  </div>
+
+  <div class="wrap">
+    <div class="atlas" id="twAtlas">
+      <svg viewBox="0 0 310 380" preserveAspectRatio="xMidYMid meet" style="aspect-ratio:310/380;">
+        <defs>
+          <pattern id="tdots" width="7.5" height="7.5" patternUnits="userSpaceOnUse">
+            <circle cx="3.7" cy="3.7" r="1.4" fill="var(--faint)"/>
+          </pattern>
+        </defs>
+        <path d="M 0 201 Q 78 198.4, 155 200.2 T 310 199" fill="none" stroke="var(--faint)" stroke-width="1" stroke-dasharray="4 6" opacity=".6"/>
+        <g transform="translate(-11920 2550) scale(100 -100)" fill="url(#tdots)">
+          <polygon points="120.1,23.1 120.0,23.6 120.2,24.3 120.8,25.0 121.5,25.3 122.0,25.0 121.9,24.5 121.6,23.8 121.4,23.1 120.9,22.3 120.6,21.9 120.3,22.5"/>
+          <polygon points="119.5,23.4 119.7,23.7 119.75,23.5 119.6,23.3"/>
+        </g>
+      </svg>
+      <div id="twPins"></div>
+    </div>
+
+    <div class="side">
+      <p class="lede">不用建立旅程。去哪，就點在哪。</p>
+      <div id="twNotes"><p class="hint" style="padding:20px 0;">讀取手札中…</p></div>
+      <button class="quick" onclick="go('../taiwan/')"><i>＋</i> 記一筆 <small>開啟手札</small></button>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ══ 設定：出國旅行的旅程清單（回來之後改成讀資料庫）══ */
+const TOURS = [
+  { name:'冰島 2026', url:'../iceland/', start:'2026-09-14', end:'2026-09-30',
+    crew:['猴','花','寧'], lat:64.9, lng:-19 },
+];
+const TW_API = 'https://script.google.com/macros/s/AKfycbwAVDufZmN9EwnIkJ6UFUATcDn_jf4qrN2wuBEn4F9KKTKvpbEVPuQScXtk2tQMa_P2/exec';
+
+/* ══ 佈景主題 ══ */
+const THEMES = {
+  'A 大地':     { space:'#f7f1e6', ink:'#5b4a38', faint:'#b9ab94', dotA:'#cf9d7d', dotB:'#b3ad7e', spark:'#c97b3d' },
+  'B 墨青':     { space:'#f4f3ee', ink:'#3f4b55', faint:'#a8b0b5', dotA:'#9fb3c0', dotB:'#b9bfa3', spark:'#c05a41' },
+  'C 苔原':     { space:'#f3f0e2', ink:'#494a35', faint:'#adab8d', dotA:'#a9ad72', dotB:'#cbb289', spark:'#bf6b35' },
+  'D 藍晒':     { space:'#f2f3f0', ink:'#2f4858', faint:'#9fb0b8', dotA:'#8fb0c4', dotB:'#b7c2ad', spark:'#d08c2e' },
+  'E 燒陶':     { space:'#f9f1e5', ink:'#67402b', faint:'#c4a68d', dotA:'#d68f6a', dotB:'#d9c194', spark:'#a83b2c' },
+  'F 石墨':     { space:'#f0eeea', ink:'#4c4a47', faint:'#b1aca3', dotA:'#b5aa9b', dotB:'#a8aaa2', spark:'#d29e3a' },
+  'G 梅子抹茶': { space:'#f6f2ea', ink:'#4e4553', faint:'#b3a8ac', dotA:'#d8a0b0', dotB:'#a9bd8f', spark:'#c9a53c' },
+  'H 鮭魚湖水': { space:'#f7f3ec', ink:'#46524e', faint:'#a3b0aa', dotA:'#e2a68f', dotB:'#93bfb2', spark:'#9a6b8f' },
+  'I 藕紫芥末': { space:'#f4f1ea', ink:'#52493f', faint:'#b0a795', dotA:'#b9a3c4', dotB:'#cdb168', spark:'#bf5f4a' },
+};
+const THEME_KEY = 'book_theme';
+
+function applyTheme(name){
+  const t = THEMES[name] || THEMES['A 大地'];
+  const r = document.documentElement.style;
+  r.setProperty('--space', t.space); r.setProperty('--ink', t.ink);
+  r.setProperty('--faint', t.faint); r.setProperty('--dotA', t.dotA);
+  r.setProperty('--dotB', t.dotB);   r.setProperty('--spark', t.spark);
+  try{ localStorage.setItem(THEME_KEY, name); }catch(e){}
+  document.querySelectorAll('.themer .sw').forEach(b =>
+    b.classList.toggle('on', b.dataset.t === name));
+}
+function buildThemer(){
+  const tray = document.getElementById('themeTray');
+  tray.innerHTML = Object.entries(THEMES).map(([name, t]) =>
+    `<button class="sw" data-t="${name}" title="${name}"
+       style="background:linear-gradient(135deg, ${t.dotA} 0 48%, ${t.dotB} 52% 100%);"
+       onclick="applyTheme('${name}')"></button>`).join('');
+}
+function toggleThemer(){ document.getElementById('themer').classList.toggle('open'); }
+
+/* ══ 畫面切換 ══ */
+function show(id){
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === id));
+  window.scrollTo(0, 0);
+}
+function go(url){ location.href = url; }
+
+/* ══ 資料 ══ */
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtD = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth()+1}`.padStart(2,'0') + '/' + `${d.getDate()}`.padStart(2,'0'); };
+
+function daysToGo(){
+  const dep = new Date(TOURS[0].start + 'T00:00:00+08:00');
+  return Math.ceil((dep - new Date()) / 86400000);
+}
+
+function renderStatic(){
+  const d = daysToGo();
+  document.getElementById('nextSub').textContent =
+    (d > 0 ? `D-${d}` : d > -17 ? '旅途中' : '已完成') + ' · ' + TOURS[0].crew.join(' ');
+  document.getElementById('nTour').textContent = TOURS.length + ' TOUR' + (TOURS.length > 1 ? 'S' : '');
+}
+
+/* 台灣手札：唯讀台灣版的 GAS，離線時用上次快取 */
+const TW_CACHE = 'book_tw_cache';
+let twData = null;
+
+function renderTaiwan(){
+  const list = document.getElementById('twNotes');
+  const pins = document.getElementById('twPins');
+  const notes = (twData || []).filter(c => c.type !== 'wish');
+  document.getElementById('nNotes').textContent = (notes.length || '—') + ' NOTES';
+
+  // 桌面右下的「最近」＋線上的兩個小點
+  const recent = notes.slice(0, 3);
+  document.getElementById('recent').innerHTML = recent.map(c => `
+    <div class="row"><span class="place">${esc(c.name)}${c.note ? ' — ' + esc(c.note) : ''}</span>
+    <span class="d">${fmtD(c.time)}</span></div>`).join('')
+    || '<div class="row"><span class="place" style="color:var(--faint)">手札還是空的</span></div>';
+  document.getElementById('ptNote1').textContent = recent[0]?.name || '';
+  document.getElementById('ptNote2').textContent = recent[1]?.name || '';
+  document.getElementById('tally').innerHTML =
+    `${TOURS.length + 1} VOLUMES<br>${notes.length} NOTES`;
+
+  // 手札頁清單
+  list.innerHTML = notes.slice(0, 8).map(c => `
+    <button class="note" onclick="go('../taiwan/')">
+      <span class="d">${fmtD(c.time)}</span>
+      <span class="place">${esc(c.name)}</span>
+      <span class="line">${esc(c.note || c.who || '')}</span>
+    </button>`).join('')
+    || '<p class="hint" style="padding:20px 0;">還沒有手記。按下面的＋開始。</p>';
+
+  // 台灣地圖 pins（viewBox 310×380，經緯度線性換算）
+  pins.innerHTML = notes.filter(c => c.lat && c.lng).slice(0, 30).map(c => {
+    const x = (c.lng * 100 - 11920) / 310 * 100;
+    const y = (2550 - c.lat * 100) / 380 * 100;
+    if (x < 0 || x > 100 || y < 0 || y > 100) return '';
+    return `<button class="mpin tw" style="left:${x.toFixed(1)}%; top:${y.toFixed(1)}%;" onclick="go('../taiwan/')">
+      <i></i></button>`;
+  }).join('');
+}
+
+async function loadTaiwan(){
+  try{
+    const cached = JSON.parse(localStorage.getItem(TW_CACHE) || 'null');
+    if (cached){ twData = cached; renderTaiwan(); }
+  }catch(e){}
+  try{
+    const res = await fetch(TW_API + '?sheet=checkin', { cache:'no-store' });
+    const data = await res.json();
+    if (Array.isArray(data.checkins)){
+      twData = data.checkins.slice().reverse();   // 新的在前
+      try{ localStorage.setItem(TW_CACHE, JSON.stringify(twData)); }catch(e){}
+      renderTaiwan();
+    }
+  }catch(e){
+    if (!twData){
+      document.getElementById('twNotes').innerHTML =
+        '<p class="hint" style="padding:20px 0;">目前離線，開過一次後會留下快取。</p>';
+      document.getElementById('recent').innerHTML = '';
+      document.getElementById('tally').innerHTML = (TOURS.length + 1) + ' VOLUMES';
+    }
+  }
+}
+
+buildThemer();
+applyTheme((() => { try{ return localStorage.getItem(THEME_KEY); }catch(e){ return null; } })() || 'A 大地');
+renderStatic();
+renderTaiwan();
+loadTaiwan();
+</script>
+</body>
+</html>
