@@ -144,6 +144,23 @@ stay: [
 book/ 已經是第一個使用者，新小本是第二個，凡是兩邊都要的就當場提到 `shared/`。
 介面被真的用過才定案。
 
+### 已經抽出來的（2026-08-31，第一批）
+
+| 檔案 | 內容 | 誰在用 |
+|---|---|---|
+| `shared/theme.js` | 九款佈景主題、`Theme.mount()` 自動長出主題鈕，選擇存 `book_theme` 全站共用 | book/、roster/ |
+| `shared/roster.js` | 角色資料模型與存取（`Roster.all/get/upsert/save/spriteSvg/startTicker/addStats/exportJSON`） | roster/、book/ |
+| `shared/sprites.js` | 成員像素圖（從 taiwan/sprites.js 複製，之後以這份為準） | roster/、book/ |
+| `roster/index.html` | 角色館頁面：地平線舞台＋角色卡＋編輯（含 pixelpad 畫板）＋匯出匯入 | 書桌的門進入 |
+
+角色欄位：`id / name / alias / color / icon / spriteKey / sprite / intro / tags / isMe / since / refs`。
+`id` 是永久識別碼，改名不影響既有紀錄；`isMe` 是打卡個人制的 author 預設值（只能有一位）。
+`refs` 放各 app 的專用欄位（冰島版的 sceneId/charId/bubbleId）。
+
+**儲存目前是 localStorage（`roster_v1`）**，只在自己這台裝置。接後端時只要換掉
+`roster.js` 的 `load()/save()`，其餘介面不動。出場統計用 `Roster.addStats(fn)` 由各頁
+自己餵資料源，角色館只負責顯示。
+
 ### 封存分兩批（時間點不同）
 
 1. **taiwan/ 可以早封存**：資料全是歷史紀錄，沒有「行程中會變動」的問題。
@@ -266,11 +283,11 @@ book/ 已經是第一個使用者，新小本是第二個，凡是兩邊都要�
 
 | 模組 | 內容 | 現況 |
 |---|---|---|
-| 角色館 /roster | 遊戲人物頁：sprite動畫/代表色/介紹＋出場統計（出遊次數/腳印/分帳往來）；兩本書用 member_id 引用 | spritetool+pixelpad 已有，缺「館」 |
+| 角色館 /roster | 遊戲人物頁：sprite動畫/代表色/介紹＋出場統計（出遊次數/腳印/分帳往來）；兩本書用 member_id 引用 | ✅ 已實作（roster/ ＋ shared/roster.js） |
 | 記帳引擎 | 同一核心，splitMode: full(出國)/none(島內) | 兩版各一套，要合 |
 | 打卡表單 | 個人制 author=我 + with=誰在場；停留/途經兩級 | 已定案 |
 | 地圖引擎 | pins/合併計數/路線/城市錨點/離線快取 | book/ 的實作是雛形 |
-| 主題系統 | 九款六變數 | ✅ book/ 已實作 |
+| 主題系統 | 九款六變數 | ✅ 已抽成 shared/theme.js（book/ 與 roster/ 共用） |
 | 離線佇列＋同步 | 冰島版那套 | 抽出即用 |
 | schema 表單引擎 | 之前定案 | 待做 |
 

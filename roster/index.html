@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>角色館 · 旅程書</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@300;400&display=swap">
+<style>
+:root{
+  --space:#f7f1e6; --ink:#5b4a38; --faint:#b9ab94;
+  --dotA:#cf9d7d; --dotB:#b3ad7e; --spark:#c97b3d;
+}
+*{box-sizing:border-box;}
+html,body{margin:0; background:var(--space); color:var(--ink);}
+body{
+  font-family:'Noto Sans TC',system-ui,sans-serif; font-weight:300;
+  min-height:100vh; -webkit-tap-highlight-color:transparent;
+}
+.wrap{position:relative; max-width:1240px; margin:0 auto; padding:clamp(20px,5vh,58px) clamp(18px,5vw,64px) 90px;}
+
+.back{
+  font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.24em;
+  color:var(--faint); background:none; border:none; cursor:pointer; padding:0;
+  text-decoration:none; display:inline-block;
+}
+.back:hover{color:var(--ink);}
+.mark{margin:34px 0 4px;}
+.mark .zh{font-family:'Noto Serif TC',serif; font-weight:900; font-size:23px; letter-spacing:.3em; margin:0;}
+.mark .en{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.3em; color:var(--faint); margin-top:9px;}
+.lede{font-size:12.5px; color:var(--faint); line-height:2.1; letter-spacing:.04em; margin:14px 0 0;}
+
+/* ══ 舞台：一條地平線，角色站在純淨空間裡 ══ */
+.stage{position:relative; margin:26px 0 8px; height:150px;}
+.stage .horizon{position:absolute; inset:0; width:100%; height:100%; pointer-events:none;}
+.stage .horizon path{fill:none; stroke:var(--faint); stroke-width:1.2; stroke-linecap:round;}
+.cast{
+  position:absolute; left:0; right:0; bottom:34px;
+  display:flex; align-items:flex-end; gap:clamp(16px,4vw,42px); padding:0 8px;
+  overflow-x:auto; scrollbar-width:none;
+}
+.cast::-webkit-scrollbar{display:none;}
+.actor{
+  background:none; border:none; padding:0; cursor:pointer; flex-shrink:0;
+  display:flex; flex-direction:column; align-items:center; gap:7px;
+  transition:transform .25s cubic-bezier(.2,.85,.3,1.05);
+}
+.actor:hover, .actor.on{transform:translateY(-6px);}
+.actor .fig{width:38px; height:62px; display:grid; place-items:end center;}
+.actor .fig svg{width:100%; height:100%; image-rendering:pixelated;}
+.actor .ch-emoji{font-size:26px; line-height:1;}
+.actor .nm{
+  font-size:11px; letter-spacing:.1em; color:var(--faint);
+  background:var(--space); padding:1px 5px; white-space:nowrap;
+}
+.actor.on .nm{color:var(--ink);}
+.actor .dot{width:5px; height:5px; border-radius:50%; background:var(--faint);}
+.actor.on .dot{background:var(--spark); width:7px; height:7px;}
+
+/* ══ 角色卡：網點面上的一張紙 ══ */
+.card{
+  position:relative; margin-top:30px; padding:26px clamp(18px,4vw,34px) 30px;
+  background-image:radial-gradient(circle, var(--dotA) 1.5px, transparent 1.7px);
+  background-size:7px 7px;
+}
+.card .sheet{background:var(--space); padding:clamp(18px,3vw,28px); box-shadow:3px 4px 0 rgba(0,0,0,.07);}
+.card .top{display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap;}
+.card .big{width:66px; height:104px; flex-shrink:0; display:grid; place-items:end center;}
+.card .big svg{width:100%; height:100%; image-rendering:pixelated;}
+.card .big .ch-emoji{font-size:44px;}
+.card .id{flex:1; min-width:180px;}
+.card .id h2{font-family:'Noto Serif TC',serif; font-weight:900; font-size:21px; letter-spacing:.16em; margin:0; display:flex; align-items:center; gap:10px;}
+.card .id h2 .sw{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+.card .id .alias{font-size:12px; color:var(--faint); margin-top:8px; letter-spacing:.08em; min-height:1em;}
+.card .id .intro{font-size:13px; line-height:2; margin-top:15px; white-space:pre-wrap;}
+.card .id .intro.empty{color:var(--faint);}
+.tags{display:flex; flex-wrap:wrap; gap:7px; margin-top:15px;}
+.tags span{font-size:10.5px; letter-spacing:.06em; color:var(--ink); border:1px solid var(--faint); padding:3px 9px;}
+.mine{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.2em; color:var(--space); background:var(--spark); padding:3px 7px;}
+.stat{display:flex; flex-wrap:wrap; gap:0 26px; margin-top:22px; padding-top:18px; border-top:1px solid var(--faint);}
+.stat div{font-size:11px; color:var(--faint); letter-spacing:.06em; padding:4px 0;}
+.stat b{font-family:Silkscreen,monospace; font-size:13px; color:var(--ink); font-weight:400; margin-right:5px;}
+.acts{display:flex; gap:10px; margin-top:22px; flex-wrap:wrap;}
+
+button.ln, a.ln{
+  font-family:'Noto Sans TC',sans-serif; font-size:12px; letter-spacing:.08em;
+  background:none; border:1px solid var(--faint); color:var(--ink);
+  padding:8px 16px; cursor:pointer; text-decoration:none; display:inline-block;
+}
+button.ln:hover, a.ln:hover{border-color:var(--ink);}
+button.ln.warm{border-color:var(--spark); color:var(--spark);}
+button.ln.ghost{border:none; color:var(--faint);}
+
+/* ══ 編輯 ══ */
+.edit{margin-top:22px; padding-top:20px; border-top:1px solid var(--faint);}
+.fld{margin-bottom:16px;}
+.fld label{display:block; font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.2em; color:var(--faint); margin-bottom:7px;}
+.fld input, .fld textarea{
+  width:100%; background:none; border:none; border-bottom:1px solid var(--faint);
+  font-family:'Noto Sans TC',sans-serif; font-size:14px; color:var(--ink);
+  padding:5px 2px; font-weight:300;
+}
+.fld textarea{border:1px solid var(--faint); padding:10px; line-height:1.9; resize:vertical; min-height:86px;}
+.fld input:focus, .fld textarea:focus{outline:none; border-color:var(--ink);}
+.row2{display:flex; gap:18px; flex-wrap:wrap;}
+.row2 .fld{flex:1; min-width:130px;}
+.fld input[type=color]{height:34px; padding:0; border:1px solid var(--faint); cursor:pointer;}
+.chk{display:flex; align-items:center; gap:9px; font-size:12.5px; cursor:pointer; color:var(--ink);}
+.chk input{width:15px; height:15px; accent-color:var(--spark);}
+.pad{margin-top:14px; display:none;}
+.pad.open{display:block;}
+.foot{
+  display:flex; gap:14px; align-items:center; flex-wrap:wrap;
+  margin-top:40px; padding-top:20px; border-top:1px solid var(--faint);
+}
+.foot .sp{margin-left:auto;}
+.hint{font-size:11px; color:var(--faint); letter-spacing:.05em;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="../book/">← DESK</a>
+
+  <div class="mark">
+    <h1 class="zh">角 色 館</h1>
+    <div class="en">ROSTER</div>
+  </div>
+  <p class="lede">一起走過的人，都在這裡。<br>兩本書共用同一份名冊。</p>
+
+  <div class="stage">
+    <svg class="horizon" viewBox="0 0 1000 150" preserveAspectRatio="none">
+      <path d="M 0 118 Q 150 115.4, 300 117.2 T 620 116.4 T 1000 117.8"/>
+    </svg>
+    <div class="cast" id="cast"></div>
+  </div>
+
+  <div class="card" id="card"></div>
+
+  <div class="foot">
+    <button class="ln" onclick="newChar()">＋ 新角色</button>
+    <button class="ln ghost" onclick="doExport()">匯出 JSON</button>
+    <button class="ln ghost" onclick="document.getElementById('imp').click()">匯入</button>
+    <input type="file" id="imp" accept=".json,application/json" style="display:none" onchange="doImport(this)">
+    <span class="hint sp" id="saveHint">存在這台裝置的瀏覽器裡</span>
+  </div>
+</div>
+
+<script src="../shared/theme.js"></script>
+<script src="../shared/sprites.js"></script>
+<script src="../shared/roster.js"></script>
+<script src="../shared/pixelpad.js"></script>
+<script>
+Theme.mount();
+Roster.startTicker();
+
+// 出場統計：先用書桌抓下來的台灣打卡快取，統一版接上資料庫後換成 API。
+// 舊資料的 who 欄存的是名字，所以用名字比對。
+Roster.addStats(ch => {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem('book_tw_cache') || 'null'); } catch (e) {}
+  if (!Array.isArray(data)) return null;
+  const n = data.filter(c => c.who === ch.name && c.type !== 'wish').length;
+  if (!n) return null;
+  const days = new Set(data.filter(c => c.who === ch.name).map(c => String(c.time).slice(0, 10))).size;
+  return [`<b>${n}</b>次島內腳印`, `<b>${days}</b>天出遊`];
+});
+
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+let sel = (Roster.all()[0] || {}).id || null;
+let editing = false;
+let padSprite = null;      // 編輯中暫存的自畫像素圖
+
+function renderCast(){
+  document.getElementById('cast').innerHTML = Roster.all().map(c => `
+    <button class="actor ${c.id === sel ? 'on' : ''}" data-id="${esc(c.id)}" title="${esc(c.name)}">
+      <span class="fig">${Roster.spriteSvg(c)}</span>
+      <span class="nm">${esc(c.name) || '？'}</span>
+      <span class="dot" style="${c.id === sel ? '' : `background:${esc(c.color)};opacity:.45`}"></span>
+    </button>`).join('');
+  document.querySelectorAll('.actor').forEach(el =>
+    el.addEventListener('click', () => { sel = el.dataset.id; editing = false; render(); }));
+}
+
+function renderCard(){
+  const box = document.getElementById('card');
+  const c = Roster.get(sel);
+  if (!c){ box.innerHTML = '<div class="sheet"><p class="hint">名冊是空的。按下面的「＋ 新角色」開始。</p></div>'; return; }
+
+  if (editing){ box.innerHTML = editForm(c); bindEdit(c); return; }
+
+  const st = Roster.stats(c);
+  box.innerHTML = `
+    <div class="sheet">
+      <div class="top">
+        <div class="big">${Roster.spriteSvg(c)}</div>
+        <div class="id">
+          <h2><span class="sw" style="background:${esc(c.color)}"></span>${esc(c.name) || '未命名'}
+            ${c.isMe ? '<span class="mine">ME</span>' : ''}</h2>
+          <div class="alias">${esc(c.alias)}</div>
+          <div class="intro ${c.intro ? '' : 'empty'}">${c.intro ? esc(c.intro) : '還沒有介紹。按「編輯」寫幾句。'}</div>
+          ${c.tags && c.tags.length ? `<div class="tags">${c.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>
+      <div class="stat">
+        ${st.length ? st.map(s => `<div>${s}</div>`).join('')
+          : '<div>出場統計要等統一版接上資料後才會有。</div>'}
+        ${c.since ? `<div><b>${esc(c.since)}</b>起同行</div>` : ''}
+      </div>
+      <div class="acts">
+        <button class="ln" onclick="startEdit()">編輯</button>
+        <a class="ln" href="../shared/spritetool.html" target="_blank">像素圖工具</a>
+      </div>
+    </div>`;
+}
+
+function editForm(c){
+  return `
+    <div class="sheet">
+      <div class="edit" style="margin-top:0; padding-top:0; border:none;">
+        <div class="row2">
+          <div class="fld"><label>NAME 名字</label><input id="fName" value="${esc(c.name)}"></div>
+          <div class="fld"><label>ALIAS 稱號</label><input id="fAlias" value="${esc(c.alias)}" placeholder="一句話身分"></div>
+        </div>
+        <div class="row2">
+          <div class="fld" style="max-width:110px;"><label>COLOR 代表色</label><input type="color" id="fColor" value="${esc(c.color || '#9a9088')}"></div>
+          <div class="fld" style="max-width:110px;"><label>EMOJI 備援</label><input id="fIcon" value="${esc(c.icon)}" maxlength="4"></div>
+          <div class="fld" style="max-width:130px;"><label>SINCE 起始年</label><input id="fSince" value="${esc(c.since)}" placeholder="2019"></div>
+        </div>
+        <div class="fld"><label>TAGS 標籤（逗號分隔）</label><input id="fTags" value="${esc((c.tags || []).join('、'))}" placeholder="怕冷、負責訂房"></div>
+        <div class="fld"><label>INTRO 介紹</label><textarea id="fIntro" placeholder="這個人是誰、跟你怎麼認識、旅行時負責什麼。">${esc(c.intro)}</textarea></div>
+        <div class="fld">
+          <label>ME 本人</label>
+          <label class="chk"><input type="checkbox" id="fMe" ${c.isMe ? 'checked' : ''}>
+            這是我（打卡時預設的記錄者，只能有一位）</label>
+        </div>
+        <div class="fld">
+          <label>SPRITE 像素圖</label>
+          <div class="acts" style="margin-top:0;">
+            <button class="ln" onclick="togglePad()">🎨 用畫板畫</button>
+            <button class="ln ghost" id="padClear" style="display:${(padSprite || c.sprite) ? '' : 'none'}"
+              onclick="clearSprite()">✕ 清除自畫圖</button>
+          </div>
+          <p class="hint" style="margin:9px 0 0;">
+            ${c.spriteKey ? `目前用 spritetool 綁定的動畫（${esc(c.spriteKey)}），自畫圖不會蓋掉它。` : '沒有綁定動畫，自畫圖就是頭像。'}
+          </p>
+          <div class="pad" id="pad"></div>
+        </div>
+        <div class="acts">
+          <button class="ln warm" onclick="saveEdit()">儲存</button>
+          <button class="ln ghost" onclick="editing=false;padSprite=null;render();">取消</button>
+          <button class="ln ghost" style="margin-left:auto;color:var(--faint)" onclick="delChar()">刪除這位角色</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindEdit(c){
+  padSprite = padSprite || c.sprite || null;
+}
+
+function startEdit(){ editing = true; padSprite = null; render(); }
+
+function togglePad(){
+  const el = document.getElementById('pad');
+  el.classList.toggle('open');
+  if (el.classList.contains('open') && !el.dataset.ready){
+    PixelPad.mount(el, { onDone: res => { padSprite = res.svgData ? { rects: res.svgData, grid: res.grid } : null; } });
+    const c = Roster.get(sel);
+    const s = padSprite || (c && c.sprite);
+    if (s && s.rects) PixelPad.loadRects(s.rects, s.grid);
+    el.dataset.ready = '1';
+  }
+}
+function clearSprite(){
+  padSprite = null;
+  const c = Roster.get(sel); if (c) c.sprite = null;
+  document.getElementById('padClear').style.display = 'none';
+}
+
+function saveEdit(){
+  const c = Roster.get(sel);
+  const name = document.getElementById('fName').value.trim();
+  if (!name){ alert('名字不能空白'); return; }
+  // 畫板開著就把當下的畫收進來，不用先按畫板自己的完成鍵
+  if (document.getElementById('pad').dataset.ready){
+    const r = PixelPad.getResult();
+    if (r.svgData) padSprite = { rects: r.svgData, grid: r.grid };
+  }
+  Roster.upsert({
+    id: c.id,
+    name,
+    alias: document.getElementById('fAlias').value.trim(),
+    color: document.getElementById('fColor').value,
+    icon:  document.getElementById('fIcon').value.trim(),
+    since: document.getElementById('fSince').value.trim(),
+    tags:  document.getElementById('fTags').value.split(/[、,，]/).map(s => s.trim()).filter(Boolean),
+    intro: document.getElementById('fIntro').value.trim(),
+    isMe:  document.getElementById('fMe').checked,
+    sprite: padSprite,
+  });
+  const ok = Roster.save();
+  document.getElementById('saveHint').textContent = ok ? '已存到這台裝置' : '⚠ 存不進去（瀏覽器空間或隱私模式）';
+  editing = false; padSprite = null; render();
+}
+
+function newChar(){
+  const c = Roster.upsert({ name: '新角色', color: '#9a9088', icon: '🙂' });
+  Roster.save();
+  sel = c.id; editing = true; padSprite = null; render();
+}
+
+function delChar(){
+  const c = Roster.get(sel);
+  if (!c) return;
+  if (!confirm(`刪除「${c.name}」？既有紀錄裡的名字不會跟著消失。`)) return;
+  Roster.remove(sel);
+  Roster.save();
+  sel = (Roster.all()[0] || {}).id || null;
+  editing = false; render();
+}
+
+function doExport(){
+  const blob = new Blob([Roster.exportJSON()], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'roster.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function doImport(input){
+  const f = input.files && input.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      Roster.importJSON(r.result);
+      Roster.save();
+      sel = (Roster.all()[0] || {}).id || null;
+      editing = false; render();
+      document.getElementById('saveHint').textContent = '已匯入';
+    } catch (e) { alert('匯入失敗：' + e.message); }
+  };
+  r.readAsText(f);
+  input.value = '';
+}
+
+function render(){ renderCast(); renderCard(); }
+render();
+</script>
+</body>
+</html>
