@@ -31,53 +31,76 @@ body{
 .mark .en{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.3em; color:var(--faint); margin-top:9px;}
 .lede{font-size:12.5px; color:var(--faint); line-height:2.1; letter-spacing:.04em; margin:14px 0 0;}
 
-/* ══ 名冊：自動換行的格狀排列——是位置成列，不是畫格子 ══ */
-.body{margin-top:30px;}
+/* ══ 選角畫面：左邊被選中的人，右邊 n×n 選格 ══ */
+.body{
+  display:flex; gap:clamp(24px,4vw,56px); align-items:flex-start;
+  margin-top:30px;
+}
+
+/* 選格：自動換行的 n×n，沒有畫框，選中的人用四個角標記（像遊標）*/
+.side{order:2; flex-shrink:0; width:clamp(258px,34vw,430px);}
 .cast{
-  display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr));
-  gap:clamp(20px,3vw,38px) clamp(8px,2vw,20px);
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(78px, 1fr));
+  gap:clamp(12px,1.6vw,20px) clamp(6px,1vw,12px);
   align-items:end;
 }
 .actor{
-  position:relative; background:none; border:none; cursor:pointer; padding:6px 2px 0;
-  display:flex; flex-direction:column; align-items:center; gap:8px;
-  transition:transform .22s cubic-bezier(.2,.85,.3,1.05);
+  position:relative; background:none; border:none; cursor:pointer; padding:10px 2px 6px;
+  display:flex; flex-direction:column; align-items:center; gap:7px;
+  transition:transform .16s cubic-bezier(.2,.85,.3,1.05);
 }
-.actor:hover, .actor.on{transform:translateY(-5px);}
+.actor:hover{transform:translateY(-4px);}
+.actor.on{transform:translateY(-4px);}
+/* 遊標：四個角，只有線，沒有框 */
+.actor .cur{
+  position:absolute; inset:0; pointer-events:none; opacity:0;
+  transition:opacity .15s, transform .15s;
+  transform:scale(1.08);
+}
+.actor .cur path{fill:none; stroke:var(--faint); stroke-width:1.4; stroke-linecap:square;}
+.actor:hover .cur{opacity:.55; transform:scale(1);}
+.actor.on .cur{opacity:1; transform:scale(1);}
+.actor.on .cur path{stroke:var(--spark); stroke-width:1.8;}
 .actor .fig{width:38px; height:56px; display:grid; place-items:end center;}
 .actor .fig svg{width:100%; height:100%; image-rendering:pixelated;}
 .actor .ch-emoji{font-size:26px; line-height:1;}
-/* 腳下的點：站在純淨空間裡的一個點，不是格線 */
-.actor .dot{
-  width:5px; height:5px; border-radius:50%; background:var(--space);
-  border:1.5px solid var(--faint); box-sizing:content-box; transition:all .2s;
-}
-.actor:hover .dot{border-color:var(--ink);}
-.actor.on .dot{background:var(--spark); border-color:var(--spark);}
 .actor .nm{
-  font-size:12.5px; letter-spacing:.06em; color:var(--faint);
+  font-size:11.5px; letter-spacing:.04em; color:var(--faint);
   max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.actor:hover .nm, .actor.on .nm{color:var(--ink);}
+.actor:hover .nm{color:var(--ink);}
+.actor.on .nm{color:var(--ink);}
 .actor .me{
-  position:absolute; top:0; right:6px;
+  position:absolute; top:1px; right:4px;
   font-family:Silkscreen,monospace; font-size:6.5px; letter-spacing:.16em; color:var(--spark);
 }
 .count{
   font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.2em;
-  color:var(--faint); margin-top:26px;
+  color:var(--faint); margin-top:22px; text-align:right;
 }
 
-/* ══ 角色卡：桌機就在名冊下面攤開；手機才變成彈窗（見文末 media）══ */
+/* 左右換人：大格自己的兩顆箭頭 */
+.flip{
+  position:absolute; top:50%; margin-top:-19px; z-index:3;
+  width:38px; height:38px; border-radius:50%; padding:0; cursor:pointer;
+  border:1.5px solid var(--faint); background:var(--space); color:var(--ink);
+  font-size:15px; line-height:1; display:grid; place-items:center;
+  transition:border-color .2s, transform .2s;
+}
+.flip:hover{border-color:var(--ink); transform:scale(1.08);}
+.flip.prev{left:-6px;}
+.flip.next{right:-6px;}
+
+/* ══ 被選中的人：左邊那一大格 ══ */
 .card{
-  position:relative; margin-top:34px;
-  padding:26px clamp(18px,4vw,34px) 30px;
+  order:1; flex:1; min-width:0; position:relative;
+  padding:26px clamp(30px,3.4vw,44px) 30px;
   background-image:radial-gradient(circle, var(--dotA) 1.5px, transparent 1.7px);
   background-size:7px 7px;
 }
 .card .sheet{background:var(--space); padding:clamp(18px,3vw,28px); box-shadow:3px 4px 0 rgba(0,0,0,.07);}
 .card .top{display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap;}
-.card .big{width:66px; height:104px; flex-shrink:0; display:grid; place-items:end center;}
+.card .big{width:104px; height:158px; flex-shrink:0; display:grid; place-items:end center;}
 .card .big svg{width:100%; height:100%; image-rendering:pixelated;}
 .card .big .ch-emoji{font-size:44px;}
 .card .id{flex:1; min-width:180px;}
@@ -142,9 +165,15 @@ button.ln.ghost{border:none; color:var(--faint);}
 
 /* ══ 只有手機：點角色從下面彈出小窗 ══ */
 @media (max-width:720px){
-  .cast{grid-template-columns:repeat(auto-fill, minmax(74px, 1fr)); gap:22px 6px;}
+  .body{display:block;}
+  .side{width:100%;}
+  .cast{grid-template-columns:repeat(auto-fill, minmax(74px, 1fr)); gap:16px 6px;}
   .actor .fig{width:32px; height:48px;}
   .actor .nm{font-size:11.5px;}
+  .count{text-align:left;}
+  .flip.prev{left:6px;}
+  .flip.next{right:6px;}
+  .card .big{width:64px; height:98px;}
 
   .card{
     position:fixed; z-index:20; left:0; right:0; bottom:0; margin:0;
@@ -165,7 +194,6 @@ button.ln.ghost{border:none; color:var(--faint);}
   .sheetclose{display:block;}
   .card .sheet{padding:16px 14px 20px;}
   .card .top{gap:16px;}
-  .card .big{width:52px; height:80px;}
 
   @media (prefers-reduced-motion: reduce){ .card{transition:none;} }
 }
@@ -183,11 +211,15 @@ button.ln.ghost{border:none; color:var(--faint);}
   <p class="lede">一起走過的人，都在這裡。<br>兩本書共用同一份名冊。</p>
 
   <div class="body">
-    <div class="cast" id="cast"></div>
-    <div class="count" id="count"></div>
     <div class="card" id="card" role="group" aria-label="角色">
       <button class="sheetclose" onclick="closeSheet()" aria-label="關閉">✕</button>
+      <button class="flip prev" onclick="flip(-1)" aria-label="上一位">‹</button>
+      <button class="flip next" onclick="flip(1)" aria-label="下一位">›</button>
       <div id="cardBody"></div>
+    </div>
+    <div class="side">
+      <div class="cast" id="cast"></div>
+      <div class="count" id="count"></div>
     </div>
   </div>
 
@@ -230,19 +262,35 @@ let sel = (Roster.all()[0] || {}).id || null;
 let editing = false;
 let padSprite = null;      // 編輯中暫存的自畫像素圖
 
+// 遊標：四個角，不是框
+const CURSOR = `<svg class="cur" viewBox="0 0 40 60" preserveAspectRatio="none" aria-hidden="true">
+  <path d="M 1 9 V 1 H 9 M 31 1 H 39 V 9 M 39 51 V 59 H 31 M 9 59 H 1 V 51"/></svg>`;
+
 function renderCast(){
   const list = Roster.all();
   const box = document.getElementById('cast');
   box.innerHTML = list.map(c => `
     <button class="actor ${c.id === sel ? 'on' : ''}" data-id="${esc(c.id)}" title="${esc(c.name)}">
+      ${CURSOR}
       ${c.isMe ? '<span class="me">ME</span>' : ''}
       <span class="fig">${Roster.spriteSvg(c)}</span>
       <span class="nm">${esc(c.name) || '？'}</span>
-      <span class="dot" style="${c.id === sel ? '' : `border-color:${esc(c.color)}`}"></span>
     </button>`).join('');
   document.getElementById('count').textContent = list.length + ' 位';
   box.querySelectorAll('.actor').forEach(el =>
     el.addEventListener('click', () => openSheet(el.dataset.id)));
+}
+
+/* ══ 左右換人：大格的箭頭、鍵盤方向鍵、手機上滑動 ══ */
+function flip(step){
+  const list = Roster.all();
+  if (!list.length) return;
+  const i = list.findIndex(c => c.id === sel);
+  const next = list[((i < 0 ? 0 : i + step) + list.length) % list.length];
+  sel = next.id; editing = false; padSprite = null;
+  render();
+  const el = document.querySelector('.actor.on');
+  if (el) el.scrollIntoView({ block:'nearest', behavior:'smooth' });
 }
 
 /* ══ 選角色：桌機就在下面換內容，手機才彈出小窗 ══ */
@@ -264,8 +312,30 @@ function closeSheet(){
   render();
 }
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.body.classList.contains('sheet')) closeSheet();
+  if (e.key === 'Escape' && document.body.classList.contains('sheet')){ closeSheet(); return; }
+  if (editing) return;                                  // 編輯時方向鍵歸輸入框
+  if (/^(INPUT|TEXTAREA)$/.test((e.target.tagName || ''))) return;
+  if (e.key === 'ArrowLeft'){ e.preventDefault(); flip(-1); }
+  if (e.key === 'ArrowRight'){ e.preventDefault(); flip(1); }
 });
+
+// 手機彈窗上左右滑動也能換人
+(function(){
+  let x0 = null, y0 = null;
+  const card = () => document.getElementById('card');
+  document.addEventListener('touchstart', e => {
+    if (!document.body.classList.contains('sheet') || editing) return;
+    if (!card().contains(e.target)) return;
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+  }, { passive:true });
+  document.addEventListener('touchend', e => {
+    if (x0 == null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    const dy = e.changedTouches[0].clientY - y0;
+    x0 = y0 = null;
+    if (Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.6) flip(dx < 0 ? 1 : -1);
+  }, { passive:true });
+})();
 // 轉螢幕方向／改視窗寬度時，彈窗狀態不要卡住
 window.addEventListener('resize', () => {
   if (!isPhone() && document.body.classList.contains('sheet')){
