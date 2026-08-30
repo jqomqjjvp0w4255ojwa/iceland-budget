@@ -31,56 +31,47 @@ body{
 .mark .en{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.3em; color:var(--faint); margin-top:9px;}
 .lede{font-size:12.5px; color:var(--faint); line-height:2.1; letter-spacing:.04em; margin:14px 0 0;}
 
-/* ══ 左右兩欄：左邊名冊（往下長），右邊角色卡 ══ */
-.body{
-  display:flex; gap:clamp(22px,4vw,50px); align-items:flex-start;
-  margin-top:30px;
-}
-
-/* 名冊：一條手寫的直線，角色是線上的點——人再多就往下長 */
+/* ══ 名冊：自動換行的格狀排列——是位置成列，不是畫格子 ══ */
+.body{margin-top:30px;}
 .cast{
-  position:relative; flex-shrink:0;
-  width:clamp(178px,22vw,236px);
-  padding-left:24px;
-  max-height:min(600px,66vh); overflow-y:auto; overscroll-behavior:contain;
-  scrollbar-width:thin; scrollbar-color:var(--faint) transparent;
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr));
+  gap:clamp(20px,3vw,38px) clamp(8px,2vw,20px);
+  align-items:end;
 }
-.cast::-webkit-scrollbar{width:3px;}
-.cast::-webkit-scrollbar-thumb{background:var(--faint);}
-/* left 對齊 .actor .dot 的圓心：24(padding) − 19(dot left) + 4.5(半徑含框) = 9.5 = 2.5 + x7 */
-.cast .spine{position:absolute; left:2.5px; top:0; width:14px; height:100%; pointer-events:none;}
-.cast .spine path{fill:none; stroke:var(--faint); stroke-width:1.2; stroke-linecap:round; vector-effect:non-scaling-stroke;}
 .actor{
-  position:relative; width:100%; background:none; border:none; cursor:pointer;
-  display:flex; align-items:center; gap:12px; padding:9px 4px 9px 0; text-align:left;
+  position:relative; background:none; border:none; cursor:pointer; padding:6px 2px 0;
+  display:flex; flex-direction:column; align-items:center; gap:8px;
   transition:transform .22s cubic-bezier(.2,.85,.3,1.05);
 }
-.actor:hover, .actor.on{transform:translateX(4px);}
-/* 線上的點：定位對齊 .cast 的 spine（left:8px + 半徑） */
-.actor .dot{
-  position:absolute; left:-19px; top:50%; margin-top:-3px;
-  width:6px; height:6px; border-radius:50%; background:var(--space);
-  border:1.5px solid var(--faint); box-sizing:content-box;
-}
-.actor.on .dot{background:var(--spark); border-color:var(--spark);}
-.actor .fig{width:30px; height:48px; flex-shrink:0; display:grid; place-items:end center;}
+.actor:hover, .actor.on{transform:translateY(-5px);}
+.actor .fig{width:38px; height:56px; display:grid; place-items:end center;}
 .actor .fig svg{width:100%; height:100%; image-rendering:pixelated;}
-.actor .ch-emoji{font-size:22px; line-height:1;}
-.actor .nm{
-  font-size:13px; letter-spacing:.08em; color:var(--faint);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+.actor .ch-emoji{font-size:26px; line-height:1;}
+/* 腳下的點：站在純淨空間裡的一個點，不是格線 */
+.actor .dot{
+  width:5px; height:5px; border-radius:50%; background:var(--space);
+  border:1.5px solid var(--faint); box-sizing:content-box; transition:all .2s;
 }
-.actor.on .nm{color:var(--ink);}
-.actor .me{font-family:Silkscreen,monospace; font-size:6.5px; letter-spacing:.16em; color:var(--spark); margin-left:auto; flex-shrink:0;}
-.cast .count{
+.actor:hover .dot{border-color:var(--ink);}
+.actor.on .dot{background:var(--spark); border-color:var(--spark);}
+.actor .nm{
+  font-size:12.5px; letter-spacing:.06em; color:var(--faint);
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.actor:hover .nm, .actor.on .nm{color:var(--ink);}
+.actor .me{
+  position:absolute; top:0; right:6px;
+  font-family:Silkscreen,monospace; font-size:6.5px; letter-spacing:.16em; color:var(--spark);
+}
+.count{
   font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.2em;
-  color:var(--faint); padding:14px 0 4px;
+  color:var(--faint); margin-top:26px;
 }
 
-/* ══ 角色卡：網點面上的一張紙 ══ */
+/* ══ 角色卡：桌機就在名冊下面攤開；手機才變成彈窗（見文末 media）══ */
 .card{
-  flex:1; min-width:0;
-  position:relative; padding:26px clamp(18px,4vw,34px) 30px;
+  position:relative; margin-top:34px;
+  padding:26px clamp(18px,4vw,34px) 30px;
   background-image:radial-gradient(circle, var(--dotA) 1.5px, transparent 1.7px);
   background-size:7px 7px;
 }
@@ -137,11 +128,46 @@ button.ln.ghost{border:none; color:var(--faint);}
 .foot .sp{margin-left:auto;}
 .hint{font-size:11px; color:var(--faint); letter-spacing:.05em;}
 
-/* 窄螢幕：名冊收到上面，仍然是往下長的一欄 */
+/* ══ 手機：點角色從下面彈出小窗 ══ */
+.scrim{
+  position:fixed; inset:0; background:rgba(40,30,20,.3); z-index:19;
+  opacity:0; pointer-events:none; transition:opacity .25s;
+}
+.sheetclose{
+  position:absolute; top:10px; right:12px; z-index:22; display:none;
+  width:32px; height:32px; border-radius:50%;
+  border:1.5px solid var(--faint); background:var(--space); color:var(--ink);
+  font-size:14px; line-height:1; cursor:pointer; padding:0;
+}
+
+/* ══ 只有手機：點角色從下面彈出小窗 ══ */
 @media (max-width:720px){
-  .body{flex-direction:column; gap:26px;}
-  .cast{width:100%; max-height:none; overflow:visible;}
-  .card{width:100%;}
+  .cast{grid-template-columns:repeat(auto-fill, minmax(74px, 1fr)); gap:22px 6px;}
+  .actor .fig{width:32px; height:48px;}
+  .actor .nm{font-size:11.5px;}
+
+  .card{
+    position:fixed; z-index:20; left:0; right:0; bottom:0; margin:0;
+    max-height:88vh; overflow-y:auto; overscroll-behavior:contain;
+    padding:16px 12px calc(24px + env(safe-area-inset-bottom));
+    background-color:var(--space);
+    box-shadow:0 -3px 0 rgba(0,0,0,.07);
+    transform:translateY(102%);
+    transition:transform .28s cubic-bezier(.2,.85,.3,1.05);
+  }
+  .card::before{                       /* 上緣的握把 */
+    content:''; display:block; width:38px; height:3px; border-radius:2px;
+    background:var(--faint); margin:0 auto 12px;
+  }
+  body.sheet{overflow:hidden;}
+  body.sheet .card{transform:translateY(0);}
+  body.sheet .scrim{opacity:1; pointer-events:auto;}
+  .sheetclose{display:block;}
+  .card .sheet{padding:16px 14px 20px;}
+  .card .top{gap:16px;}
+  .card .big{width:52px; height:80px;}
+
+  @media (prefers-reduced-motion: reduce){ .card{transition:none;} }
 }
 </style>
 </head>
@@ -158,7 +184,11 @@ button.ln.ghost{border:none; color:var(--faint);}
 
   <div class="body">
     <div class="cast" id="cast"></div>
-    <div class="card" id="card"></div>
+    <div class="count" id="count"></div>
+    <div class="card" id="card" role="group" aria-label="角色">
+      <button class="sheetclose" onclick="closeSheet()" aria-label="關閉">✕</button>
+      <div id="cardBody"></div>
+    </div>
   </div>
 
   <div class="foot">
@@ -169,6 +199,8 @@ button.ln.ghost{border:none; color:var(--faint);}
     <span class="hint sp" id="saveHint">存在這台裝置的瀏覽器裡</span>
   </div>
 </div>
+
+<div class="scrim" id="scrim" onclick="closeSheet()"></div>
 
 <script src="../shared/theme.js"></script>
 <script src="../shared/sprites.js"></script>
@@ -193,46 +225,62 @@ Roster.addStats(ch => {
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
+// 桌機一進來就攤開第一位；手機因為彈窗預設是收起的，不會擋畫面
 let sel = (Roster.all()[0] || {}).id || null;
 let editing = false;
 let padSprite = null;      // 編輯中暫存的自畫像素圖
 
-// 名冊直線：每個角色一段，微微偏移，像手畫的
-function spinePath(n){
-  const step = 66;                       // 一列的高度，跟 .actor 對得上就好
-  const h = Math.max(1, n) * step;
-  let d = `M 7 4`;
-  for (let i = 0; i < n; i++){
-    const y = (i + 1) * step;
-    const bend = 7 + (i % 2 ? 1.5 : -1.5);
-    d += ` Q ${bend} ${y - step / 2}, 7 ${y}`;
-  }
-  return { d, h };
-}
-
 function renderCast(){
   const list = Roster.all();
   const box = document.getElementById('cast');
-  const sp = spinePath(list.length);
-  box.innerHTML = `
-    <svg class="spine" viewBox="0 0 14 ${sp.h}" preserveAspectRatio="none"
-         style="height:${sp.h}px;" aria-hidden="true"><path d="${sp.d}"/></svg>
-    ${list.map(c => `
-      <button class="actor ${c.id === sel ? 'on' : ''}" data-id="${esc(c.id)}" title="${esc(c.name)}">
-        <span class="dot" style="${c.id === sel ? '' : `border-color:${esc(c.color)}`}"></span>
-        <span class="fig">${Roster.spriteSvg(c)}</span>
-        <span class="nm">${esc(c.name) || '？'}</span>
-        ${c.isMe ? '<span class="me">ME</span>' : ''}
-      </button>`).join('')}
-    <div class="count">${list.length} 位</div>`;
+  box.innerHTML = list.map(c => `
+    <button class="actor ${c.id === sel ? 'on' : ''}" data-id="${esc(c.id)}" title="${esc(c.name)}">
+      ${c.isMe ? '<span class="me">ME</span>' : ''}
+      <span class="fig">${Roster.spriteSvg(c)}</span>
+      <span class="nm">${esc(c.name) || '？'}</span>
+      <span class="dot" style="${c.id === sel ? '' : `border-color:${esc(c.color)}`}"></span>
+    </button>`).join('');
+  document.getElementById('count').textContent = list.length + ' 位';
   box.querySelectorAll('.actor').forEach(el =>
-    el.addEventListener('click', () => { sel = el.dataset.id; editing = false; render(); }));
+    el.addEventListener('click', () => openSheet(el.dataset.id)));
 }
 
+/* ══ 選角色：桌機就在下面換內容，手機才彈出小窗 ══ */
+const isPhone = () => window.matchMedia('(max-width:720px)').matches;
+
+function openSheet(id){
+  sel = id; editing = false; padSprite = null;
+  render();
+  if (isPhone()){
+    document.body.classList.add('sheet');
+    document.getElementById('card').scrollTop = 0;
+  }
+}
+function closeSheet(){
+  document.body.classList.remove('sheet');
+  editing = false; padSprite = null;
+  // 桌機沒有「關掉」這回事，卡片一直在，就退回第一位
+  sel = isPhone() ? null : ((Roster.all()[0] || {}).id || null);
+  render();
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.body.classList.contains('sheet')) closeSheet();
+});
+// 轉螢幕方向／改視窗寬度時，彈窗狀態不要卡住
+window.addEventListener('resize', () => {
+  if (!isPhone() && document.body.classList.contains('sheet')){
+    document.body.classList.remove('sheet');
+    if (!sel) { sel = (Roster.all()[0] || {}).id || null; render(); }
+  }
+});
+
 function renderCard(){
-  const box = document.getElementById('card');
+  const box = document.getElementById('cardBody');
   const c = Roster.get(sel);
-  if (!c){ box.innerHTML = '<div class="sheet"><p class="hint">名冊是空的。按下面的「＋ 新角色」開始。</p></div>'; return; }
+  if (!c){
+    box.innerHTML = '<div class="sheet"><p class="hint">名冊是空的。按下面的「＋ 新角色」開始。</p></div>';
+    return;
+  }
 
   if (editing){ box.innerHTML = editForm(c); bindEdit(c); return; }
 
@@ -354,7 +402,8 @@ function saveEdit(){
 function newChar(){
   const c = Roster.upsert({ name: '新角色', color: '#9a9088', icon: '🙂' });
   Roster.save();
-  sel = c.id; editing = true; padSprite = null; render();
+  openSheet(c.id);
+  editing = true; render();
 }
 
 function delChar(){
@@ -363,8 +412,7 @@ function delChar(){
   if (!confirm(`刪除「${c.name}」？既有紀錄裡的名字不會跟著消失。`)) return;
   Roster.remove(sel);
   Roster.save();
-  sel = (Roster.all()[0] || {}).id || null;
-  editing = false; render();
+  closeSheet();
 }
 
 function doExport(){
@@ -383,8 +431,7 @@ function doImport(input){
     try {
       Roster.importJSON(r.result);
       Roster.save();
-      sel = (Roster.all()[0] || {}).id || null;
-      editing = false; render();
+      closeSheet();
       document.getElementById('saveHint').textContent = '已匯入';
     } catch (e) { alert('匯入失敗：' + e.message); }
   };
