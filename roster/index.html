@@ -31,36 +31,56 @@ body{
 .mark .en{font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.3em; color:var(--faint); margin-top:9px;}
 .lede{font-size:12.5px; color:var(--faint); line-height:2.1; letter-spacing:.04em; margin:14px 0 0;}
 
-/* ══ 舞台：一條地平線，角色站在純淨空間裡 ══ */
-.stage{position:relative; margin:26px 0 8px; height:150px;}
-.stage .horizon{position:absolute; inset:0; width:100%; height:100%; pointer-events:none;}
-.stage .horizon path{fill:none; stroke:var(--faint); stroke-width:1.2; stroke-linecap:round;}
+/* ══ 左右兩欄：左邊名冊（往下長），右邊角色卡 ══ */
+.body{
+  display:flex; gap:clamp(22px,4vw,50px); align-items:flex-start;
+  margin-top:30px;
+}
+
+/* 名冊：一條手寫的直線，角色是線上的點——人再多就往下長 */
 .cast{
-  position:absolute; left:0; right:0; bottom:34px;
-  display:flex; align-items:flex-end; gap:clamp(16px,4vw,42px); padding:0 8px;
-  overflow-x:auto; scrollbar-width:none;
+  position:relative; flex-shrink:0;
+  width:clamp(178px,22vw,236px);
+  padding-left:24px;
+  max-height:min(600px,66vh); overflow-y:auto; overscroll-behavior:contain;
+  scrollbar-width:thin; scrollbar-color:var(--faint) transparent;
 }
-.cast::-webkit-scrollbar{display:none;}
+.cast::-webkit-scrollbar{width:3px;}
+.cast::-webkit-scrollbar-thumb{background:var(--faint);}
+/* left 對齊 .actor .dot 的圓心：24(padding) − 19(dot left) + 4.5(半徑含框) = 9.5 = 2.5 + x7 */
+.cast .spine{position:absolute; left:2.5px; top:0; width:14px; height:100%; pointer-events:none;}
+.cast .spine path{fill:none; stroke:var(--faint); stroke-width:1.2; stroke-linecap:round; vector-effect:non-scaling-stroke;}
 .actor{
-  background:none; border:none; padding:0; cursor:pointer; flex-shrink:0;
-  display:flex; flex-direction:column; align-items:center; gap:7px;
-  transition:transform .25s cubic-bezier(.2,.85,.3,1.05);
+  position:relative; width:100%; background:none; border:none; cursor:pointer;
+  display:flex; align-items:center; gap:12px; padding:9px 4px 9px 0; text-align:left;
+  transition:transform .22s cubic-bezier(.2,.85,.3,1.05);
 }
-.actor:hover, .actor.on{transform:translateY(-6px);}
-.actor .fig{width:38px; height:62px; display:grid; place-items:end center;}
+.actor:hover, .actor.on{transform:translateX(4px);}
+/* 線上的點：定位對齊 .cast 的 spine（left:8px + 半徑） */
+.actor .dot{
+  position:absolute; left:-19px; top:50%; margin-top:-3px;
+  width:6px; height:6px; border-radius:50%; background:var(--space);
+  border:1.5px solid var(--faint); box-sizing:content-box;
+}
+.actor.on .dot{background:var(--spark); border-color:var(--spark);}
+.actor .fig{width:30px; height:48px; flex-shrink:0; display:grid; place-items:end center;}
 .actor .fig svg{width:100%; height:100%; image-rendering:pixelated;}
-.actor .ch-emoji{font-size:26px; line-height:1;}
+.actor .ch-emoji{font-size:22px; line-height:1;}
 .actor .nm{
-  font-size:11px; letter-spacing:.1em; color:var(--faint);
-  background:var(--space); padding:1px 5px; white-space:nowrap;
+  font-size:13px; letter-spacing:.08em; color:var(--faint);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .actor.on .nm{color:var(--ink);}
-.actor .dot{width:5px; height:5px; border-radius:50%; background:var(--faint);}
-.actor.on .dot{background:var(--spark); width:7px; height:7px;}
+.actor .me{font-family:Silkscreen,monospace; font-size:6.5px; letter-spacing:.16em; color:var(--spark); margin-left:auto; flex-shrink:0;}
+.cast .count{
+  font-family:Silkscreen,monospace; font-size:7px; letter-spacing:.2em;
+  color:var(--faint); padding:14px 0 4px;
+}
 
 /* ══ 角色卡：網點面上的一張紙 ══ */
 .card{
-  position:relative; margin-top:30px; padding:26px clamp(18px,4vw,34px) 30px;
+  flex:1; min-width:0;
+  position:relative; padding:26px clamp(18px,4vw,34px) 30px;
   background-image:radial-gradient(circle, var(--dotA) 1.5px, transparent 1.7px);
   background-size:7px 7px;
 }
@@ -116,6 +136,13 @@ button.ln.ghost{border:none; color:var(--faint);}
 }
 .foot .sp{margin-left:auto;}
 .hint{font-size:11px; color:var(--faint); letter-spacing:.05em;}
+
+/* 窄螢幕：名冊收到上面，仍然是往下長的一欄 */
+@media (max-width:720px){
+  .body{flex-direction:column; gap:26px;}
+  .cast{width:100%; max-height:none; overflow:visible;}
+  .card{width:100%;}
+}
 </style>
 </head>
 <body>
@@ -129,14 +156,10 @@ button.ln.ghost{border:none; color:var(--faint);}
   </div>
   <p class="lede">一起走過的人，都在這裡。<br>兩本書共用同一份名冊。</p>
 
-  <div class="stage">
-    <svg class="horizon" viewBox="0 0 1000 150" preserveAspectRatio="none">
-      <path d="M 0 118 Q 150 115.4, 300 117.2 T 620 116.4 T 1000 117.8"/>
-    </svg>
+  <div class="body">
     <div class="cast" id="cast"></div>
+    <div class="card" id="card"></div>
   </div>
-
-  <div class="card" id="card"></div>
 
   <div class="foot">
     <button class="ln" onclick="newChar()">＋ 新角色</button>
@@ -174,14 +197,35 @@ let sel = (Roster.all()[0] || {}).id || null;
 let editing = false;
 let padSprite = null;      // 編輯中暫存的自畫像素圖
 
+// 名冊直線：每個角色一段，微微偏移，像手畫的
+function spinePath(n){
+  const step = 66;                       // 一列的高度，跟 .actor 對得上就好
+  const h = Math.max(1, n) * step;
+  let d = `M 7 4`;
+  for (let i = 0; i < n; i++){
+    const y = (i + 1) * step;
+    const bend = 7 + (i % 2 ? 1.5 : -1.5);
+    d += ` Q ${bend} ${y - step / 2}, 7 ${y}`;
+  }
+  return { d, h };
+}
+
 function renderCast(){
-  document.getElementById('cast').innerHTML = Roster.all().map(c => `
-    <button class="actor ${c.id === sel ? 'on' : ''}" data-id="${esc(c.id)}" title="${esc(c.name)}">
-      <span class="fig">${Roster.spriteSvg(c)}</span>
-      <span class="nm">${esc(c.name) || '？'}</span>
-      <span class="dot" style="${c.id === sel ? '' : `background:${esc(c.color)};opacity:.45`}"></span>
-    </button>`).join('');
-  document.querySelectorAll('.actor').forEach(el =>
+  const list = Roster.all();
+  const box = document.getElementById('cast');
+  const sp = spinePath(list.length);
+  box.innerHTML = `
+    <svg class="spine" viewBox="0 0 14 ${sp.h}" preserveAspectRatio="none"
+         style="height:${sp.h}px;" aria-hidden="true"><path d="${sp.d}"/></svg>
+    ${list.map(c => `
+      <button class="actor ${c.id === sel ? 'on' : ''}" data-id="${esc(c.id)}" title="${esc(c.name)}">
+        <span class="dot" style="${c.id === sel ? '' : `border-color:${esc(c.color)}`}"></span>
+        <span class="fig">${Roster.spriteSvg(c)}</span>
+        <span class="nm">${esc(c.name) || '？'}</span>
+        ${c.isMe ? '<span class="me">ME</span>' : ''}
+      </button>`).join('')}
+    <div class="count">${list.length} 位</div>`;
+  box.querySelectorAll('.actor').forEach(el =>
     el.addEventListener('click', () => { sel = el.dataset.id; editing = false; render(); }));
 }
 
