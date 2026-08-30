@@ -44,7 +44,7 @@
   .journey .dash{fill:none; stroke:var(--ink); stroke-width:1.6; stroke-linecap:round; stroke-dasharray:1 9;}
   .journey .side{fill:none; stroke:var(--faint); stroke-width:1.2; stroke-linecap:round;}
 
-  .pt{position:absolute; transform:translate(-50%,-50%); pointer-events:none; z-index:2;}
+  .pt{position:absolute; transform:translate(-50%,-50%); pointer-events:none; z-index:4;}
   .pt i{display:block; width:7px; height:7px; border-radius:50%; background:var(--ink);}
   .pt.hollow i{background:var(--space); border:1.5px solid var(--ink);}
   .pt.next i{width:11px; height:11px; background:var(--spark);}
@@ -59,7 +59,7 @@
     font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.16em; color:var(--ink);
     background:var(--space); padding:2px 6px;
   }
-  .pt .sub{position:absolute; left:14px; top:11px; white-space:nowrap; font-size:11px; color:var(--faint);
+  .pt .sub{position:absolute; left:14px; top:11px; white-space:nowrap; font-size:11px; color:var(--ink); opacity:.66;
     background:var(--space); padding:1px 6px;}
 
   .plane{
@@ -147,7 +147,8 @@
   .mpin.home::after{display:none;}
   .mpin.home .lbl{color:var(--faint); font-size:7px;}
   .mpin.tw i{width:8px; height:8px; transition:transform .15s;}
-  .mpin.tw .lbl{font-family:'Noto Sans TC',sans-serif; font-size:11px; letter-spacing:.04em;}
+  .mpin.tw .lbl{font-family:'Noto Sans TC',sans-serif; font-size:11px; letter-spacing:.04em; display:none;}
+  .mpin.tw.hot .lbl{display:block;}
   .mpin.tw .cnt{
     position:absolute; right:-9px; top:-9px;
     font-family:Silkscreen,monospace; font-size:7px; color:var(--space);
@@ -492,7 +493,7 @@ function renderTaiwan(){
     </button>`).join('')
     || '<p class="hint" style="padding:20px 0;">還沒有手記。按下面的＋開始。</p>';
 
-  // 打卡點：0.04 度內視為同一處，合併並標數量；最近四處直接標地名
+  // 打卡點：0.04 度內視為同一處，合併並標數量；地名平常收起，指到才顯示
   const groups = [];
   notes.forEach((c, i) => {
     if (!c.lat || !c.lng) return;
@@ -503,10 +504,10 @@ function renderTaiwan(){
   pins.innerHTML = groups.slice(0, 40).map((g, gi) => {
     const p = proj(g.lat, g.lng);
     if (p.x < 0 || p.x > 100 || p.y < 0 || p.y > 100) return '';
-    const showLbl = gi < 4;
+    const lbl = /^-?\d+\.\d+/.test(g.name) ? '' : esc(g.name);
     return `<button class="mpin tw" data-g="${gi}" style="left:${p.x.toFixed(1)}%; top:${p.y.toFixed(1)}%;">
       <i></i>${g.items.length > 1 ? `<span class="cnt">${g.items.length}</span>` : ''}
-      ${showLbl ? `<span class="lbl">${esc(g.name)}</span>` : ''}</button>`;
+      ${lbl ? `<span class="lbl">${lbl}</span>` : ''}</button>`;
   }).join('');
 
   // 清單 ↔ 地圖 互相點亮：滑過手記亮對應的點；點地圖的點亮對應的手記
