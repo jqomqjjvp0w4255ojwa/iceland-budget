@@ -57,8 +57,10 @@
   .pt .lbl{
     position:absolute; left:14px; top:-5px; white-space:nowrap;
     font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.16em; color:var(--ink);
+    background:var(--space); padding:2px 6px;
   }
-  .pt .sub{position:absolute; left:14px; top:9px; white-space:nowrap; font-size:11px; color:var(--faint);}
+  .pt .sub{position:absolute; left:14px; top:11px; white-space:nowrap; font-size:11px; color:var(--faint);
+    background:var(--space); padding:1px 6px;}
 
   .plane{
     position:absolute; border:none; cursor:pointer; padding:24px 28px; z-index:3;
@@ -72,9 +74,11 @@
   .plane .g-dot{fill:var(--ink);}
   .plane .g-hollow{fill:var(--space); stroke:var(--ink); stroke-width:1.5;}
   .plane .g-spark{fill:var(--spark);}
+  .plane svg{background:var(--space); padding:9px 12px; box-shadow:2px 3px 0 rgba(0,0,0,.08);}
   .plane .n{
     font-family:Silkscreen,monospace; font-size:7.5px; letter-spacing:.2em;
-    color:var(--ink); opacity:.55; font-variant-numeric:tabular-nums;
+    color:var(--ink); opacity:.8; font-variant-numeric:tabular-nums;
+    background:var(--space); padding:3px 8px;
   }
   #plTour{
     left:54%; top:180px; width:min(300px,38vw); height:212px;
@@ -137,6 +141,7 @@
   .mpin .lbl{
     position:absolute; left:16px; top:-5px; white-space:nowrap;
     font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.14em; color:var(--ink);
+    background:var(--space); padding:2px 6px;
   }
   .mpin.home i{width:7px; height:7px; background:var(--space); border:1.5px solid var(--ink);}
   .mpin.home::after{display:none;}
@@ -338,8 +343,8 @@
     <div class="atlas" id="twAtlas">
       <svg viewBox="0 0 310 380" preserveAspectRatio="xMidYMid meet" style="aspect-ratio:310/380;">
         <defs>
-          <pattern id="tdots" width="7.5" height="7.5" patternUnits="userSpaceOnUse">
-            <circle cx="3.7" cy="3.7" r="1.4" fill="var(--faint)"/>
+          <pattern id="tdots" width="0.075" height="0.075" patternUnits="userSpaceOnUse">
+            <circle cx="0.037" cy="0.037" r="0.015" fill="var(--faint)"/>
           </pattern>
         </defs>
         <path d="M 0 201 Q 78 198.4, 155 200.2 T 310 199" fill="none" stroke="var(--faint)" stroke-width="1" stroke-dasharray="4 6" opacity=".6"/>

@@ -48,10 +48,12 @@
     .pt .lbl{
       position:absolute; left:14px; top:-5px; white-space:nowrap;
       font-family:Silkscreen,monospace; font-size:8px; letter-spacing:.16em; color:var(--ink);
+      background:var(--space); padding:2px 6px;
     }
     .pt .sub{
-      position:absolute; left:14px; top:9px; white-space:nowrap;
+      position:absolute; left:14px; top:11px; white-space:nowrap;
       font-size:11px; color:var(--faint); letter-spacing:.04em;
+      background:var(--space); padding:1px 6px;
     }
 
     .plane{
@@ -60,14 +62,15 @@
       text-align:left; gap:6px;
       transition:transform .3s cubic-bezier(.2,.85,.3,1.05);
     }
-    .plane .glyph{display:block;}
+    .plane .glyph{display:block; background:var(--space); padding:9px 12px; box-shadow:2px 3px 0 rgba(0,0,0,.08);}
     .plane .g-ink{fill:none; stroke:var(--ink); stroke-linecap:round;}
     .plane .g-dot{fill:var(--ink);}
     .plane .g-hollow{fill:var(--space); stroke:var(--ink); stroke-width:1.5;}
     .plane .g-spark{fill:var(--spark);}
     .plane .n{
       font-family:Silkscreen,monospace; font-size:7.5px; letter-spacing:.2em;
-      color:var(--ink); opacity:.55; font-variant-numeric:tabular-nums;
+      color:var(--ink); opacity:.8; font-variant-numeric:tabular-nums;
+      background:var(--space); padding:3px 8px;
     }
 
     #tour{
