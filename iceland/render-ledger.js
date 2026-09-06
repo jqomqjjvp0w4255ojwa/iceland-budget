@@ -300,9 +300,10 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
       label:'🛡 保險',
       total: insTotal,
       // 各自投保：均分視角顯示「各自」而不是攤成三份的約數
+      // 保費不在均分視角的合計裡，進度條也不畫（比例的分母對不上）
       perLabel: isMember ? fmt(insTotal) : '各自',
       color:'#26c6da',
-      pct: insTotal/gt,
+      pct: isMember ? insTotal/gt : 0,
       noPerPerson: true,
     },
   ];
