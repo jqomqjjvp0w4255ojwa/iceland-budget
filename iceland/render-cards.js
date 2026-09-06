@@ -401,6 +401,47 @@ window.initSwipeCards = function(container) {
   document.addEventListener('pointerdown', closeAll, { passive:true });
 }
 
+// ── 保險頁籤：保費（保險分頁前三欄）＋理賠重點提示
+function renderInsuranceLedger(d) {
+  const prems = d.insurancePremiums || [];
+  if (!prems.length) {
+    return `<div class="empty">🛡 在「保險」分頁前三欄填入 投保人／保費／日期 後顯示<br>
+      <span style="font-size:.7rem;color:var(--muted)">理賠方式在手冊分頁的 🛡 保險</span></div>`;
+  }
+  // 日期欄可能是 Sheets 序號（如 46235）或字串，都轉成 M/D
+  const fmtInsDate = v => {
+    if (v == null || v === '') return '';
+    const n = parseFloat(v);
+    if (isFinite(n) && n > 40000 && n < 60000) {
+      const dt = new Date(Date.UTC(1899, 11, 30) + n * 86400000);
+      return `${dt.getUTCMonth() + 1}/${dt.getUTCDate()}`;
+    }
+    return String(v);
+  };
+  const total = prems.reduce((s, p) => s + (p.twd || 0), 0);
+  return `
+    ${prems.map(p => `
+      <div class="card">
+        <div class="card-header">
+          <div class="card-left">
+            <div class="card-date">${fmtInsDate(p.date)}</div>
+            <div class="card-name-row">
+              <span style="display:inline-flex;align-items:center;">${avatarSvg(p.member)}</span>
+              <span class="card-name">${esc(p.member)} 的旅平險</span>
+            </div>
+          </div>
+          <div class="card-price">
+            <div class="price-per-label">&nbsp;</div>
+            <div class="price-per">NT$ ${Math.round(p.twd).toLocaleString('zh-TW')}</div>
+            <div class="price-total">${esc(p.payer)} 付 · 各自負擔</div>
+          </div>
+        </div>
+      </div>`).join('')}
+    <div style="font-size:.7rem;color:var(--muted);text-align:right;padding:4px 2px;">
+      已填保費合計 NT$ ${Math.round(total).toLocaleString('zh-TW')}｜理賠方式見手冊 🛡
+    </div>`;
+}
+
 function renderRepay(items, splitData) {
   if (!items.length) return `<div class="empty">💸 還款記錄會顯示在這裡</div>`;
   // 逐筆累計還款對每人結算的影響（從第一筆開始算）
