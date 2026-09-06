@@ -38,9 +38,6 @@ function renderAccom(items){
       else if(a.deductDate) payTag=`<span class="tag tag-unpaid">${a.deductDate} 扣款</span>`;
       else payTag=`<span class="tag tag-unpaid">未付款</span>`;
 
-      // 海外手續費（預留欄位，有值才顯示）
-      const feeTag=a.foreignFee?`<span class="tag tag-fee">手續費 NT$${a.foreignFee}</span>`:'';
-
       return `
       <div class="card ${a.paid?'paid-card':'unpaid-card'}">
         <div class="card-header">
@@ -56,7 +53,8 @@ function renderAccom(items){
               <div class="price-per-label">&nbsp;</div>
               <div class="price-per">${fmtPer(a.twd)}</div>
               <div class="price-total">${fmt(a.twd)} 合計</div>
-              ${a.orig && a.cur !== 'NT' ? `<div class="price-orig">${fmtOrig(a.orig,a.cur)}</div>` : ''}
+              ${a.orig && a.cur !== 'NT' ? `<div class="price-orig">原價 ${fmtOrig(a.orig,a.cur)}</div>` : ''}
+              ${a.foreignFee ? `<div class="price-orig">手續費 NT$${Math.round(a.foreignFee)}</div>` : ''}
             ` : `<div class="price-per" style="color:var(--muted);font-size:.85rem">現場付</div>`}
           </div>
         </div>
@@ -64,7 +62,6 @@ function renderAccom(items){
           ${payTag}
           <span class="tag ${a.cancel?'tag-cancel':'tag-nocancel'}">${a.cancel?'可取消':'不可退'}</span>
           <span style="display:inline-flex;align-items:center;">${avatarSvg(a.payer)}</span>
-          ${feeTag}
         </div>
         ${a.note?`<div class="card-note">📌 ${a.note}</div>`:''}
       </div>`;
@@ -105,7 +102,6 @@ function renderActivity(items){
       else if(a.payDate) payTag=`<span class="tag tag-unpaid">${a.payDate} 前付款</span>`;
       else payTag=`<span class="tag tag-unpaid">未付款</span>`;
 
-      const feeTag  = a.foreignFee ? `<span class="tag tag-fee">手續費 NT$${a.foreignFee}</span>` : '';
       const diffTag = a.difficulty ? `<span class="tag tag-person">難度 ${a.difficulty}</span>` : '';
       const meetInfo = [a.meetTime, a.meetLoc].filter(Boolean).join(' · ');
       const safeHref = safeUrl(a.url);
@@ -134,7 +130,8 @@ function renderActivity(items){
               <div class="price-per-label">&nbsp;</div>
               <div class="price-per">${fmtPer(a.twd)}</div>
               <div class="price-total">${fmt(a.twd)} 合計</div>
-              ${a.orig && a.cur !== 'NT' ? `<div class="price-orig">${fmtOrig(a.orig,a.cur)}</div>` : ''}
+              ${a.orig && a.cur !== 'NT' ? `<div class="price-orig">原價 ${fmtOrig(a.orig,a.cur)}</div>` : ''}
+              ${a.foreignFee ? `<div class="price-orig">手續費 NT$${Math.round(a.foreignFee)}</div>` : ''}
             ` : `<div class="price-per" style="color:var(--muted);font-size:.85rem">現場付</div>`}
           </div>
         </div>
@@ -143,7 +140,6 @@ function renderActivity(items){
           <span class="tag ${a.cancel?'tag-cancel':'tag-nocancel'}">${a.cancel?'可取消':'不可退'}</span>
           <span style="display:inline-flex;align-items:center;">${avatarSvg(a.payer)}</span>
           ${diffTag}
-          ${feeTag}
         </div>
         ${a.content?`<div class="card-note">📝 ${a.content}</div>`:''}
         ${detailNote?`<div class="card-note">${detailNote}</div>`:''}

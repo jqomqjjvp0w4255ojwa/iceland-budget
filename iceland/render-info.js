@@ -1357,8 +1357,8 @@ function schPriceBar(o) {
     <div class="sch-price">
       <div class="sch-price-main">${fmtPer(o.twd)}</div>
       <div class="sch-price-sub">
-        ${fmt(o.twd)} 合計${o.orig && o.cur !== 'NT' ? ` · ${fmtOrig(o.orig, o.cur)}` : ''}${o.nights ? ` · ${o.nights} 晚` : ''}
-        ${o.foreignFee ? `<span class="sch-fee">手續費 NT$${o.foreignFee}</span>` : ''}
+        ${fmt(o.twd)} 合計${o.orig && o.cur !== 'NT' ? ` · 原價 ${fmtOrig(o.orig, o.cur)}` : ''}${o.nights ? ` · ${o.nights} 晚` : ''}
+        ${o.foreignFee ? `<span class="sch-fee">手續費 NT$${Math.round(o.foreignFee)}</span>` : ''}
       </div>
     </div>`;
 }

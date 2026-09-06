@@ -207,8 +207,9 @@ function initDonutPicker(){
 // ── 只更新圓餅+數字+小計（不重建整個頁面）
 function refreshDonut(){
   const d = window.APP_DATA||window.STATIC;
-  const totalAccom    = d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
-  const totalActivity = (d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
+  // 含海外手續費：分帳表的付出/負擔本來就含（F+K），帳本合計要跟上才不會偏低
+  const totalAccom    = d.accommodation.reduce((s,a)=>s+(a.twd||0)+(a.foreignFee||0),0);
+  const totalActivity = (d.activity||[]).reduce((s,a)=>s+(a.twd||0)+(a.foreignFee||0),0);
   const totalFlight   = d.totalFlightTWD||0;
   const carTotal      = d.car.totalTWD||0;
   const expenses      = d.expenses||[];
