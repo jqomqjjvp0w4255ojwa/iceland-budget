@@ -88,8 +88,9 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses, carTotal
     flight: flightForDisplay                             / pt,
     accom:  (isMember ? totalAccom/3    : totalAccom)    / pt,
     act:    (isMember ? totalActivity/3 : totalActivity) / pt,
-    // 圓餅維持五片：成員視角保險計入合計、併進雜支片；均分視角保險不進合計也不進餅
-    exp:    (expForDisplay + (isMember ? insForDisplay : 0)) / pt,
+    exp:    expForDisplay                                / pt,
+    // 保險自己一片：成員視角有值；均分/不含機票視角不進合計也不進餅
+    ins:    (isMember ? insForDisplay : 0)               / pt,
   };
 
   return {
@@ -100,7 +101,7 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses, carTotal
 }
 
 // ── 畫圓餅（canvas，在 renderAll 之後由 initDonutCanvas 呼叫）
-function drawDonutCanvas(carPct, flightPct, accomPct, actPct, expPct){
+function drawDonutCanvas(carPct, flightPct, accomPct, actPct, expPct, insPct){
   const cv = document.getElementById('donutCanvas');
   if(!cv) return;
   const ctx = cv.getContext('2d');
@@ -112,6 +113,7 @@ function drawDonutCanvas(carPct, flightPct, accomPct, actPct, expPct){
     {pct:accomPct,     color:'#7c4dff'},
     {pct:actPct,       color:'#4caf6e'},
     {pct:expPct||0,    color:'#f06292'},
+    {pct:insPct||0,    color:'#26c6da'},
   ];
   // 最後一個有值的 slice 顏色（浮點誤差補救用）
   const lastColor = [...slices].reverse().find(s=>s.pct>0)?.color || '#1e3a5f';
@@ -232,9 +234,9 @@ function refreshDonut(){
   if(elApprox) elApprox.textContent = (window._flightMode==='equal')?'約':'';
 
   // 圓餅 & Legend（比例由 calcFlightDisplay 統一提供）
-  drawDonutCanvas(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp);
+  drawDonutCanvas(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp, pcts.ins);
   const elLegend = document.getElementById('donutLegend');
-  if(elLegend) elLegend.innerHTML = buildLegend(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp);
+  if(elLegend) elLegend.innerHTML = buildLegend(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp, pcts.ins);
 
   // 小計進度條
   const elCat = document.getElementById('catRowsContent');
@@ -322,7 +324,7 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
 }
 
 // ── 圓餅 Legend（六項，兩排各三個）
-function buildLegend(carPct, flightPct, accomPct, actPct, expPct){
+function buildLegend(carPct, flightPct, accomPct, actPct, expPct, insPct){
   const mode = window._flightMode||'equal';
   const items = [
     {color:'#f0c040', label:'租車', pct:carPct},
@@ -330,7 +332,7 @@ function buildLegend(carPct, flightPct, accomPct, actPct, expPct){
     {color:'#7c4dff', label:'住宿', pct:accomPct},
     {color:'#4caf6e', label:'活動', pct:actPct},
     {color:'#f06292', label:'雜支', pct:expPct||0},
-    {color:'#26c6da', label:'保險', pct:0},
+    {color:'#26c6da', label:'保險', pct:insPct||0},
   ];
   const visible = items.filter(l => !(l.hideOnNone && mode==='none'));
   return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 8px;width:100%">
