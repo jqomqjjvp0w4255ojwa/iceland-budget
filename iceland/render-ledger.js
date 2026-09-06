@@ -39,9 +39,10 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses, carTotal
   let perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel, expForDisplay, insForDisplay;
 
   if(mode==='none'){
-    // 模式1：不含機票，雜支只含共同部分（已在 sharedTotal 裡）；保費比照住宿計入
-    perPersonAmt     = (sharedTotal + insTotalAll) / 3;
-    grandDisplay     = sharedTotal + insTotalAll;
+    // 模式1：不含機票，雜支只含共同部分（已在 sharedTotal 裡）
+    // 保險各自投保，不攤進均分的每人應付；保險條另外顯示全體合計
+    perPersonAmt     = sharedTotal / 3;
+    grandDisplay     = sharedTotal;
     flightForDisplay = 0;
     expForDisplay    = sharedExpTotal;   // 進度條顯示共同雜支
     insForDisplay    = insTotalAll;
@@ -49,9 +50,9 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses, carTotal
     flightLabel      = '—';
 
   } else if(mode==='equal'){
-    // 模式2：含機票均分，雜支只含共同部分；保費計入合計（各自投保時 /人 是約數）
-    perPersonAmt     = (sharedTotal + totalFlight + insTotalAll) / 3;
-    grandDisplay     = sharedTotal + totalFlight + insTotalAll;
+    // 模式2：含機票均分，雜支只含共同部分；保險各自投保，不攤進每人應付
+    perPersonAmt     = (sharedTotal + totalFlight) / 3;
+    grandDisplay     = sharedTotal + totalFlight;
     flightForDisplay = totalFlight;
     expForDisplay    = sharedExpTotal;
     insForDisplay    = insTotalAll;
@@ -88,7 +89,8 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses, carTotal
     flight: flightForDisplay                             / pt,
     accom:  (isMember ? totalAccom/3    : totalAccom)    / pt,
     act:    (isMember ? totalActivity/3 : totalActivity) / pt,
-    exp:    (expForDisplay + insForDisplay)              / pt,   // 圓餅維持五片：保險併入雜支片
+    // 圓餅維持五片：成員視角保險計入合計、併進雜支片；均分視角保險不進合計也不進餅
+    exp:    (expForDisplay + (isMember ? insForDisplay : 0)) / pt,
   };
 
   return {
@@ -297,10 +299,11 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
     {
       label:'🛡 保險',
       total: insTotal,
-      perLabel: isMember ? fmt(insTotal) : fmt(insTotal/3),
+      // 各自投保：均分視角顯示「各自」而不是攤成三份的約數
+      perLabel: isMember ? fmt(insTotal) : '各自',
       color:'#26c6da',
       pct: insTotal/gt,
-      noPerPerson: isMember,
+      noPerPerson: true,
     },
   ];
 
