@@ -56,7 +56,7 @@ body{
 .topbar-title{font-size:11px;color:var(--text);letter-spacing:1px;flex:1;}
 .topbar-members{display:flex;gap:6px;}
 .member-avatar{
-  width:30px;height:30px;border-radius:6px;
+  width:24px;height:42px;border-radius:6px;
   border:2px solid var(--border);
   background:var(--panel2);
   display:flex;align-items:center;justify-content:center;
@@ -165,14 +165,14 @@ body{
 .card-drawer.expanded{height:55vh;}
 .drawer-handle{
   display:flex;flex-direction:column;
-  padding:6px 14px 0;cursor:grab;flex-shrink:0;gap:4px;
+  padding:6px 14px 0;cursor:grab;flex-shrink:0;gap:8px;
   user-select:none;-webkit-user-select:none;touch-action:none;
 }
 .drawer-pill{
   width:40px;height:4px;background:var(--border2);border-radius:2px;
   margin:0 auto;flex-shrink:0;
 }
-.drawer-row{display:flex;align-items:center;gap:10px;width:100%;padding-bottom:4px;}
+.drawer-row{display:flex;align-items:center;gap:10px;width:100%;padding-bottom:6px;border-bottom:1px solid var(--border);}
 .drawer-tabs{display:flex;gap:0;flex:1;overflow-x:auto;}
 .dtab{
   font-family:var(--px);font-size:9px;padding:4px 10px;
@@ -213,22 +213,10 @@ body{
 .diary-info{flex:1;min-width:0;}
 .diary-name{font-size:10px;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .diary-meta{display:flex;gap:6px;align-items:center;margin-bottom:4px;flex-wrap:wrap;}
-.diary-tag{font-size:8px;padding:2px 6px;border-radius:3px;font-family:var(--px);white-space:nowrap;}
-.tag-checkin{background:#ffe2e2;color:#d84848;border:1px solid #f8b0b0;}
+.diary-tag{font-size:7px;padding:1.5px 5px;border-radius:3px;font-family:var(--px);white-space:nowrap;}
+.tag-checkin{background:#f0ead9;color:#8a7048;border:1px solid var(--border);}
 .tag-wish{background:#ffe9f3;color:#e0407e;border:1px solid #f8b8d2;}
 .tag-trip{background:#e2f4e6;color:#3a8a4a;border:1px solid #a8dcb4;}
-.tag-expense{background:#fff3d6;color:#b07a10;border:1px solid #ecd089;}
-.cat-row{display:flex;gap:6px;flex-wrap:wrap;}
-.cat-chip{padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--panel2);font-family:var(--px);font-size:9px;color:var(--text);cursor:pointer;}
-.cat-chip.on{border-color:var(--mango);background:#fff3d6;color:#b07a10;}
-.ledger-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px dashed var(--border);font-size:9px;}
-.ledger-row:last-child{border-bottom:none;}
-.ledger-icon{font-size:13px;flex-shrink:0;}
-.ledger-main{flex:1;min-width:0;}
-.ledger-title{color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ledger-meta{font-size:8px;color:var(--muted);margin-top:2px;}
-.ledger-amt{font-size:11px;color:var(--accent);white-space:nowrap;}
-.ledger-total{display:flex;justify-content:space-between;padding:10px 0 2px;font-size:10px;color:var(--text);border-top:2px solid var(--border);margin-top:6px;}
 .diary-date{font-size:8px;color:var(--muted);}
 .diary-note{font-size:9px;color:var(--muted);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .diary-footer{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
@@ -346,6 +334,13 @@ body{
 .location-name{font-size:10px;color:var(--text);flex:1;}
 .location-coord{font-size:8px;color:var(--muted);}
 .location-edit{font-size:16px;color:var(--muted);}
+.recent-loc-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.recent-loc-chip{
+  padding:6px 10px;border:1px solid var(--border);border-radius:12px;
+  background:var(--panel2);font-family:var(--px);font-size:8px;color:var(--text);
+  cursor:pointer;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.recent-loc-chip:active{background:var(--border);}
 
 .name-input,.form-input{
   width:100%;background:#fffdf7;
@@ -431,6 +426,15 @@ body{
 .tcal-day.inr{background:#ffe9e9;color:#d84848;}
 .tcal-day.sel{background:var(--accent);color:#fff;}
 .tcal-label{font-size:8px;color:var(--muted);margin-top:6px;text-align:center;line-height:1.6;}
+
+/* ── 旅程分頁(進行中/回顧庫) */
+.trip-tab-row{display:flex;gap:0;padding:8px 16px 0;border-bottom:1px solid var(--border);}
+.trip-tab{
+  font-family:var(--px);font-size:9px;padding:6px 12px;
+  border:none;background:transparent;color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;
+}
+.trip-tab.on{color:var(--accent2);border-bottom-color:var(--accent2);}
 
 /* ── 旅程列表 */
 .trip-item{
@@ -612,7 +616,6 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
   <div class="sidebar-link" onclick="openTrips();closeSidebar();"><span class="ico">🧳</span>小旅程</div>
   <div class="sidebar-link" onclick="openRoster();closeSidebar();"><span class="ico">👥</span>角色庫</div>
   <a class="sidebar-link" href="stats.html"><span class="ico">🍉</span>足跡回顧</a>
-  <div class="sidebar-link" onclick="openLedger();closeSidebar();"><span class="ico">📒</span>帳簿</div>
   <div class="sidebar-link" onclick="loadData();closeSidebar();"><span class="ico">↻</span>重新整理資料</div>
   <div class="sidebar-foot">世界旅人帳 · Taiwan</div>
 </div>
@@ -631,7 +634,6 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
       <div class="layer-opt on" id="lo-checkin" onclick="toggleFilter('checkin')"><span class="layer-check"></span>🐾 打卡</div>
       <div class="layer-opt on" id="lo-wish" onclick="toggleFilter('wish')"><span class="layer-check"></span>💗 想去</div>
       <div class="layer-opt on" id="lo-cards" onclick="toggleFilter('cards')"><span class="layer-check"></span>🗂 行前點</div>
-      <div class="layer-opt on" id="lo-expense" onclick="toggleFilter('expense')"><span class="layer-check"></span>💰 記帳</div>
       <div class="layers-section">地圖風格</div>
       <div class="layer-opt style-opt on" id="ls-fruit" onclick="setMapStyle('fruit')"><span class="layer-check"></span>水果</div>
       <div class="layer-opt style-opt" id="ls-light" onclick="setMapStyle('light')"><span class="layer-check"></span>明亮</div>
@@ -670,7 +672,6 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
         <div class="type-row" id="typeRow">
           <button class="type-chip on" data-type="checkin" onclick="selectType('checkin')">🐾 打卡</button>
           <button class="type-chip" data-type="wish" onclick="selectType('wish')">💗 想去</button>
-          <button class="type-chip" data-type="expense" onclick="selectType('expense')">💰 記帳</button>
         </div>
       </div>
 
@@ -684,6 +685,7 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
           </div>
           <div class="location-edit">✎</div>
         </div>
+        <div class="recent-loc-row" id="recentLocRow"></div>
         <input class="name-input" id="placeName" placeholder="地點名稱（選填，預設用座標）" maxlength="40">
       </div>
 
@@ -692,14 +694,9 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
         <div class="member-grid" id="memberGrid"></div>
       </div>
 
-      <!-- 記帳專用欄位 -->
-      <div class="step-row" id="stepExpense" style="display:none;">
-        <div class="step-label"><div class="step-num">$</div>花了多少？</div>
-        <div style="display:flex;gap:8px;">
-          <input class="form-input" id="expAmount" type="number" inputmode="decimal" min="0" placeholder="金額（NT$）" style="margin-top:0;flex:1;" oninput="checkSubmitReady()">
-          <input class="form-input" id="expTitle" placeholder="項目（如：滷肉飯）" maxlength="20" style="margin-top:0;flex:1.4;">
-        </div>
-        <div class="cat-row" id="expCats" style="margin-top:8px;"></div>
+      <div class="step-row" id="stepCompanions">
+        <div class="step-label"><div class="step-num">✚</div>同行者（選填，地圖只顯示打卡者）</div>
+        <div class="member-grid" id="companionGrid"></div>
       </div>
 
       <div class="step-row">
@@ -733,6 +730,10 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
       <div class="modal-title">🧳 小旅程</div>
       <button class="modal-close" onclick="closeTrips()">✕</button>
     </div>
+    <div class="trip-tab-row">
+      <button class="trip-tab on" id="tt-active" onclick="setTripsTab('active')">進行中</button>
+      <button class="trip-tab" id="tt-ended" onclick="setTripsTab('ended')">🗂 回顧庫</button>
+    </div>
     <div class="modal-body" id="tripsBody"></div>
   </div>
 </div>
@@ -764,17 +765,6 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
       </div>
       <button class="submit-btn" id="tripSubmitBtn" onclick="submitTrip()">🧳 儲存旅程</button>
     </div>
-  </div>
-</div>
-
-<!-- 帳簿 Modal -->
-<div class="modal-overlay" id="ledgerModal">
-  <div class="modal-box">
-    <div class="modal-header">
-      <div class="modal-title" id="ledgerTitle">📒 帳簿</div>
-      <button class="modal-close" onclick="document.getElementById('ledgerModal').classList.remove('show')">✕</button>
-    </div>
-    <div class="modal-body" id="ledgerBody"></div>
   </div>
 </div>
 
@@ -878,6 +868,10 @@ button,.fab-btn,.dtab,.member-avatar,.layer-opt,.type-chip,.diary-card,.trip-btn
           <button class="trip-btn" style="flex:1;padding:9px;" onclick="pickCardLocation()">📍 在地圖上選點</button>
           <button class="trip-btn" id="cardLocClear" style="display:none;" onclick="clearCardLocation()">✕ 清除</button>
         </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input class="form-input" id="cardGeoInput" placeholder="或貼「緯度,經度」／Google 地圖連結" style="margin-top:0;flex:1;">
+          <button class="trip-btn" style="flex:0 0 auto;padding:0 12px;" onclick="applyCardGeoInput()">套用</button>
+        </div>
         <div style="font-size:8px;color:var(--muted);margin-top:6px;" id="cardLocStatus">尚未設定</div>
       </div>
       <button class="submit-btn" onclick="saveCardEdit()">💾 儲存卡片</button>
@@ -925,7 +919,6 @@ const CFG_DEFAULTS = {
   mapCenter: [23.7, 121.0],
   mapZoom:   8,
   members:   [{ name: '我', icon: '🐾', color: '#ff5d5d' }],
-  expenseCategories: ['餐飲','交通','住宿','票券','購物','其他'],
 };
 const RAW_CFG = window.TW_CONFIG || {};
 const CFG = {};
@@ -978,8 +971,7 @@ function spriteSvg(m) {
 // ══════════════════════════════════════════
 let checkins = [];
 let trips = [];
-let expenses = [];
-let filters = { checkin:true, wish:true, cards:true, expense:true };
+let filters = { checkin:true, wish:true, cards:true };
 let members = [...CFG.members];   // config 固定班底＋雲端臨時成員
 let drawerOpen = false;
 let currentTab = 'all';
@@ -1020,8 +1012,9 @@ function setMapStyle(style) {
 }
 
 const clusterGroup = L.markerClusterGroup({
-  maxClusterRadius: 48,
-  // 同座標多筆：點 cluster 在最大縮放時展開成一圈選項（spiderfy 圓輪）
+  // 幾乎只有座標重疊（同一地點多筆）才聚合成數字泡泡；
+  // 不同地點無論縮多小都各自顯示，才看得出滿滿的紀錄與住宿等特殊位置
+  maxClusterRadius: 3,
   spiderfyOnMaxZoom: true,
   spiderfyDistanceMultiplier: 1.8,
   iconCreateFunction: cluster => {
@@ -1121,8 +1114,8 @@ function makeMarkerIcon(item, zoom) {
   if (zoom >= 10 && item.svgData) {
     const g = item.svgGrid || 16;
     return L.divIcon({
-      html:`<div style="width:40px;height:40px;border:2px solid ${m.color};border-radius:4px;background:#fffaf0;overflow:hidden;box-shadow:2px 2px 0 rgba(180,130,60,0.3);image-rendering:pixelated;">
-        <svg width="40" height="40" viewBox="0 0 ${g} ${g}" style="image-rendering:pixelated;display:block;">${item.svgData}</svg>
+      html:`<div style="width:40px;height:40px;border:2px solid ${m.color};border-radius:4px;background:#fffaf0;overflow:hidden;box-shadow:2px 2px 0 rgba(180,130,60,0.3);image-rendering:pixelated;box-sizing:border-box;">
+        <svg viewBox="0 0 ${g} ${g}" style="width:100%;height:100%;image-rendering:pixelated;display:block;">${item.svgData}</svg>
       </div>`,
       className:'', iconSize:[40,40], iconAnchor:[20,20],
     });
@@ -1156,27 +1149,6 @@ function renderMarkers() {
     markers[item.id] = marker;
     clusterGroup.addLayer(marker);
   });
-  // 記帳點（💰 含金額小牌）
-  if (filters.expense) {
-    expenses.filter(e => e.lat && e.lng)
-      .filter(e => !tripFilter || e.tripId === tripFilter)
-      .filter(e => !memberFilter || e.payer === memberFilter)
-      .forEach(e => {
-        const m = getMemberByName(e.payer);
-        const marker = L.marker([e.lat, e.lng], {
-          icon: L.divIcon({
-            html:`<div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(1px 1px 0 rgba(180,130,60,0.4));">
-              <div style="font-size:16px;line-height:1;">💰</div>
-              <div style="font-family:var(--px);font-size:7px;background:#fff3d6;border:1px solid #ecd089;border-radius:3px;padding:1px 3px;color:#b07a10;white-space:nowrap;">$${e.amount}</div>
-            </div>`,
-            className:'', iconSize:[40,30], iconAnchor:[20,15],
-          }),
-          fallbackIcon:'💰', memberColor:m.color, svgData:null,
-        }).bindPopup(() => buildExpensePopup(e), { className:'px-popup', maxWidth:240, closeButton:false });
-        clusterGroup.addLayer(marker);
-      });
-  }
-
   // 行前卡片上地圖：旅程篩選中→只顯示該旅程；否則「🗂 行前點」圖層開→顯示全部旅程
   const cardTrips = tripFilter
     ? trips.filter(t => t.id === tripFilter)
@@ -1212,47 +1184,6 @@ function renderMarkers() {
   renderCards();
 }
 
-function buildExpensePopup(e) {
-  const m = getMemberByName(e.payer);
-  const t = tripById(e.tripId);
-  const el = document.createElement('div');
-  el.className = 'popup-inner';
-  el.innerHTML = `
-    <div class="popup-header">
-      <div class="popup-icon" style="font-size:22px;">💰</div>
-      <div style="flex:1;">
-        <div class="popup-title">${esc(e.title)}　<span style="color:var(--accent);">NT$ ${esc(e.amount)}</span></div>
-        <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-          <span class="diary-tag tag-expense">${esc(e.category||'記帳')}</span>
-          ${t?`<span class="diary-tag tag-trip">🧳 ${esc(t.name)}</span>`:''}
-          <span style="font-size:8px;color:var(--muted)">${e.date||''} · ${e.payer||''}</span>
-        </div>
-      </div>
-      <button class="popup-more" title="更多"
-        onclick="const x=this.closest('.popup-header').querySelector('.popup-extra');x.style.display=x.style.display==='flex'?'none':'flex';">…</button>
-      <div class="popup-extra">
-        <button class="popup-action-btn" style="color:#d84848;" onclick="removeExpense('${e.id}')">🗑 刪除</button>
-      </div>
-    </div>
-    ${e.note?`<div class="popup-note">${esc(e.note)}</div>`:''}
-    <div class="popup-actions">
-      <button class="popup-action-btn" onclick="navigateTo(${e.lat},${e.lng})">➤ 導航</button>
-    </div>
-  `;
-  return el;
-}
-
-async function removeExpense(id) {
-  const e = expenses.find(x=>x.id===id);
-  if (!e) return;
-  if (!confirm(`刪除「${e.title} NT$${e.amount}」？`)) return;
-  map.closePopup();
-  expenses = expenses.filter(x=>x.id!==id);
-  renderMarkers();
-  try { await gasPost({ action:'deleteExpense', id }); }
-  catch(err) { console.warn('雲端刪除失敗', err); }
-}
-
 function buildCardPopup(t, c) {
   const el = document.createElement('div');
   el.className = 'popup-inner';
@@ -1280,8 +1211,7 @@ function buildCardPopup(t, c) {
 }
 
 function typeMeta(t) {
-  return t==='wish'    ? { label:'想去', tag:'tag-wish', icon:'💗' }
-       : t==='expense' ? { label:'記帳', tag:'tag-expense', icon:'💰' }
+  return t==='wish' ? { label:'想去', tag:'tag-wish', icon:'💗' }
        : { label:'打卡', tag:'tag-checkin', icon:'🐾' };
 }
 
@@ -1323,6 +1253,7 @@ function buildPopupContent(item) {
       </div>
     </div>
     ${itemImgHtml(item)}
+    ${item.companions?.length?`<div style="font-size:8px;color:var(--muted);margin-bottom:6px;">👥 同行：${item.companions.map(esc).join('、')}</div>`:''}
     ${item.note?`<div class="popup-note">${esc(item.note)}</div>`:''}
     <div class="popup-actions">
       ${item.type==='wish'?`<button class="popup-action-btn go" onclick="checkinFromWish('${item.id}')">🐾 去過了，打卡！</button>`:''}
@@ -1357,7 +1288,7 @@ function buildTabs() {
 function setTab(key) {
   currentTab = key;
   buildTabs();
-  renderCards();
+  renderMarkers();
   if (!drawerOpen && !isDesktop()) toggleDrawer();
 }
 
@@ -1493,19 +1424,8 @@ function selectType(t) {
   pendingCheckin.type = t;
   document.querySelectorAll('#typeRow .type-chip').forEach(b =>
     b.classList.toggle('on', b.dataset.type===t));
-  document.getElementById('stepExpense').style.display = (t==='expense') ? '' : 'none';
-  if (t==='expense') buildExpCats();
   document.getElementById('submitBtn').innerHTML = typeMeta(t).icon + ' 儲存';
   checkSubmitReady();
-}
-
-let expCategory = '';
-function buildExpCats() {
-  const cats = (Array.isArray(RAW_CFG.expenseCategories) && RAW_CFG.expenseCategories.length)
-    ? RAW_CFG.expenseCategories : CFG_DEFAULTS.expenseCategories;
-  if (!expCategory) expCategory = cats[0];
-  document.getElementById('expCats').innerHTML = cats.map(c =>
-    `<button class="cat-chip ${c===expCategory?'on':''}" onclick="expCategory='${c}';buildExpCats();">${c}</button>`).join('');
 }
 
 function buildMemberGrid() {
@@ -1521,15 +1441,70 @@ function buildMemberGrid() {
 
 function selectMember(name) {
   pendingCheckin.who = name;
+  pendingCheckin.companions = (pendingCheckin.companions||[]).filter(n=>n!==name);
   buildMemberGrid();
+  buildCompanionGrid();
+  checkSubmitReady();
+}
+
+// 同行者：跟誰一起去（複選，地圖 marker 只顯示主要打卡者，
+// 但 popup 會列出同行標籤）
+function buildCompanionGrid() {
+  const el = document.getElementById('companionGrid');
+  if (!el) return;
+  el.innerHTML = members.filter(m=>m.name!==pendingCheckin.who).map(m =>
+    `<div class="member-choice ${(pendingCheckin.companions||[]).includes(m.name)?'on':''}" onclick="toggleCompanion('${m.name}')">
+      <div class="check">✓</div>
+      <div class="member-choice-avatar">${spriteSvg(m)}</div>
+      <div class="member-choice-name">${m.name}</div>
+    </div>`
+  ).join('') || `<div style="font-size:8px;color:var(--muted);">沒有其他成員</div>`;
+}
+function toggleCompanion(name) {
+  pendingCheckin.companions = pendingCheckin.companions || [];
+  const i = pendingCheckin.companions.indexOf(name);
+  if (i>=0) pendingCheckin.companions.splice(i,1); else pendingCheckin.companions.push(name);
+  buildCompanionGrid();
+}
+
+// 近期地點：抓最近幾筆不重複地點，打卡時一鍵帶入（減少每次手動選點/輸入地址）
+function buildRecentLocs() {
+  const el = document.getElementById('recentLocRow');
+  if (!el) return;
+  const seen = new Set();
+  const recents = [];
+  for (const c of checkins) {
+    if (!c.lat || !c.lng) continue;
+    const key = `${(+c.lat).toFixed(4)}|${(+c.lng).toFixed(4)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    recents.push(c);
+    if (recents.length >= 6) break;
+  }
+  el.innerHTML = recents.map(c =>
+    `<div class="recent-loc-chip" title="${c.name}" onclick="pickRecentLoc(${c.lat},${c.lng},'${(c.name||'').replace(/'/g,"\\'")}')">📍 ${c.name||'（無名稱）'}</div>`
+  ).join('');
+}
+function pickRecentLoc(lat, lng, name) {
+  pendingCheckin.lat = lat;
+  pendingCheckin.lng = lng;
+  document.getElementById('locationName').textContent = name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  document.getElementById('locationCoord').textContent = '來自近期地點';
+  document.getElementById('placeName').value = name || '';
   checkSubmitReady();
 }
 
 function buildTripSelect() {
   const el = document.getElementById('tripSelect');
+  // 已結束的旅程不再出現在選單，避免越積越長；只列進行中的
+  const list = activeTrips();
   el.innerHTML = `<option value="">🏠 日常紀錄（不掛旅程）</option>` +
-    trips.map(t => `<option value="${esc(t.id)}">🧳 ${esc(t.name)}${t.dateStart?`（${esc(t.dateStart)}）`:''}</option>`).join('');
-  el.value = pendingCheckin.tripId || (tripFilter || '');
+    list.map(t => `<option value="${esc(t.id)}">🧳 ${esc(t.name)}${t.dateStart?`（${esc(t.dateStart)}）`:''}</option>`).join('');
+  // 預設：編輯中沿用原本 tripId；否則若有篩選中的旅程就用它；
+  // 都沒有的話，只要有進行中的旅程就自動預設掛最新那個，完全沒有才是日常紀錄
+  let def = pendingCheckin.tripId || tripFilter || '';
+  if (!def && !editingId && list.length) def = list[0].id;
+  el.value = def;
 }
 
 let editingId = null;
@@ -1541,7 +1516,7 @@ function setStepsVisible(showAll) {
 
 function openCheckin(prefill) {
   editingId = null;
-  pendingCheckin = { type:'checkin', lat:null, lng:null, who:null, text:'', svgData:null, svgGrid:16, pngBlob:null, tripId:'' };
+  pendingCheckin = { type:'checkin', lat:null, lng:null, who:null, text:'', svgData:null, svgGrid:16, pngBlob:null, tripId:'', companions:[] };
   pendingWishId = null;
   selectType('checkin');
   setStepsVisible(true);
@@ -1552,8 +1527,6 @@ function openCheckin(prefill) {
   document.getElementById('diaryText').value = '';
   document.getElementById('charCount').textContent = '0';
   document.getElementById('drawThumb').innerHTML = '🖼';
-  document.getElementById('expAmount').value = '';
-  document.getElementById('expTitle').value = '';
   document.getElementById('submitBtn').disabled = true;
   if (prefill) {
     pendingCheckin.lat = prefill.lat;
@@ -1563,6 +1536,8 @@ function openCheckin(prefill) {
     document.getElementById('placeName').value = prefill.name || '';
   }
   buildMemberGrid();
+  buildCompanionGrid();
+  buildRecentLocs();
   buildTripSelect();
   document.getElementById('checkinSheet').classList.remove('tall');
   document.getElementById('checkinModal').classList.add('show');
@@ -1602,7 +1577,7 @@ function startEditCheckin(id) {
   pendingCheckin = {
     type:item.type, lat:item.lat, lng:item.lng, who:item.who,
     text:item.note||'', svgData:item.svgData||null, svgGrid:item.svgGrid||16, pngBlob:null,
-    tripId:item.tripId||'',
+    tripId:item.tripId||'', companions:[...(item.companions||[])],
   };
   setStepsVisible(false);
   document.getElementById('checkinModalTitle').textContent = '編輯：' + (item.name||'');
@@ -1611,6 +1586,7 @@ function startEditCheckin(id) {
   document.getElementById('drawThumb').innerHTML = item.svgData
     ? `<svg viewBox="0 0 ${item.svgGrid||16} ${item.svgGrid||16}" style="image-rendering:pixelated;width:100%;height:100%;">${item.svgData}</svg>`
     : '🖼';
+  buildCompanionGrid();
   buildTripSelect();
   document.getElementById('submitBtn').disabled = false;
   document.getElementById('checkinModal').classList.add('show');
@@ -1658,10 +1634,7 @@ function updateCharCount() {
 }
 
 function checkSubmitReady() {
-  let ready = pendingCheckin.lat && pendingCheckin.who;
-  if (pendingCheckin.type === 'expense') {
-    ready = ready && parseFloat(document.getElementById('expAmount').value) > 0;
-  }
+  const ready = pendingCheckin.lat && pendingCheckin.who;
   document.getElementById('submitBtn').disabled = !ready;
 }
 
@@ -1701,6 +1674,7 @@ async function submitCheckin() {
         item.svgGrid  = pendingCheckin.svgGrid;
         item.imageUrl = imageUrl;
         item.tripId   = document.getElementById('tripSelect').value || '';
+        item.companions = [...(pendingCheckin.companions||[])];
         await gasPost({
           action:   'editCheckin',
           id:       item.id,
@@ -1709,6 +1683,7 @@ async function submitCheckin() {
           svgData:  item.svgData || '',
           svgGrid:  item.svgGrid || 16,
           tripId:   item.tripId,
+          companions: item.companions,
         });
       }
       editingId = null;
@@ -1720,48 +1695,6 @@ async function submitCheckin() {
     } finally {
       btn.disabled = false;
       btn.innerHTML = typeMeta(pendingCheckin.type).icon + ' 儲存';
-    }
-    return;
-  }
-
-  // ── 記帳分支（不分帳的簡化版）
-  if (pendingCheckin.type === 'expense') {
-    try {
-      const now = new Date();
-      const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
-      const amount = parseFloat(document.getElementById('expAmount').value) || 0;
-      const customName = document.getElementById('placeName').value.trim();
-      const item = {
-        id:       'e' + Date.now(),
-        type:     'expense',
-        title:    document.getElementById('expTitle').value.trim() || expCategory,
-        amount,
-        category: expCategory,
-        payer:    pendingCheckin.who,
-        tripId:   document.getElementById('tripSelect').value || '',
-        note:     pendingCheckin.text,
-        lat:      pendingCheckin.lat,
-        lng:      pendingCheckin.lng,
-        name:     customName,
-        date:     dateStr,
-      };
-      const resp = await gasPost({
-        action:'addExpense',
-        title:item.title, amount:item.amount, category:item.category,
-        payer:item.payer, tripId:item.tripId, note:item.note,
-        lat:item.lat, lng:item.lng, date:dateStr,
-      });
-      if (resp?.msg?.id) item.id = resp.msg.id;
-      expenses.unshift(item);
-      closeCheckin();
-      renderMarkers();
-      map.flyTo([item.lat, item.lng], 13);
-    } catch(e) {
-      console.error('記帳送出失敗', e);
-      alert('送出失敗，請稍後再試');
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = '💰 儲存';
     }
     return;
   }
@@ -1792,6 +1725,7 @@ async function submitCheckin() {
       svgData:  pendingCheckin.svgData,
       svgGrid:  pendingCheckin.svgGrid,
       tripId:   tripId,
+      companions: [...(pendingCheckin.companions||[])],
     };
 
     const resp = await gasPost({
@@ -1799,6 +1733,7 @@ async function submitCheckin() {
       type:item.type, who:item.who, lat:item.lat, lng:item.lng,
       name:item.name, note:item.note, imageUrl:item.imageUrl,
       svgData:item.svgData||'', svgGrid:item.svgGrid||16, tripId:tripId,
+      companions: item.companions,
     });
     if (resp?.msg?.id) item.id = resp.msg.id;
 
@@ -1941,40 +1876,6 @@ async function addNewMember() {
   }
   if (!tripFormMembers.includes(name)) tripFormMembers.push(name);
   buildTripMemberGrid();
-}
-
-// ══════════════════════════════════════════
-//  帳簿（簡化版：不分帳，列帳＋總計）
-// ══════════════════════════════════════════
-function openLedger() {
-  const list = tripFilter ? expenses.filter(e=>e.tripId===tripFilter) : expenses;
-  const t = tripFilter ? tripById(tripFilter) : null;
-  document.getElementById('ledgerTitle').textContent = '📒 帳簿' + (t ? `（🧳 ${t.name}）` : '');
-  const sorted = [...list].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const total = list.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
-  const byPayer = {};
-  list.forEach(e => { byPayer[e.payer] = (byPayer[e.payer]||0) + (parseFloat(e.amount)||0); });
-  document.getElementById('ledgerBody').innerHTML = (sorted.map(e => {
-    const tp = tripById(e.tripId);
-    return `<div class="ledger-row" onclick="if(${!!(e.lat&&e.lng)}){document.getElementById('ledgerModal').classList.remove('show');flyToExpense('${e.id}');}">
-      <span class="ledger-icon">💰</span>
-      <div class="ledger-main">
-        <div class="ledger-title">${esc(e.title)}</div>
-        <div class="ledger-meta">${esc(e.date||'')} · ${esc(e.category||'')} · ${esc(e.payer||'')}${tp?` · 🧳 ${esc(tp.name)}`:''}</div>
-      </div>
-      <span class="ledger-amt">$${e.amount}</span>
-    </div>`;
-  }).join('') || `<div style="text-align:center;padding:20px;font-size:9px;color:var(--muted);">還沒有帳目，打卡視窗選 💰 記帳開始！</div>`) + `
-    <div class="ledger-total"><span>合計 ${list.length} 筆</span><span style="color:var(--accent);">NT$ ${total}</span></div>
-    ${Object.keys(byPayer).map(p=>`<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);padding:3px 0;"><span>${p} 付了</span><span>NT$ ${byPayer[p]}</span></div>`).join('')}
-  `;
-  document.getElementById('ledgerModal').classList.add('show');
-}
-
-function flyToExpense(id) {
-  const e = expenses.find(x=>x.id===id);
-  if (!e || !e.lat) return;
-  map.flyTo([e.lat, e.lng], 14, { duration: 1 });
 }
 
 // ══════════════════════════════════════════
@@ -2265,8 +2166,35 @@ function openCardEdit(cardId) {
   document.getElementById('cardEditTitle').textContent = c.icon + ' 編輯卡片';
   document.getElementById('cardTitleInput').value = c.title;
   document.getElementById('cardTextInput').value = c.text || '';
+  document.getElementById('cardGeoInput').value = '';
   updateCardLocStatus(c);
   document.getElementById('cardEditModal').classList.add('show');
+}
+
+// 貼「緯度,經度」或 Google 地圖分享連結（連結網址常帶 @lat,lng,zoom 或 q=lat,lng）
+// 不用另外接地址查詢 API，直接從文字/連結裡解析座標即可
+function parseLatLngText(text) {
+  const s = (text||'').trim();
+  if (!s) return null;
+  let m = s.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+  if (!m) m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (!m) return null;
+  const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+  if (isNaN(lat) || isNaN(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat, lng };
+}
+function applyCardGeoInput() {
+  const t = tripById(detailTripId);
+  const c = t?.cards?.find(x=>x.id===editingCardId);
+  if (!c) return;
+  const pos = parseLatLngText(document.getElementById('cardGeoInput').value);
+  if (!pos) { alert('看不懂這段文字，請貼「緯度,經度」或 Google 地圖分享連結'); return; }
+  c.lat = pos.lat;
+  c.lng = pos.lng;
+  saveTripCards(t);
+  renderMarkers();
+  updateCardLocStatus(c);
+  document.getElementById('cardGeoInput').value = '';
 }
 
 function updateCardLocStatus(c) {
@@ -2330,23 +2258,50 @@ function deleteCardEdit() {
 // ══════════════════════════════════════════
 let editingTripId = null;
 let tripFormMembers = [];
+let tripsTab = 'active';
+
+function todayStr() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+// 已結束＝有設定回程日且早於今天；沒設日期一律視為進行中
+function isTripActive(t) { return !t.dateEnd || t.dateEnd >= todayStr(); }
+function activeTrips() { return trips.filter(isTripActive); }
 
 function openTrips() {
+  tripsTab = 'active';
   renderTrips();
   document.getElementById('tripsModal').classList.add('show');
 }
 function closeTrips() {
   document.getElementById('tripsModal').classList.remove('show');
 }
+function setTripsTab(tab) {
+  tripsTab = tab;
+  document.getElementById('tt-active').classList.toggle('on', tab==='active');
+  document.getElementById('tt-ended').classList.toggle('on', tab==='ended');
+  renderTrips();
+}
+
+async function endTripNow(id) {
+  const t = tripById(id);
+  if (!t) return;
+  if (!confirm(`結束旅程「${t.name}」？\n之後打卡選單就不會再列出，可在「🗂 回顧庫」查看`)) return;
+  t.dateEnd = todayStr();
+  await gasPost({ action:'editTrip', id:t.id, dateEnd:t.dateEnd });
+  renderTrips();
+}
 
 function renderTrips() {
   const el = document.getElementById('tripsBody');
-  const list = trips.map(t => {
+  const shown = trips.filter(t => tripsTab==='active' ? isTripActive(t) : !isTripActive(t));
+  const list = shown.map(t => {
     const count = checkins.filter(c=>c.tripId===t.id).length;
     const dates = [t.dateStart, t.dateEnd].filter(Boolean).join(' ~ ');
+    const ended = !isTripActive(t);
     return `<div class="trip-item ${tripFilter===t.id?'on':''}">
       <div class="trip-item-head" onclick="openTripDetail('${t.id}')">
-        <span style="font-size:14px;">🧳</span>
+        <span style="font-size:14px;">${ended?'📦':'🧳'}</span>
         <span class="trip-item-name">${esc(t.name)}</span>
         <span class="trip-item-date">${dates}</span>
       </div>
@@ -2355,11 +2310,12 @@ function renderTrips() {
         <button class="trip-btn" onclick="openTripDetail('${t.id}')">🗂 行前卡片</button>
         <button class="trip-btn" onclick="setTripFilter('${t.id}')">${tripFilter===t.id?'✓ 篩選中':'只看此旅程'}</button>
         <button class="trip-btn" onclick="openTripForm('${t.id}')">✎ 編輯</button>
+        ${ended?'':`<button class="trip-btn" onclick="endTripNow('${t.id}')">📦 結束</button>`}
         <button class="trip-btn danger" onclick="deleteTrip('${t.id}')">🗑</button>
       </div>
     </div>`;
-  }).join('') || `<div style="text-align:center;padding:16px;font-size:9px;color:var(--muted);">還沒有小旅程</div>`;
-  el.innerHTML = list + `<button class="add-trip-btn" onclick="openTripForm()">＋ 新增小旅程</button>`;
+  }).join('') || `<div style="text-align:center;padding:16px;font-size:9px;color:var(--muted);">${tripsTab==='active'?'還沒有進行中的小旅程':'還沒有已結束的旅程'}</div>`;
+  el.innerHTML = list + (tripsTab==='active' ? `<button class="add-trip-btn" onclick="openTripForm()">＋ 新增小旅程</button>` : '');
 }
 
 function setTripFilter(id) {
@@ -2587,13 +2543,6 @@ async function loadData() {
     if (Array.isArray(data.checkins)) applyCheckins(data.checkins);
     if (Array.isArray(data.trips)) trips = data.trips;
     if (Array.isArray(data.members)) { applyMembers(data.members); buildTopbarMembers(); }
-    if (Array.isArray(data.expenses)) {
-      expenses = data.expenses.map(e => ({
-        ...e,
-        type: 'expense',
-        date: e.date ? String(e.date).slice(0,10).replace(/-/g,'/') : '',
-      }));
-    }
     buildTabs();
     renderMarkers();
   } catch(e) {

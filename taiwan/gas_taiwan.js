@@ -12,17 +12,16 @@
 var SHEET_NAMES = {
   checkin: '寫入_腳印',
   trip:    '寫入_旅程',
-  expense: '寫入_帳目',
   member:  '寫入_成員',
 };
 
 // ── 各表標題列 ───────────────────────────────────────────
 // 腳印：A打卡ID B時間戳 C類型(checkin/wish) D成員 E地點名稱 F緯度 G經度
 //       H日記內容 I圖片URL(R2) J留言JSON K建立時間 L SVG資料 M SVG格數
-//       N旅程ID（空＝日常紀錄）
+//       N旅程ID（空＝日常紀錄） O同行者(逗號分隔，選填)
 var CHECKIN_HEADER = [
   '打卡ID','時間戳','類型','成員','地點名稱','緯度','經度',
-  '日記內容','圖片URL','留言JSON','建立時間','SVG資料','SVG格數','旅程ID'
+  '日記內容','圖片URL','留言JSON','建立時間','SVG資料','SVG格數','旅程ID','同行者'
 ];
 
 // 旅程：A旅程ID B名稱 C開始日期 D結束日期 E成員(逗號分隔) F備忘 G建立時間
@@ -35,14 +34,6 @@ var TRIP_HEADER = [
 // A成員ID B名稱 C代表色 D Emoji E建立時間 F像素圖JSON({grid,rects})
 var MEMBER_HEADER = [
   '成員ID','名稱','代表色','Emoji','建立時間','像素圖JSON'
-];
-
-// 帳目（記帳打卡：帳可帶座標顯示在地圖上）：
-// A帳目ID B旅程ID C日期 D類別 E項目 F金額 G幣別 H付款人
-// I分帳方式 J每人負擔JSON K備註 L建立時間 M緯度 N經度
-var EXPENSE_HEADER = [
-  '帳目ID','旅程ID','日期','類別','項目','金額','幣別','付款人',
-  '分帳方式','每人負擔JSON','備註','建立時間','緯度','經度'
 ];
 
 // ── 取得工作表；不存在就自動建立並寫入標題列 ─────────────
@@ -108,6 +99,7 @@ function readCheckinSheet(sheet) {
       svgData:   r[11] || '',
       svgGrid:   parseInt(r[12], 10) || 16,
       tripId:    r[13] || '',
+      companions: String(r[14] || '').split(',').map(function(s){return s.trim();}).filter(String),
       _rowIndex: i + 1,
     });
   }
@@ -138,36 +130,6 @@ function readTripSheet(sheet) {
   return { trips: trips };
 }
 
-// ── 帳目表 → 物件陣列 ────────────────────────────────────
-function readExpenseSheet(sheet) {
-  var rows = sheet.getDataRange().getDisplayValues();
-  var expenses = [];
-  for (var i = 1; i < rows.length; i++) {
-    var r = rows[i];
-    if (!r[0]) continue;
-    var split = {};
-    try { split = JSON.parse(r[9] || '{}'); } catch (e) {}
-    expenses.push({
-      id:        r[0],
-      tripId:    r[1] || '',
-      date:      r[2] || '',
-      category:  r[3] || '',
-      title:     r[4] || '',
-      amount:    parseFloat(r[5]) || 0,
-      currency:  r[6] || 'TWD',
-      payer:     r[7] || '',
-      splitMode: r[8] || '均分',
-      split:     split,
-      note:      r[10] || '',
-      createdAt: r[11] || '',
-      lat:       parseFloat(r[12]) || 0,
-      lng:       parseFloat(r[13]) || 0,
-      _rowIndex: i + 1,
-    });
-  }
-  return { expenses: expenses };
-}
-
 // ── 成員表 → 物件陣列 ────────────────────────────────────
 function readMemberSheet(sheet) {
   var rows = sheet.getDataRange().getDisplayValues();
@@ -190,10 +152,10 @@ function readMemberSheet(sheet) {
 }
 
 // ── doGet ────────────────────────────────────────────────
-//  ?sheet=all      → { checkins, trips, expenses }
+//  ?sheet=all      → { checkins, trips, members }
 //  ?sheet=checkin  → { checkins }
 //  ?sheet=trips    → { trips }
-//  ?sheet=expenses → { expenses }
+//  ?sheet=members  → { members }
 // 寫入後清掉讀取快取（doPost 各 action 結束前呼叫）
 function clearTwCache() {
   CacheService.getScriptCache().remove('tw_all_v1');
@@ -224,10 +186,6 @@ function doGet(e) {
     if (param === 'all' || param === 'members') {
       var ms = getOrCreateSheet(ss, SHEET_NAMES.member, MEMBER_HEADER);
       result.members = readMemberSheet(ms).members;
-    }
-    if (param === 'all' || param === 'expenses') {
-      var es = getOrCreateSheet(ss, SHEET_NAMES.expense, EXPENSE_HEADER);
-      result.expenses = readExpenseSheet(es).expenses;
     }
     result.updatedAt = new Date().toISOString();
     var json = JSON.stringify(result);
@@ -268,6 +226,7 @@ function doPost(e) {
         payload.svgData  || '',
         payload.svgGrid  || 16,
         payload.tripId   || '',
+        (payload.companions || []).join(','),
       ];
       sheet.getRange(firstEmptyRow(sheet), 1, 1, row.length).setValues([row]);
       return ok({ msg: 'checkin saved', id: id });
@@ -285,6 +244,7 @@ function doPost(e) {
       if (payload.svgData  !== undefined) sheet.getRange(rowIdx, 12).setValue(payload.svgData);
       if (payload.svgGrid  !== undefined) sheet.getRange(rowIdx, 13).setValue(payload.svgGrid);
       if (payload.tripId   !== undefined) sheet.getRange(rowIdx, 14).setValue(payload.tripId);
+      if (payload.companions !== undefined) sheet.getRange(rowIdx, 15).setValue((payload.companions || []).join(','));
       return ok('checkin updated');
     }
 
@@ -406,14 +366,14 @@ function doPost(e) {
       return ok('member updated');
     }
 
-    // 改名：連動所有歷史紀錄（腳印成員/留言、旅程成員、帳目付款人、成員表）
+    // 改名：連動所有歷史紀錄（腳印成員/留言/同行者、旅程成員、成員表）
     if (action === 'renameMember') {
       var oldName = String(payload.oldName || '').trim();
       var newName = String(payload.newName || '').trim();
       if (!oldName || !newName) throw new Error('缺少 oldName/newName');
-      var changed = { checkins: 0, comments: 0, trips: 0, expenses: 0, member: 0 };
+      var changed = { checkins: 0, comments: 0, trips: 0, member: 0 };
 
-      // 腳印：D 欄成員、J 欄留言JSON 的 who
+      // 腳印：D 欄成員、J 欄留言JSON 的 who、O 欄同行者（逗號清單）
       var cs = getOrCreateSheet(ss, SHEET_NAMES.checkin, CHECKIN_HEADER);
       var cRows = cs.getDataRange().getValues();
       for (var i = 1; i < cRows.length; i++) {
@@ -428,6 +388,12 @@ function doPost(e) {
             if (hit) { cs.getRange(i+1, 10).setValue(JSON.stringify(cmts)); changed.comments++; }
           } catch (e) {}
         }
+        var companionList = String(cRows[i][14]||'').split(',').map(function(s){return s.trim();}).filter(String);
+        var cIdx = companionList.indexOf(oldName);
+        if (cIdx >= 0) {
+          companionList[cIdx] = newName;
+          cs.getRange(i+1, 15).setValue(companionList.join(','));
+        }
       }
 
       // 旅程：E 欄成員（逗號清單）
@@ -440,15 +406,6 @@ function doPost(e) {
           list[idx] = newName;
           tsh.getRange(i+1, 5).setValue(list.join(','));
           changed.trips++;
-        }
-      }
-
-      // 帳目：H 欄付款人
-      var es = getOrCreateSheet(ss, SHEET_NAMES.expense, EXPENSE_HEADER);
-      var eRows = es.getDataRange().getValues();
-      for (var i = 1; i < eRows.length; i++) {
-        if (String(eRows[i][7]||'').trim() === oldName) {
-          es.getRange(i+1, 8).setValue(newName); changed.expenses++;
         }
       }
 
@@ -470,58 +427,6 @@ function doPost(e) {
       if (rowIdx < 2) throw new Error('找不到成員');
       sheet.deleteRow(rowIdx);
       return ok('member deleted');
-    }
-
-    // ════ 帳目（第二階段帳簿）═════════════════════════════
-    if (action === 'addExpense') {
-      var sheet = getOrCreateSheet(ss, SHEET_NAMES.expense, EXPENSE_HEADER);
-      var id  = 'ex_' + new Date().getTime();
-      var now = new Date().toISOString();
-      var row = [
-        id,
-        payload.tripId    || '',
-        payload.date      || now.slice(0, 10),
-        payload.category  || '',
-        payload.title     || '',
-        payload.amount    || 0,
-        payload.currency  || 'TWD',
-        payload.payer     || '',
-        payload.splitMode || '均分',
-        JSON.stringify(payload.split || {}),
-        payload.note      || '',
-        now,
-        payload.lat       || '',
-        payload.lng       || '',
-      ];
-      sheet.getRange(firstEmptyRow(sheet), 1, 1, row.length).setValues([row]);
-      return ok({ msg: 'expense saved', id: id });
-    }
-
-    if (action === 'editExpense') {
-      var sheet = getOrCreateSheet(ss, SHEET_NAMES.expense, EXPENSE_HEADER);
-      var rowIdx = payload.rowIndex || findRowById(sheet, payload.id || '');
-      if (rowIdx < 2) throw new Error('找不到帳目：' + (payload.id || ''));
-      if (payload.tripId    !== undefined) sheet.getRange(rowIdx, 2).setValue(payload.tripId);
-      if (payload.date      !== undefined) sheet.getRange(rowIdx, 3).setValue(payload.date);
-      if (payload.category  !== undefined) sheet.getRange(rowIdx, 4).setValue(payload.category);
-      if (payload.title     !== undefined) sheet.getRange(rowIdx, 5).setValue(payload.title);
-      if (payload.amount    !== undefined) sheet.getRange(rowIdx, 6).setValue(payload.amount);
-      if (payload.currency  !== undefined) sheet.getRange(rowIdx, 7).setValue(payload.currency);
-      if (payload.payer     !== undefined) sheet.getRange(rowIdx, 8).setValue(payload.payer);
-      if (payload.splitMode !== undefined) sheet.getRange(rowIdx, 9).setValue(payload.splitMode);
-      if (payload.split     !== undefined) sheet.getRange(rowIdx, 10).setValue(JSON.stringify(payload.split));
-      if (payload.note      !== undefined) sheet.getRange(rowIdx, 11).setValue(payload.note);
-      if (payload.lat       !== undefined) sheet.getRange(rowIdx, 13).setValue(payload.lat);
-      if (payload.lng       !== undefined) sheet.getRange(rowIdx, 14).setValue(payload.lng);
-      return ok('expense updated');
-    }
-
-    if (action === 'deleteExpense') {
-      var sheet = getOrCreateSheet(ss, SHEET_NAMES.expense, EXPENSE_HEADER);
-      var rowIdx = payload.rowIndex || findRowById(sheet, payload.id || '');
-      if (rowIdx < 2) throw new Error('找不到帳目');
-      sheet.deleteRow(rowIdx);
-      return ok('expense deleted');
     }
 
     return err('未知的 action：' + action);
