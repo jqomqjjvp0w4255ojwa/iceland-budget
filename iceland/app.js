@@ -316,6 +316,16 @@
         note:    pick(row, ['備註'], ''),
       }));
 
+    // ── 保費（保險分頁 G:I 的小表：成員/保費/付款人；一列＝一個人的保單）
+    //    比照住宿：自己的分頁記金額，帳本與分帳都從這裡讀
+    const insurancePremiums = cellsToRows(insurance)
+      .filter(row => num(pick(row, ['保費'], 0)) > 0)
+      .map(row => ({
+        member: String(pick(row, ['成員'], '')).trim(),
+        twd:    num(pick(row, ['保費'])),
+        payer:  String(pick(row, ['付款人'], '')).trim() || String(pick(row, ['成員'], '')).trim(),
+      }));
+
     // ── 手冊資訊
     const manualData = cellsToRows(manual)
       .filter(row => String(row['標題'] ?? '').trim() !== '')
@@ -336,7 +346,7 @@
       activity: activityData,
       expenses, split: splitData, dialogLines, flights, totalFlightTWD, repayHistory,
       tasks, schedule: scheduleData,
-      insurance: insuranceData, manualInfo: manualData,
+      insurance: insuranceData, insurancePremiums, manualInfo: manualData,
     };
   }
 
