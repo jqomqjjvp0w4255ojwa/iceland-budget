@@ -39,13 +39,12 @@ function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses, carTotal
   let perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel, expForDisplay, insForDisplay;
 
   if(mode==='none'){
-    // 模式1：不含機票，雜支只含共同部分（已在 sharedTotal 裡）
-    // 保險各自投保，不攤進均分的每人應付；保險條另外顯示全體合計
+    // 模式1：不含機票——純共同花費的視角，機票和保險這類個人項目都不顯示
     perPersonAmt     = sharedTotal / 3;
     grandDisplay     = sharedTotal;
     flightForDisplay = 0;
     expForDisplay    = sharedExpTotal;   // 進度條顯示共同雜支
-    insForDisplay    = insTotalAll;
+    insForDisplay    = 0;
     whoLabel         = '不含機票';
     flightLabel      = '—';
 
