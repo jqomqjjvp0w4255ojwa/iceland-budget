@@ -198,18 +198,7 @@ function renderAll(){
   const d=window.APP_DATA || window.STATIC;
   // ── 同步 tag 庫
   if (d.tagLibrary?.length) window.pxUpdateTagLibrary?.(d.tagLibrary);
-  const totalAccom    = d.accommodation.reduce((s,a)=>s+(a.twd||0),0);
-  const totalActivity = (d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
-  const totalFlight   = d.totalFlightTWD||0;
-  const carTotal      = d.car.totalTWD||0;
-
-  // 雜支分成共同和個人兩類
-  const totalExpenseShared   = (d.expenses||[]).filter(e=>e.isShared).reduce((s,e)=>s+(e.total||0),0);
-  const totalExpensePersonal = (d.expenses||[]).filter(e=>!e.isShared).reduce((s,e)=>s+(e.total||0),0);
-
-  // sharedTotal = 所有共同費用（住宿＋租車＋活動＋共同雜支）
-  const sharedTotal = carTotal + totalAccom + totalActivity + totalExpenseShared;
-  const grandTotal  = sharedTotal + totalFlight;
+  // ── 金額只從 ledgerTotals 拿（單一來源，含海外手續費），不在這裡重算
 
   // ── 負債試算
   // paid：優先用 sheet 寫入_分帳 的「總付出」（含所有代墊）
@@ -261,10 +250,9 @@ function renderAll(){
   // ── 角色站位依付款金額排序
   const memberOrder = [...MEMBERS].sort((a,b)=>paid[b]-paid[a]);
 
-  // ── 圓餅比例（由 calcFlightDisplay 統一計算）
-  const { perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel, expForDisplay, pcts } =
-    calcFlightDisplay(sharedTotal, totalFlight, d.flights||[], d.expenses||[], carTotal, totalAccom, totalActivity);
-  const { car: carPct, flight: flightPct, accom: accomPct, act: actPct } = pcts;
+  // ── 帳簿數字：calcLedger 是唯一來源（含視角、類別、圓餅比例）
+  const L = calcLedger(d);
+  const { perPersonAmt, grandDisplay, whoLabel } = L;
 
   // ── 圓餅 HTML（canvas + 中心卷軸選擇器，無圓框，圓餅本身即邊界）
   const donutHtml = `
@@ -281,9 +269,8 @@ function renderAll(){
       </div>
     </div>`;
 
-  // ── 各類別進度條
-  // 實際內容由模組級 buildCatRows() 產生，依 _flightMode 決定機票欄位
-  const catRows = buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandDisplay, expForDisplay);
+  // ── 各類別進度條（由 LEDGER_CATS 單一來源產生）
+  const catRows = buildCatRows(L.cats);
 
   // ── 分帳明細（從 寫入_分帳 Sheet 讀取，若無則 fallback 自算）
   const maxPaid = Math.max(...MEMBERS.map(m => paid[m] || 0), 1);
@@ -360,7 +347,7 @@ function renderAll(){
               <div style="font-size:.65rem;color:var(--accent);margin-top:1px;min-height:14px;line-height:1.6" id="donutWhoLabel">${whoLabel}</div>
               <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="donutGrandTotal">合計 ${fmt(grandDisplay)}</div>
               <div style="margin-top:8px;width:100%" id="donutLegend">
-                ${buildLegend(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp)}
+                ${buildLegend(L.cats)}
               </div>
             </div>
           </div>
@@ -418,7 +405,7 @@ function renderAll(){
 
   // ── DOM 建立完後初始化圓餅 canvas 和卷軸選擇器，並恢復分頁
   requestAnimationFrame(()=>{
-    drawDonutCanvas(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp);
+    drawDonutCanvas(L.cats);
     initDonutPicker();
     refreshDonut(); // 確保個人消費等數字在 renderAll 後也更新
     if (_activeTab !== 'ledger') {

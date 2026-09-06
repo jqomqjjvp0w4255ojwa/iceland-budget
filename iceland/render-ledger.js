@@ -1,120 +1,126 @@
 // render-ledger.js — 帳簿：圓餅圖、機票選擇器、分帳計算
+//
+// ══ 單一來源原則（2026-09-06 重構）══
+// 1) 金額：ledgerTotals() 只算一次（住宿/活動含海外手續費，跟分帳表 F+K 對齊）
+// 2) 視角：calcLedger() 把三種視角（不含機票/均分/成員）算成一份結果
+// 3) 類別：LEDGER_CATS 是唯一的類別清單——進度條、圓餅、圖例、明細
+//    全部由它產生。加類別＝加一行，四處自動跟上。
 
-// ── 各模式計算邏輯
-// sharedTotal = 租車 + 住宿 + 活動 + 共同雜支（不含機票、不含個人雜支）
-// 模式1 無機票：顯示 sharedTotal/3，分母 sharedTotal，機票隱藏，雜支只含共同
-// 模式2 平均：  顯示 (sharedTotal+allFlight)/3，分母同，機票 allFlight/3
-// 模式3 成員X：顯示 sharedTotal/3 + X機票 + X雜支burden總和，分母同，機票X個人，雜支X總負擔
+// ── 類別定義（唯一的一份）
+// bar(c) → 進度條列 { total, perLabel, noPerPerson?, pct }
+// pie(c) → 圓餅/圖例用的金額（0 = 該視角不進餅）
+// legendHideOn → 這些視角在圖例整列隱藏（不是顯示 —）
+const LEDGER_CATS = [
+  { key:'car',    icon:'🚗', label:'租車', color:'#f0c040',
+    bar: c => ({ total:c.carTotal, perLabel:fmt(c.carTotal/3), pct:c.carTotal/c.gt }),
+    pie: c => c.isMember ? c.carTotal/3 : c.carTotal },
+  { key:'flight', icon:'✈️', label:'機票', color:'#4fc3f7', legendHideOn:['none'],
+    bar: c => ({ total:c.flightForDisplay, perLabel:c.flightLabel, pct:c.flightForDisplay/c.gt }),
+    pie: c => c.flightForDisplay },
+  { key:'accom',  icon:'🏕', label:'住宿', color:'#7c4dff',
+    bar: c => ({ total:c.totalAccom, perLabel:fmt(c.totalAccom/3), pct:c.totalAccom/c.gt }),
+    pie: c => c.isMember ? c.totalAccom/3 : c.totalAccom },
+  { key:'act',    icon:'🎯', label:'活動', color:'#4caf6e',
+    bar: c => ({ total:c.totalActivity, perLabel:fmt(c.totalActivity/3), pct:c.totalActivity/c.gt }),
+    pie: c => c.isMember ? c.totalActivity/3 : c.totalActivity },
+  { key:'exp',    icon:'🛒', label:'雜支', color:'#f06292',
+    bar: c => ({ total:c.expForDisplay, perLabel:c.isMember?fmt(c.expForDisplay):fmt(c.expForDisplay/3),
+                 noPerPerson:c.isMember, pct:c.expForDisplay/c.gt }),
+    pie: c => c.expForDisplay },
+  // 保險：各自投保。不含機票視角不列；均分視角只列合計（標「各自」，
+  // 不進每人應付、不進餅）；成員視角算自己的
+  { key:'ins',    icon:'🛡', label:'保險', color:'#26c6da',
+    bar: c => ({ total:c.insForDisplay, perLabel:c.isMember?fmt(c.insForDisplay):'各自',
+                 noPerPerson:true, pct:c.isMember?c.insForDisplay/c.gt:0 }),
+    pie: c => c.isMember ? c.insForDisplay : 0 },
+];
 
-function calcFlightDisplay(sharedTotal, totalFlight, flights, expenses, carTotal, totalAccom, totalActivity, insurancePremiums){
+// ── 金額總計（只在這裡算）
+function ledgerTotals(d){
+  const totalAccom    = (d.accommodation||[]).reduce((s,a)=>s+(a.twd||0)+(a.foreignFee||0),0);
+  const totalActivity = (d.activity||[]).reduce((s,a)=>s+(a.twd||0)+(a.foreignFee||0),0);
+  const totalFlight   = d.totalFlightTWD||0;
+  const carTotal      = (d.car&&d.car.totalTWD)||0;
+  const sharedExpTotal = (d.expenses||[]).filter(e=>e.isShared).reduce((s,e)=>s+(e.total||0),0);
+  const sharedTotal = carTotal + totalAccom + totalActivity + sharedExpTotal;
+  return { totalAccom, totalActivity, totalFlight, carTotal, sharedExpTotal, sharedTotal };
+}
+
+// ── 三種視角的一次性計算：回傳數字 + 六個類別的完整呈現資料
+// 模式1 none：不含機票——純共同花費，機票/保險等個人項目不列
+// 模式2 equal：共同 + 機票均分；保險各自投保只列合計
+// 模式3 成員X：共同/3 + X機票 + X雜支負擔 + X保費
+function calcLedger(d){
+  const t = ledgerTotals(d);
+  const members = window.TRIP_MEMBERS || ['花','猴','寧'];
+
   const flightByPerson = {};
-  (flights||[]).forEach(f=>{
-    flightByPerson[f.person] = (flightByPerson[f.person]||0) + (f.totalTWD||0);
-  });
+  (d.flights||[]).forEach(f=>{ flightByPerson[f.person]=(flightByPerson[f.person]||0)+(f.totalTWD||0); });
 
-  // 保費：來自保險分頁（成員/保費/付款人），像機票一樣是每人一筆
   const insByPerson = {};
   let insTotalAll = 0;
-  (insurancePremiums||[]).forEach(p=>{
-    insByPerson[p.member] = (insByPerson[p.member]||0) + (p.twd||0);
+  (d.insurancePremiums||[]).forEach(p=>{
+    insByPerson[p.member]=(insByPerson[p.member]||0)+(p.twd||0);
     insTotalAll += (p.twd||0);
   });
 
-  // 各成員的雜支負擔總額（含共同分攤 + 個人）
   const expBurdenByPerson = {};
-  (expenses||[]).forEach(e=>{
-    if(e.burden){
-      (window.TRIP_MEMBERS || ['花','猴','寧']).forEach(m=>{
-        expBurdenByPerson[m] = (expBurdenByPerson[m]||0) + (e.burden[m]||0);
-      });
-    }
+  (d.expenses||[]).forEach(e=>{
+    if(e.burden) members.forEach(m=>{ expBurdenByPerson[m]=(expBurdenByPerson[m]||0)+(e.burden[m]||0); });
   });
 
-  // 共同雜支總額（模式1、2用）
-  const sharedExpTotal = (expenses||[])
-    .filter(e=>e.isShared)
-    .reduce((s,e)=>s+(e.total||0),0);
-
   const mode = window._flightMode || 'equal';
+  const isMember = !['none','equal'].includes(mode);
   let perPersonAmt, grandDisplay, whoLabel, flightForDisplay, flightLabel, expForDisplay, insForDisplay;
 
   if(mode==='none'){
-    // 模式1：不含機票——純共同花費的視角，機票和保險這類個人項目都不顯示
-    perPersonAmt     = sharedTotal / 3;
-    grandDisplay     = sharedTotal;
-    flightForDisplay = 0;
-    expForDisplay    = sharedExpTotal;   // 進度條顯示共同雜支
-    insForDisplay    = 0;
-    whoLabel         = '不含機票';
-    flightLabel      = '—';
-
+    perPersonAmt=t.sharedTotal/3; grandDisplay=t.sharedTotal;
+    flightForDisplay=0; flightLabel='—';
+    expForDisplay=t.sharedExpTotal; insForDisplay=0;
+    whoLabel='不含機票';
   } else if(mode==='equal'){
-    // 模式2：含機票均分，雜支只含共同部分；保險各自投保，不攤進每人應付
-    perPersonAmt     = (sharedTotal + totalFlight) / 3;
-    grandDisplay     = sharedTotal + totalFlight;
-    flightForDisplay = totalFlight;
-    expForDisplay    = sharedExpTotal;
-    insForDisplay    = insTotalAll;
-    whoLabel         = '+ 機票均分';
-    flightLabel      = fmt(totalFlight / 3);
-
+    perPersonAmt=(t.sharedTotal+t.totalFlight)/3; grandDisplay=t.sharedTotal+t.totalFlight;
+    flightForDisplay=t.totalFlight; flightLabel=fmt(t.totalFlight/3);
+    expForDisplay=t.sharedExpTotal; insForDisplay=insTotalAll;
+    whoLabel='+ 機票均分';
   } else {
-    // 模式3：成員 X 的全部花費
-    const personalFlight = flightByPerson[mode] || 0;
-    const personalExp    = expBurdenByPerson[mode] || 0;
-    const personalIns    = insByPerson[mode] || 0;
-    // sharedTotal 已含共同雜支，shared/3 裡已含共同雜支分攤
-    // personalExp = 該成員 burden 總和（含共同分攤 + 個人），所以要扣掉 shared雜支的 1/3 避免重複
-    const sharedExpPerPerson = sharedExpTotal / 3;
-    perPersonAmt     = sharedTotal / 3 + personalFlight + (personalExp - sharedExpPerPerson) + personalIns;
-    grandDisplay     = perPersonAmt;   // 分母就是這個人的總花費
-    flightForDisplay = personalFlight;
-    expForDisplay    = personalExp;    // 進度條顯示該成員 burden 總和
-    insForDisplay    = personalIns;    // 該成員自己的保費
-    whoLabel = [
-      personalFlight ? `+ 機票 ${fmt(personalFlight)}`    : '',
-      (personalExp - sharedExpPerPerson) > 0
-        ? `+ 個人消費 ${fmt(personalExp - sharedExpPerPerson)}` : '',
-      personalIns ? `+ 保險 ${fmt(personalIns)}` : '',
-    ].filter(Boolean).join('｜') || '含機票及個人消費';
-    flightLabel = fmt(personalFlight);
+    const personalFlight=flightByPerson[mode]||0;
+    const personalExp=expBurdenByPerson[mode]||0;
+    const personalIns=insByPerson[mode]||0;
+    // sharedTotal 已含共同雜支；personalExp 含共同分攤+個人，扣掉 shared/3 避免重複
+    const sharedExpPerPerson=t.sharedExpTotal/3;
+    perPersonAmt=t.sharedTotal/3+personalFlight+(personalExp-sharedExpPerPerson)+personalIns;
+    grandDisplay=perPersonAmt;
+    flightForDisplay=personalFlight; flightLabel=fmt(personalFlight);
+    expForDisplay=personalExp; insForDisplay=personalIns;
+    whoLabel=[
+      personalFlight?`+ 機票 ${fmt(personalFlight)}`:'',
+      (personalExp-sharedExpPerPerson)>0?`+ 個人消費 ${fmt(personalExp-sharedExpPerPerson)}`:'',
+      personalIns?`+ 保險 ${fmt(personalIns)}`:'',
+    ].filter(Boolean).join('｜')||'含機票及個人消費';
   }
 
-  // ── 圓餅比例（集中在這裡算，外部直接用 pcts，不再各自重算）
-  const pt = grandDisplay || 1;
-  const isMember = !['none','equal'].includes(mode);
-  const pcts = {
-    car:    (isMember ? carTotal/3      : carTotal)      / pt,
-    flight: flightForDisplay                             / pt,
-    accom:  (isMember ? totalAccom/3    : totalAccom)    / pt,
-    act:    (isMember ? totalActivity/3 : totalActivity) / pt,
-    exp:    expForDisplay                                / pt,
-    // 保險自己一片：成員視角有值；均分/不含機票視角不進合計也不進餅
-    ins:    (isMember ? insForDisplay : 0)               / pt,
-  };
+  // 六個類別統一從這份 context 產生（進度條與圓餅資料）
+  const c = { ...t, mode, isMember, gt:grandDisplay||1,
+              flightForDisplay, flightLabel, expForDisplay, insForDisplay };
+  const cats = LEDGER_CATS.map(cat=>({
+    key:cat.key, icon:cat.icon, label:cat.label, color:cat.color,
+    legendHideOn:cat.legendHideOn||[],
+    bar:cat.bar(c),
+    piePct:cat.pie(c)/(grandDisplay||1),
+  }));
 
-  return {
-    perPersonAmt, grandDisplay, whoLabel,
-    flightByPerson, flightForDisplay, flightLabel,
-    expForDisplay, insForDisplay, pcts,
-  };
+  return { mode, perPersonAmt, grandDisplay, whoLabel, cats };
 }
 
 // ── 畫圓餅（canvas，在 renderAll 之後由 initDonutCanvas 呼叫）
-function drawDonutCanvas(carPct, flightPct, accomPct, actPct, expPct, insPct){
+function drawDonutCanvas(cats){
   const cv = document.getElementById('donutCanvas');
   if(!cv) return;
   const ctx = cv.getContext('2d');
   const G=32, S=4.375, cx=15.5, cy=15.5, rO=13.5, rI=8.5;
   ctx.clearRect(0,0,cv.width,cv.height);
-  const slices=[
-    {pct:carPct,       color:'#f0c040'},
-    {pct:flightPct,    color:'#4fc3f7'},
-    {pct:accomPct,     color:'#7c4dff'},
-    {pct:actPct,       color:'#4caf6e'},
-    {pct:expPct||0,    color:'#f06292'},
-    {pct:insPct||0,    color:'#26c6da'},
-  ];
+  const slices = cats.map(c=>({ pct:c.piePct||0, color:c.color }));
   // 最後一個有值的 slice 顏色（浮點誤差補救用）
   const lastColor = [...slices].reverse().find(s=>s.pct>0)?.color || '#1e3a5f';
   function ac(a){
@@ -208,137 +214,56 @@ function initDonutPicker(){
 // ── 只更新圓餅+數字+小計（不重建整個頁面）
 function refreshDonut(){
   const d = window.APP_DATA||window.STATIC;
-  // 含海外手續費：分帳表的付出/負擔本來就含（F+K），帳本合計要跟上才不會偏低
-  const totalAccom    = d.accommodation.reduce((s,a)=>s+(a.twd||0)+(a.foreignFee||0),0);
-  const totalActivity = (d.activity||[]).reduce((s,a)=>s+(a.twd||0)+(a.foreignFee||0),0);
-  const totalFlight   = d.totalFlightTWD||0;
-  const carTotal      = d.car.totalTWD||0;
-  const expenses      = d.expenses||[];
-
-  const totalExpenseShared = expenses.filter(e=>e.isShared).reduce((s,e)=>s+(e.total||0),0);
-  const sharedTotal = carTotal + totalAccom + totalActivity + totalExpenseShared;
-
-  const {
-    perPersonAmt, grandDisplay, whoLabel,
-    flightForDisplay, flightLabel, expForDisplay, insForDisplay, pcts,
-  } = calcFlightDisplay(sharedTotal, totalFlight, d.flights, expenses, carTotal, totalAccom, totalActivity, d.insurancePremiums);
+  if(!d || !d.accommodation) return;
+  const L = calcLedger(d);
 
   // 數字區
   const elAmt    = document.getElementById('donutPerPerson');
   const elWho    = document.getElementById('donutWhoLabel');
   const elAll    = document.getElementById('donutGrandTotal');
   const elApprox = document.getElementById('donutApprox');
-  if(elAmt)    elAmt.textContent  = Math.round(perPersonAmt).toLocaleString('zh-TW');
-  if(elWho)    elWho.innerHTML    = whoLabel.replace(/｜/g,'<br>');
-  if(elAll)    elAll.textContent  = '合計 '+fmt(grandDisplay);
-  if(elApprox) elApprox.textContent = (window._flightMode==='equal')?'約':'';
+  if(elAmt)    elAmt.textContent  = Math.round(L.perPersonAmt).toLocaleString('zh-TW');
+  if(elWho)    elWho.innerHTML    = L.whoLabel.replace(/｜/g,'<br>');
+  if(elAll)    elAll.textContent  = '合計 '+fmt(L.grandDisplay);
+  if(elApprox) elApprox.textContent = (L.mode==='equal')?'約':'';
 
-  // 圓餅 & Legend（比例由 calcFlightDisplay 統一提供）
-  drawDonutCanvas(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp, pcts.ins);
+  // 圓餅、圖例、進度條：全部由同一份 L.cats 產生
+  drawDonutCanvas(L.cats);
   const elLegend = document.getElementById('donutLegend');
-  if(elLegend) elLegend.innerHTML = buildLegend(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp, pcts.ins);
-
-  // 小計進度條
+  if(elLegend) elLegend.innerHTML = buildLegend(L.cats);
   const elCat = document.getElementById('catRowsContent');
-  if(elCat) elCat.innerHTML = buildCatRows(
-    carTotal, flightForDisplay, flightLabel,
-    totalAccom, totalActivity,
-    grandDisplay, expForDisplay,
-    insForDisplay
-  );
+  if(elCat) elCat.innerHTML = buildCatRows(L.cats);
 }
 
 // ── 各類別進度條
 // expForDisplay：
 //   模式1/2 = 共同雜支總額（已含在 sharedTotal，三人均分）
 //   模式3   = 該成員的 burden 加總（含共同分攤 + 個人）
-function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandTotal, expForDisplay, insForDisplay){
-  const mode = window._flightMode||'equal';
-  const gt   = grandTotal||1;
-  const insTotal = insForDisplay||0;   // 保費來自保險分頁，跟雜支互不重疊
-  const expTotal = expForDisplay||0;
-
-  // 模式1/2：各項 /人 = 三人均分；模式3：顯示該成員自己的數字
-  const isMember = (mode!=='none' && mode!=='equal');
-
-  const cats=[
-    {
-      label:'🚗 租車',
-      total: carTotal,
-      perLabel: isMember ? fmt(carTotal/3)         : fmt(carTotal/3),
-      color:'#f0c040',
-      pct: carTotal/gt,
-    },
-    {
-      label:'✈️ 機票',
-      total: flightForDisplay,
-      perLabel: flightLabel,
-      color:'#4fc3f7',
-      pct: flightForDisplay/gt,
-    },
-    {
-      label:'🏕 住宿',
-      total: totalAccom,
-      perLabel: isMember ? fmt(totalAccom/3)       : fmt(totalAccom/3),
-      color:'#7c4dff',
-      pct: totalAccom/gt,
-    },
-    {
-      label:'🎯 活動',
-      total: totalActivity,
-      perLabel: isMember ? fmt(totalActivity/3)    : fmt(totalActivity/3),
-      color:'#4caf6e',
-      pct: totalActivity/gt,
-    },
-    {
-      label: '🛒 雜支',
-      total: expTotal,
-      perLabel: isMember ? fmt(expTotal) : fmt(expTotal/3),
-      color:'#f06292',
-      pct: expTotal/gt,
-      noPerPerson: isMember,
-    },
-    {
-      label:'🛡 保險',
-      total: insTotal,
-      // 各自投保：均分視角顯示「各自」而不是攤成三份的約數
-      // 保費不在均分視角的合計裡，進度條也不畫（比例的分母對不上）
-      perLabel: isMember ? fmt(insTotal) : '各自',
-      color:'#26c6da',
-      pct: isMember ? insTotal/gt : 0,
-      noPerPerson: true,
-    },
-  ];
-
-  return cats.map(c=>`
+function buildCatRows(cats){
+  return cats.map(c=>{
+    const b = c.bar;
+    return `
     <div style="margin-bottom:9px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
-        <span style="font-size:.72rem;color:var(--text)">${c.label}</span>
-        <span style="font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold)">${c.total?c.perLabel:'—'}<span style="font-size:.6em;color:var(--muted)">${c.noPerPerson?'':'/人'}</span></span>
+        <span style="font-size:.72rem;color:var(--text)">${c.icon} ${c.label}</span>
+        <span style="font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold)">${b.total?b.perLabel:'—'}<span style="font-size:.6em;color:var(--muted)">${b.noPerPerson?'':'/人'}</span></span>
       </div>
       <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
-        <div style="height:100%;width:${(c.pct*100).toFixed(1)}%;background:${c.color};border-radius:3px;transition:width .6s"></div>
+        <div style="height:100%;width:${((b.pct||0)*100).toFixed(1)}%;background:${c.color};border-radius:3px;transition:width .6s"></div>
       </div>
-      <div style="font-size:.63rem;color:var(--muted);margin-top:2px">合計 ${c.total?fmt(c.total):'—'}</div>
-    </div>`).join('');
+      <div style="font-size:.63rem;color:var(--muted);margin-top:2px">合計 ${b.total?fmt(b.total):'—'}</div>
+    </div>`;
+  }).join('');
 }
 
 // ── 圓餅 Legend（六項，兩排各三個）
-function buildLegend(carPct, flightPct, accomPct, actPct, expPct, insPct){
+function buildLegend(cats){
   const mode = window._flightMode||'equal';
-  const items = [
-    {color:'#f0c040', label:'租車', pct:carPct},
-    {color:'#4fc3f7', label:'機票', pct:flightPct, hideOnNone:true},
-    {color:'#7c4dff', label:'住宿', pct:accomPct},
-    {color:'#4caf6e', label:'活動', pct:actPct},
-    {color:'#f06292', label:'雜支', pct:expPct||0},
-    {color:'#26c6da', label:'保險', pct:insPct||0},
-  ];
-  const visible = items.filter(l => !(l.hideOnNone && mode==='none'));
+  const visible = cats.filter(c => !c.legendHideOn.includes(mode));
   return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 8px;width:100%">
-    ${visible.map(l=>`<span style="font-size:.62rem;display:flex;align-items:center;gap:3px;white-space:nowrap;">
-      <span style="width:7px;height:7px;flex-shrink:0;background:${l.color};display:inline-block;border-radius:1px"></span>
-      ${l.label} ${l.pct>0?(l.pct*100).toFixed(0)+'%':'—'}
+    ${visible.map(c=>`<span style="font-size:.62rem;display:flex;align-items:center;gap:3px;white-space:nowrap;">
+      <span style="width:7px;height:7px;flex-shrink:0;background:${c.color};display:inline-block;border-radius:1px"></span>
+      ${c.label} ${c.piePct>0?(c.piePct*100).toFixed(0)+'%':'—'}
     </span>`).join('')}
   </div>`;
 }

@@ -137,31 +137,14 @@
   window.updatePixelBudget = function(){
     const d=window.APP_DATA||window.STATIC;
     if(!d||!document.getElementById('pxBar'))return;
-    const totalAccom=(d.accommodation||[]).reduce((s,a)=>s+(a.twd||0),0);
-    const totalAct=(d.activity||[]).reduce((s,a)=>s+(a.twd||0),0);
-    const totalFlight=d.totalFlightTWD||0;
-    const carTotal=(d.car&&d.car.totalTWD)||0;
-    const totalExpenseShared=(d.expenses||[]).filter(e=>e.isShared).reduce((s,e)=>s+(e.total||0),0);
-    const sharedTotal=carTotal+totalAccom+totalAct+totalExpenseShared;
-
-    // 進度條數字：跟選擇器同步（顯示用）
-    const mode = window._flightMode || 'equal';
-    let perPersonAmt;
-    if(mode==='none'){
-      perPersonAmt = sharedTotal/3;
-    } else if(mode==='equal'){
-      perPersonAmt = (sharedTotal+totalFlight)/3;
-    } else {
-      const flightByPerson = {};
-      (d.flights||[]).forEach(f=>{ flightByPerson[f.person]=(flightByPerson[f.person]||0)+(f.totalTWD||0); });
-      const personalExp = d.split?.[mode]?.personal || 0;
-      perPersonAmt = sharedTotal/3 + (flightByPerson[mode]||0) + personalExp;
-    }
+    // 金額與視角：calcLedger 是唯一來源（跟帳本圓餅同一份計算）
+    const t = ledgerTotals(d);
+    const perPersonAmt = calcLedger(d).perPersonAmt;
     const perPerson=Math.round(perPersonAmt);
     const budget = d.budgetPerPerson || BUDGET;
 
     // 角色位置：永遠用均分（共同花費 + 機票平均），不受選擇器影響
-    const posPerPerson = Math.round((sharedTotal + totalFlight) / 3);
+    const posPerPerson = Math.round((t.sharedTotal + t.totalFlight) / 3);
     const posPct = Math.min(Math.round(posPerPerson / budget * 100), 100);
 
     const pct=Math.min(Math.round(posPerPerson/budget*100),100);
