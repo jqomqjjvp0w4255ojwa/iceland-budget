@@ -221,12 +221,25 @@ function refreshDonut(){
   const elLegend = document.getElementById('donutLegend');
   if(elLegend) elLegend.innerHTML = buildLegend(pcts.car, pcts.flight, pcts.accom, pcts.act, pcts.exp);
 
+  // 保險（類別=保險）依目前視角另計，從雜支條拆出來單獨顯示。
+  // 只動進度條的呈現，圓餅與合計不變（保險仍包含在雜支的金額裡）。
+  const insRows = expenses.filter(e=>e.category==='保險');
+  const mode = window._flightMode||'equal';
+  let insForDisplay;
+  if(mode==='none' || mode==='equal'){
+    insForDisplay = insRows.filter(e=>e.isShared).reduce((s,e)=>s+(e.total||0),0);
+  }else{
+    insForDisplay = insRows.reduce((s,e)=>s+((e.burden&&e.burden[mode])||0),0);
+  }
+  const hasPersonalIns = insRows.some(e=>!e.isShared);
+
   // 小計進度條
   const elCat = document.getElementById('catRowsContent');
   if(elCat) elCat.innerHTML = buildCatRows(
     carTotal, flightForDisplay, flightLabel,
     totalAccom, totalActivity,
-    grandDisplay, expForDisplay
+    grandDisplay, expForDisplay,
+    insForDisplay, hasPersonalIns
   );
 }
 
@@ -234,10 +247,11 @@ function refreshDonut(){
 // expForDisplay：
 //   模式1/2 = 共同雜支總額（已含在 sharedTotal，三人均分）
 //   模式3   = 該成員的 burden 加總（含共同分攤 + 個人）
-function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandTotal, expForDisplay){
+function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, totalActivity, grandTotal, expForDisplay, insForDisplay, hasPersonalIns){
   const mode = window._flightMode||'equal';
   const gt   = grandTotal||1;
-  const expTotal = expForDisplay||0;
+  const insTotal = insForDisplay||0;
+  const expTotal = Math.max(0, (expForDisplay||0) - insTotal);  // 雜支條不重複算保險
 
   // 模式1/2：各項 /人 = 三人均分；模式3：顯示該成員自己的數字
   const isMember = (mode!=='none' && mode!=='equal');
@@ -281,10 +295,13 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
     },
     {
       label:'🛡 保險',
-      total: 0,
-      perLabel:'—',
+      total: insTotal,
+      perLabel: isMember ? fmt(insTotal) : fmt(insTotal/3),
       color:'#26c6da',
-      pct: 0,
+      pct: insTotal/gt,
+      noPerPerson: isMember,
+      // 均分視角下各自投保的保費不計入（跟個人雜支同規則），提示去成員視角看
+      note: (!isMember && !insTotal && hasPersonalIns) ? '各自投保 · 切成員視角查看' : '',
     },
   ];
 
@@ -297,7 +314,7 @@ function buildCatRows(carTotal, flightForDisplay, flightLabel, totalAccom, total
       <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
         <div style="height:100%;width:${(c.pct*100).toFixed(1)}%;background:${c.color};border-radius:3px;transition:width .6s"></div>
       </div>
-      <div style="font-size:.63rem;color:var(--muted);margin-top:2px">合計 ${c.total?fmt(c.total):'—'}</div>
+      <div style="font-size:.63rem;color:var(--muted);margin-top:2px">${c.note ? c.note : '合計 ' + (c.total?fmt(c.total):'—')}</div>
     </div>`).join('');
 }
 
