@@ -10,7 +10,11 @@
 // ══════════════════════════════════════════════════════════
 //  手冊：資訊（讀「手冊」表）＋ 工具（靜態教學）
 // ══════════════════════════════════════════════════════════
-const MANUAL_CAT_ICONS = { '實用資訊':'💡', '緊急聯絡':'🆘', '購物補給':'🛒', '交通':'🚗', '其他':'📌' };
+const MANUAL_CAT_ICONS = {
+  '實用資訊':'💡', '緊急聯絡':'🆘', '購物補給':'🛒', '交通':'🚗',
+  '開車上路':'⛽', '天氣路況':'🌦', '錢與通訊':'💳', '飲食':'🍽', '入境規定':'🛂',
+  '其他':'📌',
+};
 
 function renderManualPage(d) {
   const info = d.manualInfo || [];
@@ -27,8 +31,24 @@ function renderManualPage(d) {
       if (!groups.has(cat)) groups.set(cat, []);
       groups.get(cat).push(x);
     });
-    infoHtml = [...groups.entries()].map(([cat, rows]) => `
-      <div class="section-title">${MANUAL_CAT_ICONS[cat] || '📌'} ${esc(cat)}</div>
+    // 索引標籤：手冊項目多，最上面放一排分類捷徑，點一下跳到那組
+    const catIndex = `
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px;position:sticky;top:0;
+                  background:var(--bg);padding:8px 0;z-index:5;">
+        ${[...groups.entries()].map(([cat, rows]) => `
+          <a href="#manualCat-${encodeURIComponent(cat)}"
+             onclick="event.preventDefault();document.getElementById('manualCat-${encodeURIComponent(cat)}')
+                      ?.scrollIntoView({behavior:'smooth',block:'start'});"
+             style="font-size:.7rem;color:var(--accent2);border:1px solid var(--border);
+                    border-radius:99px;padding:4px 11px;text-decoration:none;white-space:nowrap;">
+            ${MANUAL_CAT_ICONS[cat] || '📌'} ${esc(cat)}
+            <span style="color:var(--muted);font-size:.9em;">${rows.length}</span>
+          </a>`).join('')}
+      </div>`;
+
+    infoHtml = catIndex + [...groups.entries()].map(([cat, rows]) => `
+      <div class="section-title" id="manualCat-${encodeURIComponent(cat)}"
+           style="scroll-margin-top:52px;">${MANUAL_CAT_ICONS[cat] || '📌'} ${esc(cat)}</div>
       ${rows.map(r => `
         <div class="card" style="padding:11px 14px;margin-bottom:8px;">
           <div style="font-size:.8rem;color:var(--text);margin-bottom:3px;">${esc(r.title)}</div>
