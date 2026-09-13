@@ -1593,6 +1593,17 @@ window.schBindScroll = schBindScroll;
 // ══════════════════════════════════════════════════════════
 //  保險：依 公司＋方案 分組成卡片，一列＝一個理賠項目
 // ══════════════════════════════════════════════════════════
+// 這筆保障只屬於某些人時，在項目前面掛上他們的像素頭像。
+// 判斷依據：備註欄有寫到成員名字（例：「猴專用」「花、寧」）；沒寫＝全員共通，不顯示頭像
+function insuranceOwners(row) {
+  const members = window.TRIP_MEMBERS || ['花', '猴', '寧'];
+  const text = `${row.note || ''} ${row.method || ''}`;
+  const owners = members.filter(m => text.includes(m));
+  if (!owners.length || owners.length === members.length) return '';
+  return `<span style="display:inline-flex;align-items:center;gap:2px;flex-shrink:0;"
+    title="${esc(owners.join('、'))}專屬">${owners.map(m => avatarSvg(m)).join('')}</span>`;
+}
+
 function renderInsurance(items) {
   items = items || [];
   if (!items.length) {
@@ -1623,6 +1634,7 @@ function renderInsurance(items) {
         ${g.rows.map(r => `
           <div style="padding:9px 0;border-bottom:1px solid var(--border);">
             <div style="display:flex;align-items:baseline;gap:8px;">
+              ${insuranceOwners(r)}
               <span style="flex:1;font-size:.82rem;color:var(--text);">${esc(r.item)}</span>
               ${r.amount ? `<span style="font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);white-space:nowrap;">${esc(r.amount)}</span>` : ''}
             </div>
