@@ -26,6 +26,16 @@ const MANUAL_CATS = {
 };
 const manualCat = c => MANUAL_CATS[c] || MANUAL_CATS['其他'];
 
+// 這筆只跟某些人有關時掛上他們的頭像（備註欄寫成員名字即可；全員或沒寫＝不顯示）
+function ownerAvatars(...texts) {
+  const members = window.TRIP_MEMBERS || ['花', '猴', '寧'];
+  const text = texts.filter(Boolean).join(' ');
+  const owners = members.filter(m => text.includes(m));
+  if (!owners.length || owners.length === members.length) return '';
+  return `<span style="display:inline-flex;align-items:center;gap:2px;flex-shrink:0;vertical-align:middle;"
+    title="${esc(owners.join('、'))}的">${owners.map(m => avatarSvg(m)).join('')}</span>`;
+}
+
 function renderManualPage(d) {
   const info = d.manualInfo || [];
 
@@ -76,7 +86,10 @@ function renderManualPage(d) {
         <div style="border-left:4px solid ${m.color}55;padding-left:10px;">
           ${rows.map(r => `
             <div style="padding:10px 2px;border-bottom:1px solid var(--border);">
-              <div style="font-size:.83rem;color:var(--text);font-weight:600;margin-bottom:3px;">${esc(r.title)}</div>
+              <div style="font-size:.83rem;color:var(--text);font-weight:600;margin-bottom:3px;
+                          display:flex;align-items:center;gap:6px;">
+                ${ownerAvatars(r.note)}<span>${esc(r.title)}</span>
+              </div>
               ${r.content ? `<div style="font-size:.72rem;color:var(--muted);line-height:1.85;white-space:pre-wrap;">${esc(r.content)}</div>` : ''}
               ${safeUrl(r.url) ? `<a href="${safeUrl(r.url)}" target="_blank" rel="noopener"
                 style="display:inline-block;margin-top:5px;font-size:.68rem;color:${m.color};">🔗 開啟連結 ›</a>` : ''}

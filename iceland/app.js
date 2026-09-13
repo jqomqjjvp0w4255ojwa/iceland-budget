@@ -335,6 +335,8 @@
         title:    pick(row, ['標題'], ''),
         content:  pick(row, ['內容'], ''),
         url:      pick(row, ['連結'], ''),
+        // 備註寫成員名字＝這筆只跟那個人有關，畫面上會掛他的頭像
+        note:     pick(row, ['備註', '所屬', '成員'], ''),
       }));
 
     const totalFlightTWD = flights.reduce((s, f) => s + (f.totalTWD || 0), 0);
