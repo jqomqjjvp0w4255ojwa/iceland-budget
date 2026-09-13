@@ -10,11 +10,21 @@
 // ══════════════════════════════════════════════════════════
 //  手冊：資訊（讀「手冊」表）＋ 工具（靜態教學）
 // ══════════════════════════════════════════════════════════
-const MANUAL_CAT_ICONS = {
-  '實用資訊':'💡', '緊急聯絡':'🆘', '購物補給':'🛒', '交通':'🚗',
-  '開車上路':'⛽', '天氣路況':'🌦', '錢與通訊':'💳', '飲食':'🍽', '入境規定':'🛂',
-  '其他':'📌',
+// 手冊分類：圖示＋顏色，顏色是分類的視覺主軸（索引標籤、標題、卡片左邊條共用）
+const MANUAL_CATS = {
+  '實用資訊': { icon:'💡', color:'#f0c040' },
+  '緊急聯絡': { icon:'🆘', color:'#e05555' },
+  '開車上路': { icon:'⛽', color:'#4fc3f7' },
+  '租車加油': { icon:'⛽', color:'#4fc3f7' },
+  '天氣路況': { icon:'🌦', color:'#7c9fff' },
+  '錢與通訊': { icon:'💳', color:'#4caf6e' },
+  '飲食':     { icon:'🍽', color:'#f28b50' },
+  '入境規定': { icon:'🛂', color:'#b07cff' },
+  '購物補給': { icon:'🛒', color:'#f06292' },
+  '交通':     { icon:'🚗', color:'#4fc3f7' },
+  '其他':     { icon:'📌', color:'#9aa5b1' },
 };
+const manualCat = c => MANUAL_CATS[c] || MANUAL_CATS['其他'];
 
 function renderManualPage(d) {
   const info = d.manualInfo || [];
@@ -31,32 +41,49 @@ function renderManualPage(d) {
       if (!groups.has(cat)) groups.set(cat, []);
       groups.get(cat).push(x);
     });
-    // 索引標籤：手冊項目多，最上面放一排分類捷徑，點一下跳到那組
+    // 索引標籤：一排分類捷徑，配色跟該分類一致
     const catIndex = `
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px;position:sticky;top:0;
-                  background:var(--bg);padding:8px 0;z-index:5;">
-        ${[...groups.entries()].map(([cat, rows]) => `
-          <a href="#manualCat-${encodeURIComponent(cat)}"
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 14px;position:sticky;top:0;
+                  background:var(--bg);padding:8px 0 10px;z-index:5;
+                  border-bottom:1px solid var(--border);">
+        ${[...groups.entries()].map(([cat, rows]) => {
+          const m = manualCat(cat);
+          return `<a href="#manualCat-${encodeURIComponent(cat)}"
              onclick="event.preventDefault();document.getElementById('manualCat-${encodeURIComponent(cat)}')
                       ?.scrollIntoView({behavior:'smooth',block:'start'});"
-             style="font-size:.7rem;color:var(--accent2);border:1px solid var(--border);
-                    border-radius:99px;padding:4px 11px;text-decoration:none;white-space:nowrap;">
-            ${MANUAL_CAT_ICONS[cat] || '📌'} ${esc(cat)}
-            <span style="color:var(--muted);font-size:.9em;">${rows.length}</span>
-          </a>`).join('')}
+             style="font-size:.72rem;color:${m.color};border:1.5px solid ${m.color}55;
+                    background:${m.color}14;border-radius:99px;padding:5px 12px;
+                    text-decoration:none;white-space:nowrap;font-weight:600;">
+            ${m.icon} ${esc(cat)}
+            <span style="opacity:.65;font-weight:400;">${rows.length}</span>
+          </a>`;
+        }).join('')}
       </div>`;
 
-    infoHtml = catIndex + [...groups.entries()].map(([cat, rows]) => `
-      <div class="section-title" id="manualCat-${encodeURIComponent(cat)}"
-           style="scroll-margin-top:52px;">${MANUAL_CAT_ICONS[cat] || '📌'} ${esc(cat)}</div>
-      ${rows.map(r => `
-        <div class="card" style="padding:11px 14px;margin-bottom:8px;">
-          <div style="font-size:.8rem;color:var(--text);margin-bottom:3px;">${esc(r.title)}</div>
-          ${r.content ? `<div style="font-size:.7rem;color:var(--muted);line-height:1.8;white-space:pre-wrap;">${esc(r.content)}</div>` : ''}
-          ${safeUrl(r.url) ? `<a href="${safeUrl(r.url)}" target="_blank" rel="noopener"
-            style="display:inline-block;margin-top:5px;font-size:.68rem;color:var(--accent2);">🔗 開啟連結 ›</a>` : ''}
-        </div>`).join('')}
-    `).join('');
+    // 每個分類一個色塊：彩色標題列 ＋ 底下的項目共用一條左側色邊
+    infoHtml = catIndex + [...groups.entries()].map(([cat, rows]) => {
+      const m = manualCat(cat);
+      return `
+      <section id="manualCat-${encodeURIComponent(cat)}"
+               style="scroll-margin-top:60px;margin-bottom:22px;">
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 12px;
+                    background:${m.color}1f;border-left:4px solid ${m.color};
+                    border-radius:0 8px 8px 0;margin-bottom:2px;">
+          <span style="font-size:1rem;line-height:1;">${m.icon}</span>
+          <span style="font-size:.9rem;font-weight:700;color:var(--text);letter-spacing:.06em;">${esc(cat)}</span>
+          <span style="margin-left:auto;font-family:'Cinzel',serif;font-size:.75rem;color:${m.color};">${rows.length}</span>
+        </div>
+        <div style="border-left:4px solid ${m.color}55;padding-left:10px;">
+          ${rows.map(r => `
+            <div style="padding:10px 2px;border-bottom:1px solid var(--border);">
+              <div style="font-size:.83rem;color:var(--text);font-weight:600;margin-bottom:3px;">${esc(r.title)}</div>
+              ${r.content ? `<div style="font-size:.72rem;color:var(--muted);line-height:1.85;white-space:pre-wrap;">${esc(r.content)}</div>` : ''}
+              ${safeUrl(r.url) ? `<a href="${safeUrl(r.url)}" target="_blank" rel="noopener"
+                style="display:inline-block;margin-top:5px;font-size:.68rem;color:${m.color};">🔗 開啟連結 ›</a>` : ''}
+            </div>`).join('')}
+        </div>
+      </section>`;
+    }).join('');
   }
 
   // ── 工具區：靜態教學（不吃資料）
