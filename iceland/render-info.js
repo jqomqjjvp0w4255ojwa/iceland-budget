@@ -305,7 +305,7 @@ function renderInfo(d) {
       <div id="scheduleContent">${renderSchedule(d)}</div>
     </div>
     <div id="infoTab-insurance" class="section">
-      ${renderInsurance(d.insurance)}
+      ${renderInsurance(d.insurance, d.insurancePremiums)}
     </div>
 
   `;
@@ -1593,6 +1593,14 @@ window.schBindScroll = schBindScroll;
 // ══════════════════════════════════════════════════════════
 //  保險：依 公司＋方案 分組成卡片，一列＝一個理賠項目
 // ══════════════════════════════════════════════════════════
+// 這張保單是誰的：從保險分頁的投保人欄取得，掛在卡片標題旁
+function policyOwners(premiums) {
+  const owners = [...new Set((premiums || []).map(p => p.member).filter(Boolean))];
+  if (!owners.length) return '';
+  return `<span style="display:inline-flex;align-items:center;gap:2px;"
+    title="${esc(owners.join('、'))}的保單">${owners.map(m => avatarSvg(m)).join('')}</span>`;
+}
+
 // 這筆保障只屬於某些人時，在項目前面掛上他們的像素頭像。
 // 判斷依據：備註欄有寫到成員名字（例：「猴專用」「花、寧」）；沒寫＝全員共通，不顯示頭像
 function insuranceOwners(row) {
@@ -1604,7 +1612,7 @@ function insuranceOwners(row) {
     title="${esc(owners.join('、'))}專屬">${owners.map(m => avatarSvg(m)).join('')}</span>`;
 }
 
-function renderInsurance(items) {
+function renderInsurance(items, premiums) {
   items = items || [];
   if (!items.length) {
     return `<div class="empty">🛡 在「保險」表填入後顯示<br>
@@ -1627,7 +1635,9 @@ function renderInsurance(items) {
   return [...groups.values()].map(g => `
     <div class="car-card" style="margin-bottom:12px;">
       <div class="car-header">
-        <div class="car-title">🛡 ${esc(g.company)}</div>
+        <div class="car-title" style="display:flex;align-items:center;gap:8px;">
+          <span>🛡 ${esc(g.company)}</span>${policyOwners(premiums)}
+        </div>
         ${g.plan ? `<div class="car-model">${esc(g.plan)}</div>` : ''}
       </div>
       <div style="padding:4px 16px 12px;">
