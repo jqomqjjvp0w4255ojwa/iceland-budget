@@ -14,8 +14,10 @@
 const MANUAL_CATS = {
   '實用資訊': { icon:'💡', color:'#f0c040' },
   '緊急聯絡': { icon:'🆘', color:'#e05555' },
+  '加油':     { icon:'⛽', color:'#4fc3f7' },
   '開車上路': { icon:'⛽', color:'#4fc3f7' },
   '租車加油': { icon:'⛽', color:'#4fc3f7' },
+  '天候路況': { icon:'🌦', color:'#7c9fff' },
   '天氣路況': { icon:'🌦', color:'#7c9fff' },
   '錢與通訊': { icon:'💳', color:'#4caf6e' },
   '飲食':     { icon:'🍽', color:'#f28b50' },
