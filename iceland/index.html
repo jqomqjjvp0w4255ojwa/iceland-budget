@@ -917,6 +917,14 @@
           </div>
           <div id="pxTwdRateHint" style="font-size:9px;color:#7a9a5a;text-align:right;padding-right:2px;"></div>
         </div>
+        <!-- 海外刷卡手續費（刷卡當下算不出來，可留空，回台灣對帳單出來再補） -->
+        <div id="pxFeeRow" style="display:none;flex-direction:column;gap:4px;margin-top:6px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:7px;color:#7a9a5a;white-space:nowrap;">＋手續費</span>
+            <input class="px-input" id="pxExpFee" placeholder="可留空，回台再補" style="flex:1;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpFee')">
+            <button onclick="pxFillFee15()" style="background:none;border:1px solid #7a9a5a;border-radius:4px;font-size:9px;color:#5a7a3a;cursor:pointer;padding:3px 6px;white-space:nowrap;" title="用 1.5% 估算">1.5%</button>
+          </div>
+        </div>
       </div>
       <!-- ── 標籤（常駐）── -->
       <div class="px-field" id="pxTagField">

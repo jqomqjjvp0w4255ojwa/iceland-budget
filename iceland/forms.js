@@ -338,6 +338,8 @@ window.openPxModal = function(type, prefill = null) {
       cats.map(c => `<option value="${c}"${prefill?.category===c?' selected':''}>${c}</option>`).join('');
 
     document.getElementById('pxExpAmt').value  = prefill?.amount || '';
+    const feeEl0 = document.getElementById('pxExpFee');
+    if (feeEl0) feeEl0.value = prefill?.foreignFee || '';
     document.getElementById('pxExpCur').value  = prefill?.currency || 'NT';
     // 台幣換算欄：編輯模式帶入已知 twd，新增模式清空
     const twdEl = document.getElementById('pxExpTwd');
@@ -641,14 +643,19 @@ window.pxOnCurrencyChange = function() {
   const cur    = document.getElementById('pxExpCur')?.value || 'NT';
   const twdRow = document.getElementById('pxTwdRow');
   if (!twdRow) return;
+  const feeRow = document.getElementById('pxFeeRow');
   if (cur === 'NT') {
     twdRow.style.display = 'none';
+    if (feeRow) feeRow.style.display = 'none';
     const twdEl = document.getElementById('pxExpTwd');
     if (twdEl) twdEl.value = '';
+    const feeEl = document.getElementById('pxExpFee');
+    if (feeEl) feeEl.value = '';
     const hintEl = document.getElementById('pxTwdRateHint');
     if (hintEl) hintEl.textContent = '';
   } else {
     twdRow.style.display = 'flex';
+    if (feeRow) feeRow.style.display = 'flex';
     pxAutoFillTwd();
   }
   pxUpdateSplit();
@@ -695,6 +702,17 @@ window.pxOnTwdManualEdit = function() {
     if (rate > 0) hintEl.textContent = `參考匯率：1 ${cur} = ${rate} NT$（已手動修改）`;
   }
   pxUpdateSplit();
+};
+
+// 手續費用台幣金額的 1.5% 估算（實際數字要等對帳單，這只是先抓個大概）
+window.pxFillFee15 = function() {
+  const feeEl = document.getElementById('pxExpFee');
+  if (!feeEl) return;
+  const cur = document.getElementById('pxExpCur')?.value || 'NT';
+  const amt = parseFloat(document.getElementById('pxExpAmt')?.value) || 0;
+  const twdManual = parseFloat(document.getElementById('pxExpTwd')?.value);
+  const base = cur === 'NT' ? amt : (Number.isFinite(twdManual) && twdManual > 0 ? twdManual : 0);
+  if (base > 0) feeEl.value = Math.round(base * 0.015);
 };
 
 window.pxClearTwd = function() {
@@ -744,7 +762,9 @@ window.pxSubmitExpense = async function(nextMode = false) {
             : cur === 'EUR' ? Math.round(amt * exEUR)
             : cur === 'USD' ? Math.round(amt * exUSD)
             : amt;
-  const total = twd;
+  // 海外手續費：留空＝0，回台灣對帳單出來再回 Sheet 的 G 欄補
+  const foreignFee = parseFloat(document.getElementById('pxExpFee')?.value) || 0;
+  const total = twd + foreignFee;
   const title = (document.getElementById('pxExpTitle')?.value||'').trim();
   const qty   = parseInt(document.getElementById('pxExpQty')?.value||'1')||1;
 
@@ -752,7 +772,7 @@ window.pxSubmitExpense = async function(nextMode = false) {
     action: _editMode ? 'editExpense' : 'addExpense',
     rowIndex: _editMode ? _editRowIndex : undefined,
     title, qty, category: cat, amount: amt, currency: cur,
-    twd, foreignFee: 0, total,
+    twd, foreignFee, total,
     payer: _pxPayer,
     splitMode: [..._pxSplitSel].join(','),
     'split花': splits['花'], 'split猴': splits['猴'], 'split寧': splits['寧'],
@@ -779,6 +799,8 @@ window.pxSubmitExpense = async function(nextMode = false) {
       setTimeout(() => { btnNext.textContent = orig; pxCheckSubmit(); }, 1200);
     }
     document.getElementById('pxExpAmt').value  = '';
+    const _feeEl = document.getElementById('pxExpFee');
+    if (_feeEl) _feeEl.value = '';
     document.getElementById('pxExpTwd').value  = '';
     _twdManualEdited = false;
     pxOnCurrencyChange();
