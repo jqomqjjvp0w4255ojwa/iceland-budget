@@ -647,6 +647,7 @@ function renderTransport(d) {
               ${pendingTag(item)}
               <div style="flex:1;height:1px;background:var(--border);margin:0 4px;"></div>
               <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);white-space:nowrap;">${fmt(item.total||item.twd)}</span>
+              ${item.currency&&item.currency!=='NT'&&item.amount?`<span style="font-size:.6rem;color:var(--muted);white-space:nowrap;">${Number(item.amount).toLocaleString()} ${item.currency}</span>`:''}
             </div>
             <!-- 第二行：地點 | 品牌（加油才有品牌） -->
             ${(item.location||item.fuelBrand)?`<div style="font-size:.75rem;color:var(--text);margin-bottom:${isFuel?'3px':'5px'}">
