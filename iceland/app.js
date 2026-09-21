@@ -168,6 +168,7 @@
         amount:     num(pick(row, ['金額'])),
         currency:   String(row['幣別']   ?? '').replace(/\.$/, '').trim() || 'NT',
         twd:        num(pick(row, ['換算台幣'])),
+        id:         String(row['ID'] ?? '').trim(),
         foreignFee: num(pick(row, ['海外手續費'])),
         total:      num(pick(row, ['合計'])),
         payer:      String(row['付款人'] ?? '').trim(),
@@ -364,6 +365,7 @@
     const splitSel = (item.splitMode||'').split(',').map(x=>x.trim())
       .filter(x => (window.TRIP_MEMBERS||[]).includes(x));
     window.openEditExpense?.(rowIndex, {
+      id: item.id,
       category: item.category, amount: item.amount, currency: item.currency,
       twd: item.twd, location: item.location, note: item.note, date: item.date, payer: item.payer,
       isShared: item.isShared, title: item.title, qty: item.qty,

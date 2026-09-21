@@ -207,6 +207,7 @@ function applyTaskValidation_(sheet) {
 }
 
 function readSheet(sheet) {
+  if (sheet.getName() === '寫入_一般開銷') ensureExpenseIds(sheet);
   var allCells = sheet.getDataRange().getDisplayValues();
   var cells    = allCells;
   // 寫入 sheet 只回傳有實際內容的行（C欄類別不為空），避免空行膨脹資料
@@ -302,6 +303,7 @@ function readCheckinSheet(sheet) {
 // ── 消費地圖讀取（一般開銷裡有座標的，給腳印地圖用）──────
 // 欄位：A地點 B日期 C類別 D金額 E幣別 … I付款人 N備註 V品項 W數量 X緯度 Y經度
 function readExpenseMap(sheet) {
+  ensureExpenseIds(sheet);
   var rows = sheet.getDataRange().getDisplayValues();
   var out = [];
   for (var i = 1; i < rows.length; i++) {
@@ -310,6 +312,8 @@ function readExpenseMap(sheet) {
     if (!lat || !lng) continue;
     out.push({
       id:       'exp_' + (i + 1),
+      sheetId:  r[EXP_ID_COL - 1] || '',   // AC 欄固定 ID，改/刪/留言用這個
+      _rowIndex: i + 1,
       lat:      lat,
       lng:      lng,
       location: r[0],
@@ -540,6 +544,63 @@ function doGet(e) {
 // 不能直接用 getLastRow()：表格下方常有公式或殘留格式，會把新資料寫到很下面，
 // 所以改用一個「一定會有值」的欄位（例如類別、項目名稱）來判斷哪裡才是真正的空行。
 // col 傳欄位字母（'A'／'C'…），startRow 是資料起始列（標題列的下一列）。
+// ══ 一般開銷：每列一個固定 ID（AC 欄），改／刪一律用 ID 找列，不再用列號 ══
+// 用列號的問題：刪一列後下面全部往上移，手機快取的列號就對不上，
+// 改會改到別筆、刪會刪錯筆、重送會多一筆。ID 不會因為列的移動而變。
+var EXP_ID_COL = 29;   // AC
+
+var _expIdSeq = 0;   // 同一毫秒內連續產生（回填舊資料時）也不會撞
+function newExpenseId() {
+  _expIdSeq++;
+  return 'e' + new Date().getTime().toString(36)
+       + Utilities.getUuid().replace(/-/g, '').slice(0, 6)
+       + _expIdSeq.toString(36);
+}
+
+// 確保表頭有 ID 欄、每一筆既有資料都有 ID（第一次同步時自動補齊舊資料）
+function ensureExpenseIds(sheet) {
+  var last = sheet.getLastRow();
+  if (sheet.getRange(1, EXP_ID_COL).getValue() !== 'ID') {
+    sheet.getRange(1, EXP_ID_COL).setValue('ID');
+  }
+  if (last < 2) return;
+  var cats = sheet.getRange(2, 3, last - 1, 1).getValues();          // C 類別
+  var ids  = sheet.getRange(2, EXP_ID_COL, last - 1, 1).getValues(); // AC ID
+  var changed = false;
+  for (var i = 0; i < ids.length; i++) {
+    if (String(cats[i][0]).trim() !== '' && String(ids[i][0]).trim() === '') {
+      ids[i][0] = newExpenseId();
+      changed = true;
+    }
+  }
+  if (changed) sheet.getRange(2, EXP_ID_COL, ids.length, 1).setValues(ids);
+}
+
+// 依 ID 找列號；找不到回 0
+function findExpenseRowById(sheet, id) {
+  id = String(id || '').trim();
+  if (!id) return 0;
+  var last = sheet.getLastRow();
+  if (last < 2) return 0;
+  var ids = sheet.getRange(2, EXP_ID_COL, last - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === id) return i + 2;
+  }
+  return 0;
+}
+
+// 改／刪／留言共用：有 ID 就用 ID，找不到就明確報錯（絕不猜列號亂寫）；
+// 沒帶 ID 的舊版前端才退回列號
+function resolveExpenseRow(sheet, payload) {
+  if (payload.id) {
+    var r = findExpenseRowById(sheet, payload.id);
+    if (!r) throw new Error('找不到這筆記帳（可能已被刪除），請重新整理後再試');
+    return r;
+  }
+  if (!payload.rowIndex) throw new Error('缺少 id / rowIndex');
+  return Number(payload.rowIndex);
+}
+
 function findFirstEmptyRow(sheet, col, startRow) {
   var colIdx = 0;
   var s = String(col).toUpperCase();
@@ -605,12 +666,19 @@ function doPost(e) {
       if (action === 'addExpense' || payload.lat !== undefined || payload.lng !== undefined) {
         row.push(payload.lat || '', payload.lng || '');
       }
-      if (action === 'editExpense' && payload.rowIndex) {
-        sheet.getRange(payload.rowIndex, 1, 1, row.length).setValues([row]);
+      if (action === 'editExpense') {
+        var targetRow = resolveExpenseRow(sheet, payload);
+        sheet.getRange(targetRow, 1, 1, row.length).setValues([row]);
+        if (payload.id) sheet.getRange(targetRow, EXP_ID_COL).setValue(payload.id);
       } else {
+        // 冪等：同一個 ID 已經寫過（訊號不穩時前端重送）就直接回成功，不再多一筆
+        if (payload.id && findExpenseRowById(sheet, payload.id)) {
+          return ok('expense already saved');
+        }
         // 用 C 欄（類別）找第一個空行，類別沒有預設值
         var insertRow = findFirstEmptyRow(sheet, 'C', 2);
         sheet.getRange(insertRow, 1, 1, row.length).setValues([row]);
+        sheet.getRange(insertRow, EXP_ID_COL).setValue(payload.id || newExpenseId());
       }
       clearCache();
       return ok('expense saved');
@@ -621,7 +689,7 @@ function doPost(e) {
     if (action === 'expenseMapEdit') {
       var sheet = ss.getSheetByName(SHEET_NAMES.expense);
       if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.expense);
-      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      payload.rowIndex = resolveExpenseRow(sheet, payload);
       if (payload.note    !== undefined) sheet.getRange(payload.rowIndex, 14).setValue(payload.note);
       if (payload.lat     !== undefined) sheet.getRange(payload.rowIndex, 24).setValue(payload.lat);
       if (payload.lng     !== undefined) sheet.getRange(payload.rowIndex, 25).setValue(payload.lng);
@@ -700,7 +768,7 @@ function doPost(e) {
     if (action === 'addExpenseComment') {
       var sheet = ss.getSheetByName(SHEET_NAMES.expense);
       if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.expense);
-      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
+      payload.rowIndex = resolveExpenseRow(sheet, payload);
       var existing = sheet.getRange(payload.rowIndex, 28).getValue();
       var comments = [];
       try { comments = JSON.parse(existing || '[]'); } catch(e2) { comments = []; }
@@ -718,8 +786,9 @@ function doPost(e) {
     if (action === 'deleteExpense') {
       var sheet = ss.getSheetByName(SHEET_NAMES.expense);
       if (!sheet) throw new Error('找不到工作表：' + SHEET_NAMES.expense);
-      if (!payload.rowIndex) throw new Error('缺少 rowIndex');
-      sheet.deleteRow(payload.rowIndex);
+      // 冪等：用 ID 找不到＝已經刪過了（重送），直接回成功
+      if (payload.id && !findExpenseRowById(sheet, payload.id)) return ok('expense already deleted');
+      sheet.deleteRow(resolveExpenseRow(sheet, payload));
       clearCache();
       return ok('expense deleted');
     }

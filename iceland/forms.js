@@ -139,10 +139,11 @@ function scheduleQueueRetry() {
 window.addEventListener('load', scheduleQueueRetry);
 
 
-function optimisticDelete(type, rowIndex) {
+function optimisticDelete(type, rowIndex, id) {
   if (!window.APP_DATA) return;
   if (type === 'expense') {
-    window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e => Number(e._rowIndex) !== Number(rowIndex));
+    window.APP_DATA.expenses = (window.APP_DATA.expenses||[]).filter(e =>
+      id ? e.id !== id : Number(e._rowIndex) !== Number(rowIndex));
   } else if (type === 'repay') {
     window.APP_DATA.repayHistory = (window.APP_DATA.repayHistory||[]).filter(r => Number(r._rowIndex) !== Number(rowIndex));
   }
@@ -237,7 +238,8 @@ let _calcPrev  = '';
 
 // 修改模式（刪舊＋新增）
 let _editMode     = false;   // 是否為修改模式
-let _editRowIndex = null;    // 要刪除的舊資料行號
+let _editRowIndex = null;    // 要刪除的舊資料行號（舊版相容，GAS 優先用 _editId）
+let _editId       = '';      // 一般開銷的固定 ID（AC 欄）
 let _editSheet    = '';      // 'expense' | 'repay'
 
 // ══ GAS API ══
@@ -263,10 +265,14 @@ async function postToGAS(payload) {
   return data;
 }
 
-async function deleteRowFromGAS(sheet, rowIndex) {
-  if (sheet === 'expense') return sendOrQueue({ action: 'deleteExpense', rowIndex });
+async function deleteRowFromGAS(sheet, rowIndex, id) {
+  if (sheet === 'expense') return sendOrQueue({ action: 'deleteExpense', rowIndex, id: id || undefined });
   if (sheet === 'repay')   return sendOrQueue({ action: 'deleteRepay',   rowIndex });
   throw new Error('未知的 sheet：' + sheet);
+}
+
+function newExpenseId() {
+  return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 function pxLocalNow() {
@@ -447,6 +453,7 @@ window.openPxModal = function(type, prefill = null) {
 window.openEditExpense = function(rowIndex, data) {
   _editMode     = true;
   _editRowIndex = Number(rowIndex);
+  _editId       = String(data?.id || '');
   _editSheet    = 'expense';
   window.openPxModal('expense', data);
 };
@@ -459,27 +466,29 @@ window.openEditRepay = function(rowIndex, data) {
 };
 
 // ══ 刪除入口（從卡片滑動後呼叫）══
-window.pxConfirmDelete = function(rowIndex, sheet, label) {
+window.pxConfirmDelete = function(rowIndex, sheet, label, id) {
   // 像素風確認框
   const overlay = document.getElementById('pxDeleteOverlay');
   document.getElementById('pxDeleteLabel').textContent = label || '這筆記錄';
   overlay.classList.add('show');
   overlay._rowIndex = rowIndex;
   overlay._sheet    = sheet;
+  overlay._id       = id || '';
 };
 
 window.pxExecuteDelete = function() {
   const overlay = document.getElementById('pxDeleteOverlay');
   const rowIndex = overlay._rowIndex;
   const sheet    = overlay._sheet;
+  const id       = overlay._id;
   overlay.classList.remove('show');
 
   // 立刻樂觀更新畫面
   const type = sheet === 'expense' ? 'expense' : 'repay';
-  optimisticDelete(type, rowIndex);
+  optimisticDelete(type, rowIndex, id);
 
   // 背景送 GAS
-  deleteRowFromGAS(sheet, rowIndex)
+  deleteRowFromGAS(sheet, rowIndex, id)
     .then((result) => { if (!result?.queued) bgSync('刪除同步中…'); })
     .catch(() => setSyncState?.('local', '⚠ 刪除失敗，請重新同步'));
 };
@@ -494,6 +503,7 @@ window.cancelPxModal = function(id) {
   // 重置修改狀態
   _editMode     = false;
   _editRowIndex = null;
+  _editId       = '';
   _editSheet    = '';
 };
 window.closePxModalOutside = function(e, id) {
@@ -783,6 +793,8 @@ window.pxSubmitExpense = async function(nextMode = false) {
   const payload = {
     action: _editMode ? 'editExpense' : 'addExpense',
     rowIndex: _editMode ? _editRowIndex : undefined,
+    // 修改：用原本的 ID 找列；新增：現在就產一個 ID，離線重送時沿用同一個
+    id: _editMode ? (_editId || undefined) : newExpenseId(),
     title, qty, category: cat, amount: amt, currency: cur,
     twd, foreignFee, total,
     payer: _pxPayer,
@@ -843,6 +855,7 @@ window.pxSubmitExpense = async function(nextMode = false) {
     // 新增：樂觀插入
     const optimisticItem = {
       _rowIndex: -1,
+      id: payload.id,   // 跟送出的 ID 一致，之後同步回來就對得上
       category: cat, amount: amt, currency: cur, twd, total,
       payer: _pxPayer, date, location: loc, note, isShared, title, qty,
       splitMode: [..._pxSplitSel].join(','),

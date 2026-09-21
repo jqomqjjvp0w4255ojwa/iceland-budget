@@ -295,6 +295,7 @@ function renderDaily(expenses) {
 
     const splitSelFromMode = (item.splitMode||'').split(',').map(s=>s.trim()).filter(s=>(window.TRIP_MEMBERS||['猴','花','寧']).includes(s));
     const editData = JSON.stringify({
+      id: item.id||'',
       category: item.category, amount: item.amount, currency: item.currency,
       twd: item.twd, location: item.location, note: item.note, date: item.date, payer: item.payer,
       isShared: item.isShared, title: item.title, qty: item.qty,
@@ -313,7 +314,7 @@ function renderDaily(expenses) {
             <span>✏️</span>修改
           </button>
           <button class="swipe-action-btn delete"
-            onclick="pxConfirmDelete(${item._rowIndex ?? -1},'${sheet}','${label.replace(/'/g,'')}')">
+            onclick="pxConfirmDelete(${item._rowIndex ?? -1},'${sheet}','${label.replace(/'/g,'')}','${item.id||''}')">
             <span>🗑️</span>刪除
           </button>
         </div>
@@ -615,6 +616,7 @@ function renderTransport(d) {
       .map(m=>`<span style="display:inline-flex;align-items:center;gap:2px;font-size:.62rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted)">${avatarSvg(m)} NT$${Math.round(item.burden[m]).toLocaleString()}</span>`).join('');
     const label = `${item.category||''} ${item.location||''} NT$${Math.round(item.total||item.twd||0).toLocaleString()}`;
     const editData = JSON.stringify({
+      id: item.id||'',
       category: item.category, amount: item.amount, currency: item.currency,
       twd: item.twd, location: item.location, note: item.note, date: item.date, payer: item.payer,
       isShared: item.isShared, title: item.title, qty: item.qty,
@@ -634,7 +636,7 @@ function renderTransport(d) {
             <span>✏️</span>修改
           </button>
           <button class="swipe-action-btn delete"
-            onclick="pxConfirmDelete(${item._rowIndex ?? -1},'expense','${label.replace(/'/g,'')}')">
+            onclick="pxConfirmDelete(${item._rowIndex ?? -1},'expense','${label.replace(/'/g,'')}','${item.id||''}')">
             <span>🗑️</span>刪除
           </button>
         </div>

@@ -1999,7 +1999,7 @@ async function deleteCheckin(id) {
     if (gasBase && expItem._rowIndex) {
       try {
         await fetch(gasBase, { method:'POST', body: JSON.stringify({
-          action:'deleteExpense', rowIndex:expItem._rowIndex,
+          action:'deleteExpense', rowIndex:expItem._rowIndex, id: expItem.sheetId || undefined,
         })});
         loadExpenses();
       } catch(e) { console.warn('雲端刪除失敗', e); }
@@ -2117,6 +2117,7 @@ async function submitCheckin() {
           await fetch(gasBase, { method:'POST', body: JSON.stringify({
             action:   'expenseMapEdit',
             rowIndex: expItem._rowIndex,
+            id:       expItem.sheetId || undefined,
             note:     expItem.note,
             svgData:  expItem.svgData || '',
             svgGrid:  expItem.svgGrid || 16,
@@ -2302,7 +2303,7 @@ async function sendComment() {
   const gasBase = TRIP_CONFIG.apiBase || '';
   if (gasBase) {
     const payload = item.type === 'expense'
-      ? { action:'addExpenseComment', rowIndex:item._rowIndex, who, text }
+      ? { action:'addExpenseComment', rowIndex:item._rowIndex, id:item.sheetId||undefined, who, text }
       : { action:'addComment', checkinId:item.id, who, text };
     fetch(gasBase, {
       method: 'POST',
