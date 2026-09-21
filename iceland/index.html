@@ -1377,6 +1377,18 @@ window.pxResetQty = function() {
   };
 
   window.pxGetSelectedBrand = function() { return _selectedBrand || document.getElementById('pxFuelBrand')?.value.trim() || ''; };
+  // 編輯既有紀錄時帶回原本的品牌（對得上就點亮那顆 chip）
+  window.pxSetBrandValue = function(name) {
+    const v = String(name || '').trim();
+    if (!v) return;
+    _selectedBrand = v;
+    const input = document.getElementById('pxFuelBrand');
+    if (input) input.value = v;
+    const clear = document.getElementById('pxBrandClear');
+    if (clear) clear.style.display = '';
+    document.getElementById('pxBrandChips')?.querySelectorAll('.px-brand-chip').forEach(c =>
+      c.classList.toggle('sel', c.textContent.trim() === v));
+  };
   window.pxResetBrand = function() {
     _selectedBrand = '';
     const input = document.getElementById('pxFuelBrand');

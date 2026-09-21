@@ -364,6 +364,14 @@ window.openPxModal = function(type, prefill = null) {
     document.getElementById('pxExpNote').value = prefill?.note || '';
     document.getElementById('pxExpDate').value = prefill?.date || pxLocalNow();
 
+    // 加油欄位：一定要跟著這筆的資料重設，否則會留著上一筆的殘值，
+    // 按儲存就把舊紀錄的里程/公升數覆蓋掉（里程顯示最新那筆的成因）
+    const mileEl = document.getElementById('pxFuelMileage');
+    if (mileEl) mileEl.value = prefill?.fuelMileage ? String(prefill.fuelMileage) : '';
+    const litEl = document.getElementById('pxFuelLiters');
+    if (litEl) litEl.value = prefill?.fuelLiters ? String(prefill.fuelLiters) : '';
+    // 品牌在下方 reset 區塊統一處理（那裡會晚一步執行）
+
     // 新增模式：背景抓 GPS，記帳同時留下腳印地圖座標（抓不到就略過）
     _pxLat = null; _pxLng = null;
     if (!_editMode && navigator.geolocation && locSuggests) {
@@ -399,7 +407,9 @@ window.openPxModal = function(type, prefill = null) {
     // 標籤：編輯模式帶入已有標籤，新增模式清空
     if (prefill?.tags) window.pxLoadTags?.(prefill.tags);
     else window.pxResetTags?.();
+    // 品牌：編輯模式帶回原本的，新增模式清空
     window.pxResetBrand?.();
+    if (prefill?.fuelBrand) window.pxSetBrandValue?.(prefill.fuelBrand);
     // 數量：編輯模式帶入原數量
     if (prefill?.qty) window.pxLoadQty?.(prefill.qty);
     else window.pxResetQty?.();
