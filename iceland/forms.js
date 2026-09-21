@@ -743,10 +743,12 @@ window.pxSubmitExpense = async function(nextMode = false) {
   const isShared = document.getElementById('pxExpShared').checked;
   const sel  = [..._pxSplitSel];
   const splits = {'花':0,'猴':0,'寧':0};
-  // 分攤基準：外幣用台幣換算值（手動填的優先），NT 直接用 amt
+  // 分攤基準＝合計（台幣換算＋海外手續費），要跟寫進 H 欄的 total 一致，
+  // 否則分帳表的 ΣB 和 ΣC 會差一個手續費、驗證格永遠顯示「有漏帳」
   const _splitCur = document.getElementById('pxExpCur')?.value || 'NT';
-  const _twdForSplit = _splitCur === 'NT' ? amt
-    : (parseFloat(document.getElementById('pxExpTwd')?.value) || 0) || amt;
+  const _splitFee = parseFloat(document.getElementById('pxExpFee')?.value) || 0;
+  const _twdForSplit = (_splitCur === 'NT' ? amt
+    : (parseFloat(document.getElementById('pxExpTwd')?.value) || 0) || amt) + _splitFee;
   if (_pxSplitMode === 'custom') {
     PX_MEMBERS.forEach(m => { splits[m] = _pxCustomAmt[m]||0; });
   } else {
