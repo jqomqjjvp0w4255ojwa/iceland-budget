@@ -297,7 +297,7 @@ function renderDaily(expenses) {
     const editData = JSON.stringify({
       id: item.id||'',
       category: item.category, amount: item.amount, currency: item.currency,
-      twd: item.twd, location: item.location, note: item.note, date: item.date, payer: item.payer,
+      twd: item.twd, foreignFee: item.foreignFee||0, location: item.location, note: item.note, date: item.date, payer: item.payer,
       isShared: item.isShared, title: item.title, qty: item.qty,
       splitMode: item.splitMode,
       splitSel: splitSelFromMode.length ? splitSelFromMode : Object.keys(item.burden||{}).filter(k=>(item.burden[k]||0)>0),
@@ -618,7 +618,7 @@ function renderTransport(d) {
     const editData = JSON.stringify({
       id: item.id||'',
       category: item.category, amount: item.amount, currency: item.currency,
-      twd: item.twd, location: item.location, note: item.note, date: item.date, payer: item.payer,
+      twd: item.twd, foreignFee: item.foreignFee||0, location: item.location, note: item.note, date: item.date, payer: item.payer,
       isShared: item.isShared, title: item.title, qty: item.qty,
       splitMode: item.splitMode,
       splitSel: Object.keys(item.burden||{}).filter(k=>(item.burden[k]||0)>0),

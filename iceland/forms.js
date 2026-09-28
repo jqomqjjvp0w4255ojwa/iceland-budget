@@ -333,7 +333,17 @@ window.openPxModal = function(type, prefill = null) {
     _pxPayer     = prefill?.payer || '';
     _pxSplitMode = prefill?.splitMode || 'equal';
     _pxSplitSel  = new Set(prefill?.splitSel || ['花','猴','寧']);
-    _pxCustomAmt = prefill?.customAmt || {'花':0,'猴':0,'寧':0};
+    _pxCustomAmt = { ...(prefill?.customAmt || {'花':0,'猴':0,'寧':0}) };
+    {
+      const orig  = Number(prefill?.amount) || 0;
+      const twdT  = (prefill?.currency && prefill.currency !== 'NT' ? Number(prefill?.twd) : orig) || 0;
+      const base  = twdT + (Number(prefill?.foreignFee) || 0);
+      if (orig > 0 && base > 0) {
+        Object.keys(_pxCustomAmt).forEach(m => {
+          _pxCustomAmt[m] = Math.round((Number(_pxCustomAmt[m]) || 0) * orig / base * 100) / 100;
+        });
+      }
+    }
 
     // 動態建立類別選單
     const catSel = document.getElementById('pxExpCat');
@@ -557,7 +567,7 @@ function pxUpdateSplitSummary() {
   const sel = [..._pxSplitSel];
   const amt = parseFloat(document.getElementById('pxExpAmt').value) || 0;
   if (_pxSplitMode === 'custom') {
-    el.textContent = sel.map(m => `${m} NT$${_pxCustomAmt[m]}`).join(' / ');
+    el.textContent = sel.map(m => `${m} ${pxCurLabel()} ${_pxCustomAmt[m]}`).join(' / ');
   } else if (amt > 0) {
     const each = Math.round(amt / sel.length);
     el.textContent = `均分（${sel.join('、')}，各約 NT$${each}）`;
@@ -592,6 +602,13 @@ function pxCheckSubmit() {
 window.pxCheckSubmit = pxCheckSubmit;
 
 // ══ 自訂金額彈窗 ══
+// 自訂分攤金額一律用「記帳那筆的原幣」填（使用者不用自己換算），
+// 送出時再依比例換成台幣寫進 K/L/M
+function pxCurLabel() {
+  const cur = document.getElementById('pxExpCur')?.value || 'NT';
+  return cur === 'NT' ? 'NT$' : cur;
+}
+
 window.pxOpenCustomSplit = function() {
   const amt = parseFloat(document.getElementById('pxExpAmt').value) || 0;
   if (amt <= 0) { alert('請先填寫金額'); return; }
@@ -606,7 +623,7 @@ window.pxOpenCustomSplit = function() {
       <button onclick="pxCloseCustomSplit()" style="background:none;border:1px solid #c8d8a8;color:#c8d8a8;font-family:'Silkscreen',monospace;font-size:8px;padding:2px 8px;cursor:pointer;">取消</button>
     </div>
     <div class="px-form">
-      <div style="font-size:7px;color:#2a4a1a;margin-bottom:8px;">合計應為 NT$ ${amt.toLocaleString()}</div>
+      <div style="font-size:7px;color:#2a4a1a;margin-bottom:8px;">合計應為 ${pxCurLabel()} ${amt.toLocaleString()}（照收據上的金額填，不用換算）</div>
       ${PX_MEMBERS.map(m => `
         <div class="px-split-row" style="${_pxSplitSel.has(m)?'':'opacity:.35;pointer-events:none'}">
           <span class="px-split-name" style="display:flex;align-items:center;gap:3px;">${pxAvatarSvg(m,20)} ${m}</span>
@@ -633,11 +650,12 @@ window.pxUpdateCustomTotal = function() {
   const diff  = total - amt;
   const el    = document.getElementById('pxCustomTotal');
   const msg   = document.getElementById('pxCustomDiffMsg');
-  if (el) { el.textContent = 'NT$ '+total.toFixed(2); el.className = Math.abs(diff)<0.02?'px-total-ok':'px-total-err'; }
+  const L = pxCurLabel();
+  if (el) { el.textContent = L+' '+total.toFixed(2); el.className = Math.abs(diff)<0.02?'px-total-ok':'px-total-err'; }
   if (msg) {
     if (Math.abs(diff)<0.02)   msg.textContent = '';
-    else if (diff>0)            msg.textContent = '▲ 超出 NT$'+diff.toFixed(2);
-    else                        msg.textContent = '▼ 還差 NT$'+Math.abs(diff).toFixed(2)+' 未分配';
+    else if (diff>0)            msg.textContent = '▲ 超出 '+L+' '+diff.toFixed(2);
+    else                        msg.textContent = '▼ 還差 '+L+' '+Math.abs(diff).toFixed(2)+' 未分配';
     msg.style.color = Math.abs(diff)<0.02?'#1a5a1a':'#8a1010';
   }
   const btn = document.getElementById('pxBtnCustomOk');
@@ -760,7 +778,9 @@ window.pxSubmitExpense = async function(nextMode = false) {
   const _twdForSplit = (_splitCur === 'NT' ? amt
     : (parseFloat(document.getElementById('pxExpTwd')?.value) || 0) || amt) + _splitFee;
   if (_pxSplitMode === 'custom') {
-    PX_MEMBERS.forEach(m => { splits[m] = _pxCustomAmt[m]||0; });
+    const origSum = PX_MEMBERS.reduce((t, m) => t + (_pxCustomAmt[m] || 0), 0) || amt || 1;
+    const rate    = _twdForSplit / origSum;
+    PX_MEMBERS.forEach(m => { splits[m] = Math.round((_pxCustomAmt[m] || 0) * rate * 100) / 100; });
   } else {
     const each = Math.round((_twdForSplit/sel.length)*100)/100;
     sel.forEach(m => { splits[m] = each; });
