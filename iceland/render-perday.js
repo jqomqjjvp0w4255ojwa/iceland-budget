@@ -3,7 +3,7 @@
 // 給不太熟財務的人看的版本：
 // - 每日＝旅途中現場花的錢（一般開銷：吃、加油、停車、門票…），平均每天才有參考價值
 // - 行前＝出發前就訂好的大錢（機票、保險、租車、住宿、預訂的活動、出發前買的東西）
-// - 預設看「我的份」（可切換成員或全團），付錢的人只當小標籤，不參與計算
+// - 預設看「我的份」（可切換成員或全團；全團只算共同消費），付錢的人只當小標籤，不參與計算
 // - 只顯示台幣，原幣小字附註
 // - 疑似重複的記帳（同時間、同類別、同金額、同付款人）不計入，並標出來提醒去 Sheet 刪
 
@@ -80,7 +80,7 @@ function perdayModel(d, who) {
   let dupCount = 0;
   (d.expenses || []).forEach(e => {
     const full = e.total || e.twd || 0;
-    const amt = all ? full : (e.burden?.[who] || 0);
+    const amt = all ? (e.isShared ? full : 0) : (e.burden?.[who] || 0);
     const sig = [e.date, e.category, e.amount, e.currency, e.payer].join('|');
     const dup = seen.has(sig);
     seen.add(sig);
@@ -293,7 +293,7 @@ function renderAllList(d) {
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">${whoChips}</div>
     ${dupNotice}
     <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:.72rem;color:var(--muted);margin-bottom:2px;">
-      <span>旅途中現場花的錢（${who === 'all' ? '全團' : '我的份'}）· 點一天看明細</span>
+      <span>旅途中現場花的錢（${who === 'all' ? '全團共同消費' : '我的份'}）· 點一天看明細</span>
       <span style="font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);">${perdayNT(soFar)}</span>
     </div>
     <div class="card" style="padding:2px 10px;">${rows || '<div class="empty">還沒有花費紀錄</div>'}</div>`;
