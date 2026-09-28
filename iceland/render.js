@@ -401,8 +401,8 @@ function renderAll(){
         <div id="ovSwipe" onscroll="ovOnScroll()"
              style="display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;
                     -webkit-overflow-scrolling:touch;align-items:flex-start;transition:height .25s;">
-        <div class="ov-panel" style="flex:0 0 100%;scroll-snap-align:start;display:flex;justify-content:center;padding-bottom:4px">
-          <div style="display:flex;gap:16px;align-items:center">
+        <div class="ov-panel" style="flex:0 0 100%;scroll-snap-align:start;padding-bottom:4px;box-sizing:border-box;">
+          <div style="display:flex;gap:16px;align-items:center;justify-content:center;margin-bottom:12px">
             ${donutHtml}
             <div>
               <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">✈️ 累計花費</div>
@@ -416,6 +416,18 @@ function renderAll(){
               </div>
             </div>
           </div>
+        <!-- 小計 | 分帳：左右並排 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border);padding-top:12px;margin-bottom:4px">
+          <div style="padding-right:12px;border-right:1px solid var(--border)">
+            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">小計</div>
+            <div id="catRowsContent">${catRows}</div>
+          </div>
+          <div style="padding-left:12px">
+            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">分帳明細</div>
+            ${debtRows}
+          </div>
+        </div>
+
         </div>
         <div class="ov-panel" style="flex:0 0 100%;scroll-snap-align:start;padding:0 2px 4px;box-sizing:border-box;">
           <div id="perdayChart">${renderPerDayChart(d)}</div>
@@ -428,25 +440,14 @@ function renderAll(){
             style="height:7px;width:7px;border-radius:99px;border:none;padding:0;cursor:pointer;background:var(--border);transition:all .2s;"></button>
         </div>
 
-        <!-- 小計 | 分帳：左右並排 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border);padding-top:12px;margin-bottom:14px">
-          <div style="padding-right:12px;border-right:1px solid var(--border)">
-            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">小計</div>
-            <div id="catRowsContent">${catRows}</div>
-          </div>
-          <div style="padding-left:12px">
-            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">分帳明細</div>
-            ${debtRows}
-          </div>
-        </div>
-
         <div class="rate-bar" style="margin-bottom:14px">
           <span>💱 <strong>ISK</strong> = ${d.exchangeISK.toFixed(4)} NT$</span>
           <span>💱 <strong>EUR</strong> = ${d.exchangeEUR.toFixed(2)} NT$</span>
           ${d.exchangeUSD ? `<span>💱 <strong>USD</strong> = ${d.exchangeUSD.toFixed(2)} NT$</span>` : ''}
         </div>
-        <div class="tabs">
-          <button class="tab active" onclick="showTab('all',this)">📋 全部</button>
+        <div class="tabs" style="position:sticky;top:0;z-index:20;background:var(--bg);">
+          <button class="tab active" onclick="showTab('all',this)">📅 每日</button>
+          <button class="tab" onclick="showTab('prep',this)">🧳 行前</button>
           <button class="tab" onclick="showTab('accommodation',this)">🏕 住宿</button>
           <button class="tab" onclick="showTab('car',this)">🚗 交通</button>
           <button class="tab" onclick="showTab('activity',this)">🎯 活動</button>
@@ -455,6 +456,7 @@ function renderAll(){
           <button class="tab" onclick="showTab('repay',this)">💸 還款</button>
         </div>
         <div id="all" class="section active"><div id="allContent">${renderAllList(d)}</div></div>
+        <div id="prep" class="section"><div id="prepContent">${renderPrepList(d)}</div></div>
         <div id="accommodation" class="section">
           <div id="accomContent">${renderAccom(d.accommodation)}</div>
         </div>
