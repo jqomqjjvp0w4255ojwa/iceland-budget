@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'iceland-budget-v24.12'
+const CACHE_NAME = 'iceland-budget-v24.13'
 
 const ASSETS = [
   '/iceland-budget/iceland/',
@@ -10,6 +10,7 @@ const ASSETS = [
   '/iceland-budget/iceland/sprites.js',
   '/iceland-budget/iceland/render.js',
   '/iceland-budget/iceland/render-cards.js',
+  '/iceland-budget/iceland/render-perday.js',
   '/iceland-budget/iceland/render-info.js',
   '/iceland-budget/iceland/render-ledger.js',
   '/iceland-budget/iceland/scene.js',

@@ -439,6 +439,7 @@ function renderAll(){
           <button class="tab" onclick="showTab('daily',this)">🛒 雜支</button>
           <button class="tab" onclick="showTab('insurance',this)">🛡 保險</button>
           <button class="tab" onclick="showTab('repay',this)">💸 還款</button>
+          <button class="tab" onclick="showTab('perday',this)">📅 每日</button>
         </div>
         <div id="accommodation" class="section active">
           <div id="accomContent">${renderAccom(d.accommodation)}</div>
@@ -446,6 +447,7 @@ function renderAll(){
         <div id="car" class="section"><div id="carContent">${renderTransport(d)}</div></div>
         <div id="activity" class="section"><div id="activityContent">${renderActivity(d.activity)}</div></div>
         <div id="daily" class="section"><div id="dailyContent">${renderDaily(d.expenses||[])}</div></div>
+        <div id="perday" class="section"><div id="perdayContent">${renderPerDay(d)}</div></div>
         <div id="insurance" class="section"><div id="insuranceContent">${renderInsuranceLedger(d)}</div></div>
         <div id="repay" class="section"><div id="repayContent">${renderRepay(d.repayHistory||[], d.split||{})}</div></div>
       </div>
