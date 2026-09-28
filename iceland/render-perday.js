@@ -154,70 +154,29 @@ function perdayModel(d, who) {
 window._perdayWho = (() => { try { return localStorage.getItem('perday_who') || '猴'; } catch (e) { return '猴'; } })();
 window._perdaySel = null;
 
-function renderPerDay(d) {
+// ── 共用：畫面上會用到的小元件
+function perdayParts(d) {
   const who = window._perdayWho || '猴';
   const m = perdayModel(d, who);
   const today = perdayLocalToday();
+  const members = window.TRIP_MEMBERS || ['花', '猴', '寧'];
   const nt = v => 'NT$ ' + Math.round(v).toLocaleString('zh-TW');
+  const payerName = raw => members.find(x => String(raw || '').includes(x)) || String(raw || '');
 
-  // 預設選到今天；不在旅程內就選最後一個有花錢的日子
   if (!window._perdaySel || !m.days.some(x => x.key === window._perdaySel)) {
     const hasToday = m.days.find(x => x.key === today);
     const lastSpent = [...m.days].reverse().find(x => x.total > 0);
     window._perdaySel = (hasToday || lastSpent || m.days[0] || {}).key;
   }
-  const sel = m.days.find(x => x.key === window._perdaySel) || { list: [], total: 0 };
-
-  const tripSoFar = m.days.filter(x => x.key <= today).reduce((s, x) => s + x.total, 0)
-                 || m.days.reduce((s, x) => s + x.total, 0);
-  const daysElapsed = Math.max(1, m.days.filter(x => x.key <= today).length || m.days.filter(x => x.total > 0).length);
-  const todayTotal = m.days.find(x => x.key === today)?.total || 0;
-  const members = window.TRIP_MEMBERS || ['花', '猴', '寧'];
-  const budget = (d.budgetPerPerson || 100000) * (who === 'all' ? members.length : 1);
-  const spentAll = tripSoFar + m.fixedTotal;
-  const left = budget - spentAll;
 
   const whoChips = [...members, 'all'].map(k => `
-    <button onclick="perdaySetWho('${k}')"
+    <button onclick="perdaySetWho('${k}');event.stopPropagation();"
       style="border:1.5px solid ${k === who ? 'var(--accent)' : 'var(--border)'};background:${k === who ? 'rgba(79,195,247,.15)' : 'transparent'};
              color:${k === who ? 'var(--accent)' : 'var(--muted)'};border-radius:99px;padding:3px 11px;font-size:.72rem;cursor:pointer;
              display:inline-flex;align-items:center;gap:3px;">
       ${k === 'all' ? '👥 全團' : `${avatarSvg(k)} ${k}`}
     </button>`).join('');
 
-  const stat = (label, val, hint = '') => `
-    <div style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 10px;">
-      <div style="font-size:.62rem;color:var(--muted);">${label}</div>
-      <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);white-space:nowrap;">${val}</div>
-      ${hint ? `<div style="font-size:.58rem;color:var(--muted);margin-top:1px;">${hint}</div>` : ''}
-    </div>`;
-
-  const maxDay = Math.max(1, ...m.days.map(x => x.total));
-  const catOrder = ['stay', 'act', 'fuel', 'park', 'ticket', 'misc'];
-  const bars = m.days.map(x => {
-    const [, mo, dd] = x.key.split('-');
-    const isSel = x.key === window._perdaySel;
-    const isToday = x.key === today;
-    const segs = catOrder.filter(c => x.byCat[c]).map(c =>
-      `<div style="height:${(x.byCat[c] / maxDay * 100).toFixed(1)}%;background:${PERDAY_CATS[c].color};"></div>`).join('');
-    return `
-      <button onclick="perdaySelect('${x.key}')" title="${Number(mo)}/${Number(dd)} ${nt(x.total)}"
-        style="flex:1;min-width:16px;background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;">
-        <div style="width:100%;height:90px;display:flex;flex-direction:column-reverse;border-radius:3px;overflow:hidden;
-                    background:${isSel ? 'rgba(79,195,247,.12)' : 'transparent'};outline:${isSel ? '1.5px solid var(--accent)' : 'none'};">
-          ${segs}
-        </div>
-        <div style="font-size:.55rem;color:${isSel ? 'var(--accent)' : isToday ? 'var(--gold)' : 'var(--muted)'};white-space:nowrap;">${Number(dd)}</div>
-      </button>`;
-  }).join('');
-
-  const legend = catOrder.map(c => `
-    <span style="display:inline-flex;align-items:center;gap:3px;font-size:.6rem;color:var(--muted);">
-      <span style="width:8px;height:8px;border-radius:2px;background:${PERDAY_CATS[c].color};"></span>${PERDAY_CATS[c].label}
-    </span>`).join('');
-
-  // 付款人欄有時帶表情符號（'猴🙉'），對回成員名字
-  const payerName = raw => members.find(x => String(raw || '').includes(x)) || String(raw || '');
   const row = it => {
     const c = PERDAY_CATS[it.cat] || PERDAY_CATS.misc;
     const pn = payerName(it.payer);
@@ -236,44 +195,93 @@ function renderPerDay(d) {
         <span style="font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);white-space:nowrap;${it.dup ? 'text-decoration:line-through;' : ''}">${nt(it.amt)}</span>
       </div>`;
   };
+  return { who, m, today, members, nt, whoChips, row };
+}
 
-  const [sy, sm, sd] = String(window._perdaySel || '').split('-');
-  const weekday = window._perdaySel ? '日一二三四五六'[new Date(Number(sy), Number(sm) - 1, Number(sd)).getDay()] : '';
+// ── 圓餅那一區往左滑的第二頁：每日分析
+function renderPerDayChart(d) {
+  const { who, m, today, members, nt, whoChips } = perdayParts(d);
+  const tripSoFar = m.days.filter(x => x.key <= today).reduce((s, x) => s + x.total, 0)
+                 || m.days.reduce((s, x) => s + x.total, 0);
+  const daysElapsed = Math.max(1, m.days.filter(x => x.key <= today).length || m.days.filter(x => x.total > 0).length);
+  const todayTotal = m.days.find(x => x.key === today)?.total || 0;
+  const budget = (d.budgetPerPerson || 100000) * (who === 'all' ? members.length : 1);
+  const left = budget - tripSoFar - m.fixedTotal;
+
+  const stat = (label, val, hint = '') => `
+    <div style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:6px 9px;">
+      <div style="font-size:.6rem;color:var(--muted);">${label}</div>
+      <div style="font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);white-space:nowrap;">${val}</div>
+      ${hint ? `<div style="font-size:.56rem;color:var(--muted);">${hint}</div>` : ''}
+    </div>`;
+
+  const maxDay = Math.max(1, ...m.days.map(x => x.total));
+  const catOrder = ['stay', 'act', 'fuel', 'park', 'ticket', 'misc'];
+  const bars = m.days.map(x => {
+    const dd = Number(x.key.split('-')[2]);
+    const isSel = x.key === window._perdaySel;
+    const isToday = x.key === today;
+    const segs = catOrder.filter(c => x.byCat[c]).map(c =>
+      `<div style="height:${(x.byCat[c] / maxDay * 100).toFixed(1)}%;background:${PERDAY_CATS[c].color};"></div>`).join('');
+    return `
+      <button onclick="perdayJump('${x.key}');event.stopPropagation();" title="${nt(x.total)}"
+        style="flex:1;min-width:14px;background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;">
+        <div style="width:100%;height:80px;display:flex;flex-direction:column-reverse;border-radius:3px;overflow:hidden;
+                    background:${isSel ? 'rgba(79,195,247,.12)' : 'transparent'};outline:${isSel ? '1.5px solid var(--accent)' : 'none'};">
+          ${segs}
+        </div>
+        <div style="font-size:.55rem;color:${isSel ? 'var(--accent)' : isToday ? 'var(--gold)' : 'var(--muted)'};">${dd}</div>
+      </button>`;
+  }).join('');
+  const legend = catOrder.map(c => `
+    <span style="display:inline-flex;align-items:center;gap:3px;font-size:.58rem;color:var(--muted);">
+      <span style="width:8px;height:8px;border-radius:2px;background:${PERDAY_CATS[c].color};"></span>${PERDAY_CATS[c].label}
+    </span>`).join('');
 
   return `
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">${whoChips}</div>
-
-    <div style="display:flex;gap:6px;margin-bottom:6px;">
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">${whoChips}</div>
+    <div style="display:flex;gap:5px;margin-bottom:5px;">
       ${stat('今天', nt(todayTotal))}
       ${stat('旅途中到目前', nt(tripSoFar), `第 ${daysElapsed} 天`)}
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:12px;">
+    <div style="display:flex;gap:5px;margin-bottom:8px;">
       ${stat('平均每天', nt(tripSoFar / daysElapsed))}
       ${stat('預算還剩', `<span style="color:${left < 0 ? 'var(--red)' : 'var(--gold)'}">${nt(left)}</span>`, `含出發前 ${nt(m.fixedTotal)}`)}
     </div>
+    <div style="display:flex;gap:3px;align-items:flex-end;">${bars}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:6px;">${legend}</div>
+    <div style="font-size:.58rem;color:var(--muted);text-align:center;margin-top:4px;">點一天 → 下方「全部」明細跳到那天</div>`;
+}
 
+// ── 「全部」分頁：所有類型混在一起，照日期分段
+function renderAllList(d) {
+  const { who, m, nt, whoChips, row } = perdayParts(d);
+  const days = m.days.filter(x => x.list.length);
+  const dayBlock = x => {
+    const [y, mo, dd] = x.key.split('-').map(Number);
+    const wd = '日一二三四五六'[new Date(y, mo - 1, dd).getDay()];
+    const isSel = x.key === window._perdaySel;
+    return `
+      <div class="card" id="allDay-${x.key}" style="padding:10px 12px;margin-bottom:10px;scroll-margin-top:12px;
+           ${isSel ? 'border-color:var(--accent);box-shadow:0 0 0 1px rgba(79,195,247,.35);' : ''}">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px;">
+          <span style="font-size:.85rem;color:var(--text);font-weight:600;">${mo}/${dd}（${wd}）</span>
+          <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);">${who === 'all' ? '全團' : '我的份'} ${nt(x.total)}</span>
+        </div>
+        ${x.list.map(row).join('')}
+      </div>`;
+  };
+  return `
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">${whoChips}</div>
     ${m.dupCount ? `<div style="font-size:.68rem;color:#ffb74d;background:rgba(255,152,0,.08);border:1px solid rgba(255,152,0,.35);border-radius:8px;padding:6px 10px;margin-bottom:10px;">
       ⚠ 有 ${m.dupCount} 筆疑似重複的記帳沒有算進來（同時間、同金額、同付款人）。確認是重複的話，到 Google Sheet 把多的那列刪掉。</div>` : ''}
-
-    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 8px 6px;margin-bottom:12px;">
-      <div style="display:flex;gap:3px;align-items:flex-end;">${bars}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px;">${legend}</div>
-    </div>
-
-    <div class="card" style="padding:10px 12px;margin-bottom:12px;">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
-        <span style="font-size:.85rem;color:var(--text);font-weight:600;">${Number(sm) || ''}/${Number(sd) || ''}（${weekday}）</span>
-        <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);">${who === 'all' ? '全團' : '我的份'} ${nt(sel.total)}</span>
-      </div>
-      ${sel.list.length ? sel.list.map(row).join('') : '<div style="font-size:.72rem;color:var(--muted);padding:10px 0;">這天沒有花錢的紀錄</div>'}
-    </div>
-
+    ${days.length ? days.map(dayBlock).join('') : '<div class="empty">還沒有任何花費紀錄</div>'}
     <div class="card" style="padding:10px 12px;">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px;">
         <span style="font-size:.85rem;color:var(--text);font-weight:600;">📌 出發前固定成本</span>
         <span style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold);">${nt(m.fixedTotal)}</span>
       </div>
-      <div style="font-size:.62rem;color:var(--muted);margin-bottom:4px;">機票、保險、租車、出發前買的東西。不算進每日長條。</div>
+      <div style="font-size:.62rem;color:var(--muted);margin-bottom:2px;">機票、保險、租車、出發前買的東西。不算進每日長條。</div>
       ${m.fixed.map(row).join('')}
     </div>`;
 }
@@ -283,11 +291,46 @@ window.perdaySetWho = function(k) {
   try { localStorage.setItem('perday_who', k); } catch (e) {}
   perdayRefresh();
 };
-window.perdaySelect = function(key) {
+// 點長條：切到「全部」分頁並捲到那天
+window.perdayJump = function(key) {
   window._perdaySel = key;
   perdayRefresh();
+  const btn = document.querySelector(`.tab[onclick^="showTab('all'"]`);
+  if (btn) showTab('all', btn);
+  requestAnimationFrame(() => document.getElementById('allDay-' + key)
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 };
 function perdayRefresh() {
-  const el = document.getElementById('perdayContent');
-  if (el) el.innerHTML = renderPerDay(window.APP_DATA || window.STATIC);
+  const d = window.APP_DATA || window.STATIC;
+  const chart = document.getElementById('perdayChart');
+  if (chart) chart.innerHTML = renderPerDayChart(d);
+  const list = document.getElementById('allContent');
+  if (list) list.innerHTML = renderAllList(d);
+  window.ovFitHeight?.();
 }
+
+// ── 圓餅區左右滑：兩頁＋可點的圓點，容器高度跟著目前那頁
+window.ovCurrent = function() {
+  const sw = document.getElementById('ovSwipe');
+  return sw ? Math.round(sw.scrollLeft / Math.max(1, sw.clientWidth)) : 0;
+};
+window.ovGo = function(i) {
+  const sw = document.getElementById('ovSwipe');
+  if (sw) sw.scrollTo({ left: i * sw.clientWidth, behavior: 'smooth' });
+};
+window.ovFitHeight = function() {
+  const sw = document.getElementById('ovSwipe');
+  if (!sw) return;
+  const i = window.ovCurrent();
+  const panel = sw.children[i];
+  if (panel) sw.style.height = panel.scrollHeight + 'px';
+  document.querySelectorAll('#ovDots .ov-dot').forEach((dot, j) => {
+    dot.style.background = j === i ? 'var(--accent)' : 'var(--border)';
+    dot.style.width = j === i ? '18px' : '7px';
+  });
+};
+let _ovTimer = null;
+window.ovOnScroll = function() {
+  clearTimeout(_ovTimer);
+  _ovTimer = setTimeout(window.ovFitHeight, 80);
+};

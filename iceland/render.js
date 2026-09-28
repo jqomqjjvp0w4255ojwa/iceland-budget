@@ -397,8 +397,11 @@ function renderAll(){
 
       <!-- 帳簿 -->
       <div id="mainSection-ledger">
-        <!-- 圓餅+累計花費：置中群組 -->
-        <div style="display:flex;justify-content:center;margin-bottom:16px">
+        <!-- 圓餅區：左右滑兩頁（總覽／每日分析），下方圓點可點 -->
+        <div id="ovSwipe" onscroll="ovOnScroll()"
+             style="display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;
+                    -webkit-overflow-scrolling:touch;align-items:flex-start;transition:height .25s;">
+        <div class="ov-panel" style="flex:0 0 100%;scroll-snap-align:start;display:flex;justify-content:center;padding-bottom:4px">
           <div style="display:flex;gap:16px;align-items:center">
             ${donutHtml}
             <div>
@@ -413,6 +416,16 @@ function renderAll(){
               </div>
             </div>
           </div>
+        </div>
+        <div class="ov-panel" style="flex:0 0 100%;scroll-snap-align:start;padding:0 2px 4px;box-sizing:border-box;">
+          <div id="perdayChart">${renderPerDayChart(d)}</div>
+        </div>
+        </div>
+        <div id="ovDots" style="display:flex;justify-content:center;gap:6px;margin:6px 0 14px;">
+          <button class="ov-dot" onclick="ovGo(0)" aria-label="總覽"
+            style="height:7px;width:18px;border-radius:99px;border:none;padding:0;cursor:pointer;background:var(--accent);transition:all .2s;"></button>
+          <button class="ov-dot" onclick="ovGo(1)" aria-label="每日分析"
+            style="height:7px;width:7px;border-radius:99px;border:none;padding:0;cursor:pointer;background:var(--border);transition:all .2s;"></button>
         </div>
 
         <!-- 小計 | 分帳：左右並排 -->
@@ -433,21 +446,21 @@ function renderAll(){
           ${d.exchangeUSD ? `<span>💱 <strong>USD</strong> = ${d.exchangeUSD.toFixed(2)} NT$</span>` : ''}
         </div>
         <div class="tabs">
-          <button class="tab active" onclick="showTab('accommodation',this)">🏕 住宿</button>
+          <button class="tab active" onclick="showTab('all',this)">📋 全部</button>
+          <button class="tab" onclick="showTab('accommodation',this)">🏕 住宿</button>
           <button class="tab" onclick="showTab('car',this)">🚗 交通</button>
           <button class="tab" onclick="showTab('activity',this)">🎯 活動</button>
           <button class="tab" onclick="showTab('daily',this)">🛒 雜支</button>
           <button class="tab" onclick="showTab('insurance',this)">🛡 保險</button>
           <button class="tab" onclick="showTab('repay',this)">💸 還款</button>
-          <button class="tab" onclick="showTab('perday',this)">📅 每日</button>
         </div>
-        <div id="accommodation" class="section active">
+        <div id="all" class="section active"><div id="allContent">${renderAllList(d)}</div></div>
+        <div id="accommodation" class="section">
           <div id="accomContent">${renderAccom(d.accommodation)}</div>
         </div>
         <div id="car" class="section"><div id="carContent">${renderTransport(d)}</div></div>
         <div id="activity" class="section"><div id="activityContent">${renderActivity(d.activity)}</div></div>
         <div id="daily" class="section"><div id="dailyContent">${renderDaily(d.expenses||[])}</div></div>
-        <div id="perday" class="section"><div id="perdayContent">${renderPerDay(d)}</div></div>
         <div id="insurance" class="section"><div id="insuranceContent">${renderInsuranceLedger(d)}</div></div>
         <div id="repay" class="section"><div id="repayContent">${renderRepay(d.repayHistory||[], d.split||{})}</div></div>
       </div>
@@ -471,6 +484,7 @@ function renderAll(){
   requestAnimationFrame(()=>{
     drawDonutCanvas(L.cats);
     initDonutPicker();
+    window.ovFitHeight?.();
     refreshDonut(); // 確保個人消費等數字在 renderAll 後也更新
     if (_activeTab !== 'ledger') {
       const btn = document.getElementById('mainTab-' + _activeTab);
