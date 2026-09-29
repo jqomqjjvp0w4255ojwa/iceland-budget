@@ -213,6 +213,8 @@ function renderPerDayChart(d) {
       ${hint ? `<div style="font-size:.56rem;color:var(--muted);">${hint}</div>` : ''}
     </div>`;
 
+  const catTotal = {};
+  PERDAY_DAILY_ORDER.forEach(c => { catTotal[c] = m.days.reduce((t, x) => t + (x.byCat[c] || 0), 0); });
   const maxDay = Math.max(1, ...m.days.map(x => x.total));
   const bars = m.days.map(x => {
     const dd = Number(x.key.split('-')[2]);
@@ -259,9 +261,11 @@ function renderPerDayChart(d) {
       ${stat('預算還剩', `<span style="color:${left < 0 ? 'var(--red)' : 'var(--gold)'}">${perdayNT(left)}</span>`, `已扣行前 ${perdayNT(m.prepTotal)}`)}
     </div>
     <div style="display:flex;gap:3px;align-items:flex-end;">${bars}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:6px;">
-      ${PERDAY_DAILY_ORDER.map(c => `<span style="display:inline-flex;align-items:center;gap:3px;font-size:.58rem;color:var(--muted);">
-        <span style="width:8px;height:8px;border-radius:2px;background:${PERDAY_CATS[c].color};"></span>${PERDAY_CATS[c].label}</span>`).join('')}
+    <div style="font-size:.58rem;color:var(--muted);margin:8px 0 3px;">整趟旅途合計（${who === 'all' ? '全團共同' : who + ' 的份'}）</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;">
+      ${PERDAY_DAILY_ORDER.map(c => `<div style="display:flex;align-items:center;gap:4px;font-size:.68rem;color:var(--muted);">
+        <span style="width:8px;height:8px;border-radius:2px;flex-shrink:0;background:${PERDAY_CATS[c].color};"></span>${PERDAY_CATS[c].label}
+        <span style="margin-left:auto;font-family:'Cinzel',serif;color:var(--gold);">${perdayNT(catTotal[c])}</span></div>`).join('')}
     </div>
     ${selBox}`;
 }
