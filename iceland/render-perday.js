@@ -159,11 +159,7 @@ function perdayParts(d) {
   const members = window.TRIP_MEMBERS || ['花', '猴', '寧'];
   const payerName = raw => members.find(x => String(raw || '').includes(x)) || String(raw || '');
 
-  if (!window._perdaySel || !m.days.some(x => x.key === window._perdaySel)) {
-    const hasToday = m.days.find(x => x.key === today);
-    const lastSpent = [...m.days].reverse().find(x => x.total > 0);
-    window._perdaySel = (hasToday || lastSpent || m.days[0] || {}).key;
-  }
+  if (window._perdaySel && !m.days.some(x => x.key === window._perdaySel)) window._perdaySel = null;
 
   const whoChips = [...members, 'all'].map(k => `
     <button onclick="perdaySetWho('${k}');event.stopPropagation();"
@@ -237,7 +233,7 @@ function renderPerDayChart(d) {
   const selBox = sel ? `
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-top:8px;">
       <div style="display:flex;align-items:baseline;justify-content:space-between;">
-        <span style="font-size:.8rem;color:var(--text);font-weight:600;">${perdayDateLabel(sel.key)}</span>
+        <span style="font-size:.8rem;color:var(--text);font-weight:600;">單日 · ${perdayDateLabel(sel.key)}</span>
         <span style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${perdayNT(sel.total)}</span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px;">
@@ -250,23 +246,25 @@ function renderPerDayChart(d) {
         style="margin-top:6px;background:none;border:none;color:var(--accent);font-size:.68rem;cursor:pointer;padding:0;">看明細 ›</button>` : ''}
     </div>` : '';
 
+  const mini = (label, val) => `<span style="white-space:nowrap;">${label} <b style="color:var(--text);font-weight:600;">${val}</b></span>`;
   return `
-    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">${whoChips}</div>
-    <div style="display:flex;gap:5px;margin-bottom:5px;">
-      ${stat('今天', perdayNT(todayTotal))}
-      ${stat('旅途中到目前', perdayNT(soFar), `第 ${daysElapsed} 天`)}
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">${whoChips}</div>
+    <div style="font-size:.66rem;color:var(--muted);">整趟旅途花費（${who === 'all' ? '全團共同' : who + ' 的份'}，不含行前）</div>
+    <div style="font-family:'Cinzel',serif;font-size:1.6rem;color:var(--gold);line-height:1.2;margin-bottom:8px;">${perdayNT(soFar)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+      ${PERDAY_DAILY_ORDER.map(c => `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:6px 9px;">
+        <div style="font-size:.64rem;color:var(--muted);display:flex;align-items:center;gap:4px;">
+          <span style="width:8px;height:8px;border-radius:2px;background:${PERDAY_CATS[c].color};"></span>${PERDAY_CATS[c].icon} ${PERDAY_CATS[c].label}</div>
+        <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);">${perdayNT(catTotal[c])}</div>
+      </div>`).join('')}
     </div>
-    <div style="display:flex;gap:5px;margin-bottom:8px;">
-      ${stat('平均每天', perdayNT(soFar / daysElapsed))}
-      ${stat('預算還剩', `<span style="color:${left < 0 ? 'var(--red)' : 'var(--gold)'}">${perdayNT(left)}</span>`, `已扣行前 ${perdayNT(m.prepTotal)}`)}
+    <div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.66rem;color:var(--muted);margin-bottom:12px;">
+      ${mini('今天', perdayNT(todayTotal))}
+      ${mini('平均每天', perdayNT(soFar / daysElapsed))}
+      ${mini('預算還剩', `<span style="color:${left < 0 ? 'var(--red)' : 'var(--text)'}">${perdayNT(left)}</span>`)}
     </div>
+    <div style="border-top:1px solid var(--border);padding-top:8px;font-size:.66rem;color:var(--muted);margin-bottom:6px;">每天花多少 · 點長條看那一天</div>
     <div style="display:flex;gap:3px;align-items:flex-end;">${bars}</div>
-    <div style="font-size:.58rem;color:var(--muted);margin:8px 0 3px;">整趟旅途合計（${who === 'all' ? '全團共同' : who + ' 的份'}）</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;">
-      ${PERDAY_DAILY_ORDER.map(c => `<div style="display:flex;align-items:center;gap:4px;font-size:.68rem;color:var(--muted);">
-        <span style="width:8px;height:8px;border-radius:2px;flex-shrink:0;background:${PERDAY_CATS[c].color};"></span>${PERDAY_CATS[c].label}
-        <span style="margin-left:auto;font-family:'Cinzel',serif;color:var(--gold);">${perdayNT(catTotal[c])}</span></div>`).join('')}
-    </div>
     ${selBox}`;
 }
 
@@ -336,7 +334,7 @@ window.perdaySetWho = function(k) {
   perdayRefresh();
 };
 window.perdaySelect = function(key) {
-  window._perdaySel = key;
+  window._perdaySel = window._perdaySel === key ? null : key;
   perdayRefresh();
 };
 window.perdayToggle = function(key) {
