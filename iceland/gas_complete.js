@@ -573,9 +573,13 @@ function ensureExpenseIds(sheet) {
   if (last < 2) return;
   var cats = sheet.getRange(2, 3, last - 1, 1).getValues();          // C 類別
   var ids  = sheet.getRange(2, EXP_ID_COL, last - 1, 1).getValues(); // AC ID
-  var changed = false;
+  var changed = false, seen = {};
   for (var i = 0; i < ids.length; i++) {
-    if (String(cats[i][0]).trim() !== '' && String(ids[i][0]).trim() === '') {
+    var cur = String(ids[i][0]).trim();
+    // 在 Sheet 複製整列貼上會連 ID 一起複製 → 後面那筆換新 ID，免得改／刪到別筆
+    if (cur && seen[cur]) { ids[i][0] = newExpenseId(); changed = true; continue; }
+    if (cur) seen[cur] = true;
+    if (String(cats[i][0]).trim() !== '' && cur === '') {
       ids[i][0] = newExpenseId();
       changed = true;
     }
