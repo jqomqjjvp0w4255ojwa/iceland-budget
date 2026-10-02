@@ -417,11 +417,18 @@ function readStayMap(sheet) {
   return { stays: stays };
 }
 
+var GAS_VERSION = '2026-10-02 ID+recalc';
+
 // ── doGet ────────────────────────────────────────────────
 function doGet(e) {
   var param = (e && e.parameter && e.parameter.sheet) || '總覽';
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   try {
+    // 檢查網址背後跑的是哪一版：瀏覽器打開 …/exec?sheet=version
+    if (param === 'version') {
+      return ContentService.createTextOutput(JSON.stringify({ version: GAS_VERSION }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     if (param === 'all') {
       var cache    = CacheService.getScriptCache();
       var cacheKey = 'all_sheets_v1';
@@ -574,6 +581,17 @@ function ensureExpenseIds(sheet) {
     }
   }
   if (changed) sheet.getRange(2, EXP_ID_COL, ids.length, 1).setValues(ids);
+}
+
+// 一次性：直接在編輯器補 ID（選這個函式按執行），不用等 app 同步
+function setupExpenseIds() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.expense);
+  ensureExpenseIds(sheet);
+  var last = sheet.getLastRow();
+  var ids = sheet.getRange(2, EXP_ID_COL, Math.max(1, last - 1), 1).getValues()
+    .filter(function (r) { return String(r[0]).trim() !== ''; }).length;
+  Logger.log('AC1 標題：' + sheet.getRange(1, EXP_ID_COL).getValue() + '，有 ID 的列：' + ids);
+  return ids;
 }
 
 // 依 ID 找列號；找不到回 0
