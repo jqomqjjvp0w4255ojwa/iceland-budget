@@ -900,9 +900,9 @@
             <button onclick="pxQtyStep(-1)" style="background:none;border:none;padding:0;font-size:13px;color:#2a4a1a;cursor:pointer;line-height:1;">▼</button>
           </div>
           <!-- 總金額 -->
-          <input class="px-input" id="pxExpAmt" placeholder="點此輸入" style="flex:1;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpAmt','pxUpdateSplit')">
+          <input class="px-input" id="pxExpAmt" placeholder="點此輸入" style="flex:1;cursor:pointer;" autocomplete="off" inputmode="none" onfocus="this.blur();pxOpenCalc('pxExpAmt','pxOnAmtEdit')">
           <!-- 幣別 -->
-          <select class="px-select" id="pxExpCur" style="width:52px;flex-shrink:0;padding:0 4px;" onchange="pxOnCurrencyChange()">
+          <select class="px-select" id="pxExpCur" style="width:52px;flex-shrink:0;padding:0 4px;" onchange="pxOnCurEdit()">
             <option value="NT">NT$</option>
             <option value="ISK">ISK</option>
             <option value="EUR">EUR</option>

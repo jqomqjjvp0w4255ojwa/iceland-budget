@@ -728,6 +728,18 @@ window.pxAutoFillTwd = function() {
   pxCheckSubmit();
 };
 
+// 使用者改了金額或幣別：舊的台幣換算就不準了，重新用匯率算
+// （編輯舊帳時台幣欄會被當成手動值鎖住，不解鎖的話改幣別台幣不會跟著變）
+window.pxOnAmtEdit = function() {
+  _twdManualEdited = false;
+  pxAutoFillTwd();
+  pxUpdateSplit();
+};
+window.pxOnCurEdit = function() {
+  _twdManualEdited = false;
+  pxOnCurrencyChange();
+};
+
 window.pxOnTwdManualEdit = function() {
   _twdManualEdited = true;
   const hintEl = document.getElementById('pxTwdRateHint');
