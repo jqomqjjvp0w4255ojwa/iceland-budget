@@ -923,6 +923,73 @@ function doPost(e) {
   }
 }
 
+// ── 一次性：結算前重算一般開銷（在編輯器選這個函式按執行）──
+// Sheet 的台幣、合計、三人負擔都是 app 寫進去的「值」，不是公式，
+// 所以手續費後補、改過幣別的舊帳不會自己跟著變。這裡一次全部對齊：
+//   1. 外幣的台幣換算偏離同幣別平均匯率超過 3 成（例如 ISK 被當成台幣）→ 用平均匯率重算 F
+//   2. H 合計 = F 台幣 + G 手續費
+//   3. K/L/M 三人負擔：照原本比例放大／縮小到等於 H；三人都是 0 就照 J 欄名字均分
+// 會在執行紀錄列出改了哪些列。
+function recalcExpenses() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.expense);
+  var last = sheet.getLastRow();
+  if (last < 2) return '沒有資料';
+  var range = sheet.getRange(2, 1, last - 1, 13);   // A..M
+  var v = range.getValues();
+  var num = function (x) { return Number(String(x).replace(/,/g, '')) || 0; };
+  var names = ['猴', '花', '寧'];
+
+  // 各幣別的中位數匯率（用 F/D 算，排除明顯錯的）
+  var rates = {};
+  v.forEach(function (r) {
+    var cur = String(r[4]).trim(), amt = num(r[3]), twd = num(r[5]);
+    if (!r[2] || cur === 'NT' || !cur || !amt || !twd) return;
+    (rates[cur] = rates[cur] || []).push(twd / amt);
+  });
+  var med = {};
+  Object.keys(rates).forEach(function (c) {
+    var a = rates[c].sort(function (x, y) { return x - y; });
+    med[c] = a[Math.floor(a.length / 2)];
+  });
+
+  var log = [];
+  v.forEach(function (r, i) {
+    if (String(r[2]).trim() === '') return;
+    var rowNo = i + 2, msg = [];
+    var cur = String(r[4]).trim(), amt = num(r[3]);
+    var twd = num(r[5]), fee = num(r[6]);
+    if (cur === 'NT' || !cur) {
+      if (amt && Math.abs(twd - amt) > 0.5) { twd = amt; msg.push('台幣=金額'); }
+    } else if (med[cur] && amt) {
+      var est = Math.round(amt * med[cur]);
+      if (!twd || Math.abs(twd - est) / est > 0.3) { msg.push('台幣 ' + twd + '→' + est); twd = est; }
+    }
+    var total = Math.round((twd + fee) * 100) / 100;
+    if (Math.abs(num(r[7]) - total) > 0.5) msg.push('合計 ' + num(r[7]) + '→' + total);
+
+    var b = [num(r[10]), num(r[11]), num(r[12])];
+    var sum = b[0] + b[1] + b[2];
+    var nb;
+    if (sum > 0) {
+      nb = b.map(function (x) { return Math.round(x / sum * total * 100) / 100; });
+    } else {
+      var who = names.filter(function (n) { return String(r[9]).indexOf(n) >= 0; });
+      if (!who.length) who = names;
+      nb = names.map(function (n) { return who.indexOf(n) >= 0 ? Math.round(total / who.length * 100) / 100 : 0; });
+    }
+    if (nb.some(function (x, k) { return Math.abs(x - b[k]) > 0.5; })) msg.push('負擔 ' + b.join('/') + '→' + nb.join('/'));
+
+    if (msg.length) {
+      r[5] = twd; r[7] = total; r[10] = nb[0]; r[11] = nb[1]; r[12] = nb[2];
+      log.push('第 ' + rowNo + ' 列：' + msg.join('，'));
+    }
+  });
+  if (log.length) range.setValues(v);
+  CacheService.getScriptCache().removeAll(['all_sheets_v1', 'mapdata_v1']);
+  Logger.log(log.length ? log.join('\n') : '全部都對，沒有改');
+  return log.length + ' 列已修正';
+}
+
 function ok(msg) {
   return ContentService.createTextOutput(JSON.stringify({ ok: true, msg: msg }))
     .setMimeType(ContentService.MimeType.JSON);
