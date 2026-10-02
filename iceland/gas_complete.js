@@ -978,7 +978,7 @@ function expWriteIfChanged_(sheet, rowNo, r, a) {
   if (Math.abs(_expNum(r[5]) - a.twd) > 0.5) { sheet.getRange(rowNo, 6).setValue(a.twd); msg.push('台幣 ' + _expNum(r[5]) + '→' + a.twd); }
   if (Math.abs(_expNum(r[7]) - a.total) > 0.5) { sheet.getRange(rowNo, 8).setValue(a.total); msg.push('合計 ' + _expNum(r[7]) + '→' + a.total); }
   var b = [_expNum(r[10]), _expNum(r[11]), _expNum(r[12])];
-  if (a.burden.some(function (x, k) { return Math.abs(x - b[k]) > 0.5; })) {
+  if (a.burden.some(function (x, k) { return Math.abs(x - b[k]) > 0.005; })) {
     sheet.getRange(rowNo, 11, 1, 3).setValues([a.burden]);
     msg.push('負擔 ' + b.join('/') + '→' + a.burden.join('/'));
   }
@@ -1033,6 +1033,37 @@ function recalcExpenses() {
   CacheService.getScriptCache().removeAll(['all_sheets_v1', 'mapdata_v1']);
   Logger.log(log.length ? log.join('\n') : '全部都對，沒有改');
   return log.length + ' 列已修正';
+}
+
+// 一次性：照信用卡規則補海外手續費（在編輯器選這個函式按執行，可重複執行）
+// 只補「G 手續費是空的或 0」、付款人在 FEE_RATES 裡、幣別不是 NT 的列；
+// 已經照帳單填好的不會被蓋掉。補完順便重算合計和三人負擔。
+// 手續費 = 台幣 × 費率，四捨五入到整數（兩張卡帳單驗證過）。
+// 某人的卡費率不同就改這裡；個別筆對到帳單直接改 G 欄（onEdit 會重算）
+var FEE_RATES = { '猴': 0.015, '花': 0.015, '寧': 0.015 };   // 先全部 1.5%，對到帳單再手動改 G 欄
+function fillFees() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.expense);
+  var last = sheet.getLastRow();
+  if (last < 2) return '沒有資料';
+  var v = sheet.getRange(2, 1, last - 1, 13).getValues();
+  var log = [];
+  v.forEach(function (r, i) {
+    if (String(r[2]).trim() === '') return;
+    var cur = String(r[4]).trim();
+    if (!cur || cur === 'NT') return;
+    var payer = Object.keys(FEE_RATES).filter(function (n) { return String(r[8]).indexOf(n) >= 0; })[0];
+    if (!payer || _expNum(r[6]) > 0) return;
+    var twd = _expNum(r[5]);
+    var fee = Math.round(twd * FEE_RATES[payer]);
+    if (!fee) return;
+    sheet.getRange(i + 2, 7).setValue(fee);
+    r[6] = fee;
+    expWriteIfChanged_(sheet, i + 2, r, expAlign_(r, 0));
+    log.push('第 ' + (i + 2) + ' 列（' + payer + '）台幣 ' + twd + ' → 手續費 ' + fee);
+  });
+  CacheService.getScriptCache().removeAll(['all_sheets_v1', 'mapdata_v1']);
+  Logger.log(log.length ? log.join('\n') : '沒有要補的');
+  return log.length + ' 列已補手續費';
 }
 
 function ok(msg) {
