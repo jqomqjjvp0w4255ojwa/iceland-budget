@@ -282,9 +282,24 @@ function renderAll(){
   // hasSheetData：GAS 寫入_分帳 是否有資料
   const hasSheetData = MEMBERS.some(m => splitData[m]?.paid);
 
+  // 自付自用（付款人＝唯一分擔人，例如個人消費、自己的保險）：
+  // 付出和負擔會同時加同一筆，對結算沒影響，但會把「付出」灌大、而且只有有記個人消費的人會被灌大
+  // → 分帳明細一律扣掉，只看「幫大家／幫別人付的」
+  const selfOnly = Object.fromEntries(MEMBERS.map(m => [m, 0]));
+  (d.expenses || []).forEach(e => {
+    const p = MEMBERS.find(m => String(e.payer || '').includes(m));
+    if (!p) return;
+    const others = MEMBERS.filter(m => m !== p).reduce((s, m) => s + (Number(e.burden?.[m]) || 0), 0);
+    if (others < 0.01) selfOnly[p] += Number(e.total) || 0;
+  });
+  (d.insurancePremiums || []).forEach(x => {
+    if (x.member && x.payer === x.member && selfOnly[x.member] !== undefined) selfOnly[x.member] += x.twd || 0;
+  });
+
   const paid = {};
   MEMBERS.forEach(m=>{
-    paid[m] = hasSheetData ? (splitData[m]?.paid ?? 0) : (paidLocal[m] ?? 0);
+    const raw = hasSheetData ? (splitData[m]?.paid ?? 0) : (paidLocal[m] ?? 0);
+    paid[m] = hasSheetData ? Math.max(0, raw - selfOnly[m]) : raw;
   });
 
   // ── 倒數計時
@@ -423,7 +438,8 @@ function renderAll(){
             <div id="catRowsContent">${catRows}</div>
           </div>
           <div style="padding-left:12px">
-            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">分帳明細</div>
+            <div style="font-size:.63rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">分帳明細</div>
+            <div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">幫大家先墊的錢（不含自己付自己用的）</div>
             ${debtRows}
           </div>
         </div>
