@@ -302,6 +302,24 @@ function renderAll(){
     paid[m] = hasSheetData ? Math.max(0, raw - selfOnly[m]) : raw;
   });
 
+  // ── 每人應負擔拆解（住宿／租車／活動／一般開銷／保險），給分帳明細的「怎麼算的」表
+  const share = Object.fromEntries(MEMBERS.map(m => [m, { stay:0, car:0, act:0, expShared:0, expSelf:0, ins:0 }]));
+  (d.accommodation || []).forEach(a => {
+    if (!a.payer) return;
+    const each = ((a.twd || 0) + (a.foreignFee || 0)) / MEMBERS.length;
+    MEMBERS.forEach(m => share[m].stay += each);
+  });
+  MEMBERS.forEach(m => share[m].car = d.car?.perPerson || 0);
+  (d.activity || []).forEach(a => { if (a.payer) MEMBERS.forEach(m => share[m].act += a.perPerson || 0); });
+  (d.expenses || []).forEach(e => {
+    const bearers = MEMBERS.filter(m => (Number(e.burden?.[m]) || 0) > 0.01);
+    bearers.forEach(m => {
+      const v = Number(e.burden[m]) || 0;
+      if (bearers.length === 1) share[m].expSelf += v; else share[m].expShared += v;
+    });
+  });
+  (d.insurancePremiums || []).forEach(x => { if (share[x.member]) share[x.member].ins += x.twd || 0; });
+
   // ── 倒數計時
   const _dates = window.TRIP_CONFIG?.dates || {};
   const DEPART      = new Date(_dates.depart     || '2026-09-14T00:00:00+08:00');
@@ -374,6 +392,8 @@ function renderAll(){
         <span style="font-family:'Cinzel',serif;font-size:.78rem;color:var(--gold);white-space:nowrap">${paidAmt ? fmt(paidAmt) : '—'}</span>
       </div>
       <div style="font-size:.65rem;padding-left:22px;color:${debtColor}">${debtLabel}</div>
+      ${hasSheetData && splitData[m]?.burden ? `<div style="font-size:.56rem;padding-left:22px;color:var(--muted);line-height:1.5">
+        先墊 ${fmt(paidAmt)} − 自己的份 ${fmt(Math.max(0, splitData[m].burden - selfOnly[m]))}</div>` : ''}
     </div>`;
   }).join('');
 
@@ -443,6 +463,27 @@ function renderAll(){
             ${debtRows}
           </div>
         </div>
+        ${hasSheetData ? (() => {
+          const R = (label, f, bold) => `<tr${bold ? ' style="font-weight:700;color:var(--text)"' : ''}><td style="padding:3px 4px;color:${bold ? 'var(--text)' : 'var(--muted)'};white-space:nowrap">${label}</td>${MEMBERS.map(m => `<td style="padding:3px 4px;text-align:right;white-space:nowrap">${f(m)}</td>`).join('')}</tr>`;
+          const n0 = v => v ? Math.round(v).toLocaleString('zh-TW') : '—';
+          const bal = m => splitData[m]?.balance ?? 0;
+          return `<details style="margin:6px 0 4px;font-size:.66rem;">
+            <summary style="cursor:pointer;color:var(--accent);font-size:.68rem;">每人應負擔怎麼算的 ›</summary>
+            <table style="width:100%;border-collapse:collapse;margin-top:6px;font-variant-numeric:tabular-nums;">
+              <tr style="border-bottom:1px solid var(--border)"><td></td>${MEMBERS.map(m => `<td style="padding:3px 4px;text-align:right;color:var(--text)">${m}</td>`).join('')}</tr>
+              ${R('住宿', m => n0(share[m].stay))}
+              ${R('租車', m => n0(share[m].car))}
+              ${R('活動', m => n0(share[m].act))}
+              ${R('一般開銷：跟別人分', m => n0(share[m].expShared))}
+              ${R('一般開銷：自己一人', m => n0(share[m].expSelf))}
+              ${R('保險', m => n0(share[m].ins))}
+              ${R('應負擔合計', m => n0(splitData[m]?.burden), true)}
+              ${R('實際先付出', m => n0(splitData[m]?.paid))}
+              <tr style="border-top:1px solid var(--border);font-weight:700">${'<td style="padding:4px;color:var(--text)">結算</td>' + MEMBERS.map(m => `<td style="padding:4px;text-align:right;white-space:nowrap;color:${bal(m) >= 0 ? 'var(--green)' : 'var(--red)'}">${bal(m) >= 0 ? '收' : '付'} ${n0(Math.abs(bal(m)))}</td>`).join('')}</tr>
+            </table>
+            <div style="color:var(--muted);font-size:.58rem;margin-top:4px;line-height:1.5">機票各付各的，不在分帳裡。「自己一人」包含別人幫你付、只算你的東西。</div>
+          </details>`;
+        })() : ''}
 
         </div>
         <div class="ov-panel" style="flex:0 0 100%;scroll-snap-align:start;padding:0 2px 4px;box-sizing:border-box;">
